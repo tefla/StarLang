@@ -1,0 +1,142 @@
+{
+  "name": "starlang",
+  "scopeName": "source.starlang",
+  "fileTypes": ["sl", "starlang"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#declarations" },
+    { "include": "#operators" },
+    { "include": "#constants" },
+    { "include": "#functions" },
+    { "include": "#captures" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.starlang",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.starlang",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.starlang",
+              "match": "\\\\."
+            },
+            {
+              "name": "variable.other.interpolation.starlang",
+              "match": "\\{[^}]+\\}"
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.unit.starlang",
+          "match": "-?\\d+(\\.\\d+)?(C|K|atm|kPa|W|kW|s|min|h|Hz|ppm|%|m|units/min|L/min)"
+        },
+        {
+          "name": "constant.numeric.starlang",
+          "match": "-?\\d+(\\.\\d+)?"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.starlang",
+          "match": "\\b(if|else|wait|after)\\b"
+        },
+        {
+          "name": "keyword.operator.logical.starlang",
+          "match": "\\b(AND|OR|NOT|ANY|ALL|OR HIGHER)\\b"
+        },
+        {
+          "name": "keyword.other.starlang",
+          "match": "\\b(on_reading|on_open|on_close|on_trigger|on_access_denied|on_capacity_change|seal_on|unseal_on|triggers_on|auto_clear)\\b"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "storage.type.starlang",
+          "match": "\\b(room|door|sensor|node|terminal|relay|signal|scrubber|fire_suppression|@permissions)\\b"
+        },
+        {
+          "name": "entity.name.type.starlang",
+          "match": ":\\s*(AtmoInlet|AtmoOutlet|TEMPERATURE|SMOKE|OXYGEN|APPLICATION|ENGINEERING|SLIDING|CHEMICAL)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.starlang",
+          "match": "(==|!=|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.assignment.starlang",
+          "match": ":"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.starlang",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "constant.language.enum.starlang",
+          "match": "\\b[A-Z][A-Z0-9_]+\\b"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.starlang",
+          "match": "\\b(trigger|clear|announce|log|open|close|seal|unseal|set|activate|alert|suppress|credential|signal|within|manual_trigger|manual_override|button)\\b"
+        },
+        {
+          "name": "variable.parameter.starlang",
+          "match": "\\b(display_name|deck|section|adjacent|capacity|environment|target_temp|target_humidity|atmo_class|source|flow_rate|filters|target|location|sample_rate|reports_to|threshold|connects|type|lock|power_source|access|application|mounted_files|visible_scope|edit_scope|current_session|user|started|timeout|note|installed_by|runs_as|action|severity|description|mechanical_status)\\b"
+        }
+      ]
+    },
+    "captures": {
+      "patterns": [
+        {
+          "name": "variable.parameter.capture.starlang",
+          "match": "\\|[a-z_][a-z0-9_]*\\|"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.definition.block.starlang",
+          "match": "[{}\\[\\]]"
+        },
+        {
+          "name": "punctuation.separator.starlang",
+          "match": "[,]"
+        }
+      ]
+    }
+  }
+}

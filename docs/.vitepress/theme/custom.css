@@ -1,0 +1,18 @@
+/* StarLang syntax highlighting enhancements */
+
+/* Make code blocks stand out with a slight border */
+.vp-doc div[class*='language-starlang'] {
+  border-left: 3px solid var(--vp-c-brand-1);
+}
+
+/* Add a language label for starlang blocks */
+.vp-doc div[class*='language-starlang']::before {
+  content: 'starlang';
+  position: absolute;
+  top: 0.5em;
+  right: 1em;
+  font-size: 0.75em;
+  color: var(--vp-c-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
