@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import starlangGrammar from './starlang.tmLanguage.json'
 
 export default defineConfig({
   title: 'StarLang',
@@ -9,6 +10,10 @@ export default defineConfig({
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/StarLang/logo.svg' }]
   ],
+
+  markdown: {
+    languages: [starlangGrammar as any]
+  },
 
   themeConfig: {
     nav: [
