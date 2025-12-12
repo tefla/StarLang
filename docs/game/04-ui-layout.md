@@ -1,363 +1,269 @@
-# UI Layout
+# In-World UI Design
 
-## Screen Structure
+## Design Philosophy
 
-The game uses a split-screen layout:
+All interfaces exist as physical objects within the 3D game world. There is no traditional HUD, no split-screen, and no overlay UI. The player experiences the ship through the character's eyes, interacting with terminals, displays, and controls as physical objects.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                            HEADER BAR                               │
-│  O2: ██████░░░░ 62%    PWR: ████████░░ 84%    TIME: 2287.203.16:42  │
-├─────────────────────────────────┬───────────────────────────────────┤
-│                                 │                                   │
-│                                 │                                   │
-│         TERMINAL PANEL          │          SHIP VIEW                │
-│         (Interactive)           │          (Map/Visual)             │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-├─────────────────────────────────┴───────────────────────────────────┤
-│                          CONTEXT BAR                                │
-│  [Location: Galley]  [Terminal: Food Inventory]  [Access: COOK]     │
-└─────────────────────────────────────────────────────────────────────┘
-```
+This creates:
+- **Immersion**: The player is Riley Chen, not someone controlling Riley Chen
+- **Spatial awareness**: Information has location—you must go to a terminal to use it
+- **Natural progression gates**: Access to information requires physical access to terminals
+- **Environmental storytelling**: UI placement itself tells stories (why is this terminal here?)
 
 ---
 
-## Header Bar
+## In-World Display Types
 
-Always visible. Shows critical survival metrics.
+### Wall-Mounted Status Panels
 
-### Elements
+Small screens embedded in walls showing live data. Found throughout the ship.
 
-- **O2 Level**: Percentage with visual bar. Colour-coded (green/yellow/red)
-- **Power Reserve**: Ship-wide power status
-- **Time**: Ship time (for correlating with logs)
-- **Alert Indicator**: Flashes when there are active warnings
+```
+┌─────────────────────────────┐
+│  ╔═══════════════════════╗  │
+│  ║  GALLEY - ENV STATUS  ║  │
+│  ╠═══════════════════════╣  │
+│  ║  O2      18.2%   ⚠   ║  │
+│  ║  TEMP    22.4°C  ✓   ║  │
+│  ║  PRESS   0.96atm ✓   ║  │
+│  ╚═══════════════════════╝  │
+│     [physical screen]       │
+└─────────────────────────────┘
+```
 
-### Behaviour
+**Behaviour:**
+- Always on when powered
+- Updates in real-time
+- Colour-coded status (green/amber/red glow)
+- Player can glance at these while moving
 
-- Metrics update in real-time from ship state
-- Clicking a metric opens detailed status for that system
-- Critical states trigger subtle pulsing/colour changes
+### Engineering Terminals
+
+Full workstations with keyboard and large screen. The primary interaction point for code editing.
+
+```
+         ┌────────────────────────────────────┐
+         │  ╔════════════════════════════════╗│
+         │  ║  ENGINEERING WORKSTATION       ║│
+         │  ║  /deck_4/galley.sl             ║│
+         │  ╠════════════════════════════════╣│
+         │  ║  1 │ room galley {             ║│
+         │  ║  2 │   display_name: "Galley"  ║│
+         │  ║  3 │   deck: 4                 ║│
+         │  ║  4 │ }                         ║│
+         │  ║  5 │                           ║│
+         │  ║  6 │ door galley_exit {        ║│
+         │  ║  7 │   locked: true  ← CHANGE  ║│
+         │  ║  8 │ }                         ║│
+         │  ╚════════════════════════════════╝│
+         └────────────────────────────────────┘
+                    ┌────────────┐
+                    │ [KEYBOARD] │
+                    └────────────┘
+```
+
+**Behaviour:**
+- Player must approach and interact (E key) to use
+- Camera focuses on screen when using terminal
+- Keyboard input goes to terminal while focused
+- Esc to step back from terminal
+- Screen has subtle CRT/LCD glow effect
+
+### Command Terminals
+
+Text-based interface terminals for querying ship systems.
+
+```
+┌──────────────────────────────────┐
+│  ╔══════════════════════════════╗│
+│  ║  COMMAND INTERFACE           ║│
+│  ║  User: Riley Chen (Cook)     ║│
+│  ╠══════════════════════════════╣│
+│  ║  > status galley             ║│
+│  ║                              ║│
+│  ║  ROOM: galley                ║│
+│  ║    O2: 18.2% (LOW)           ║│
+│  ║    Temp: 22.4°C              ║│
+│  ║                              ║│
+│  ║  > _                         ║│
+│  ╚══════════════════════════════╝│
+└──────────────────────────────────┘
+```
+
+### Door Control Panels
+
+Small panels beside doors showing status and controls.
+
+```
+    ┌─────────────┐
+    │ ╔═════════╗ │
+    │ ║ SEALED  ║ │  ← Red glow when locked
+    │ ║ ━━━━━━━ ║ │
+    │ ║ [OPEN]  ║ │  ← Button (disabled when locked)
+    │ ╚═════════╝ │
+    └─────────────┘
+```
+
+### Environmental Signs
+
+Static text rendered in the 3D world for navigation and information.
+
+- Room name plates above doorways
+- Deck/section markers
+- Warning signs ("AUTHORIZED PERSONNEL ONLY")
+- Directional arrows
+- Emergency procedure posters
 
 ---
 
-## Terminal Panel (Left Side)
+## Screen Rendering Approach
 
-The primary interaction area. Shows whatever terminal or system the player is currently accessing.
+### Canvas-to-Texture Method
 
-### Terminal Types
-
-#### Status Display Terminal
-
-Read-only displays found throughout the ship. Shows sensor readings, system status, simple controls.
+Terminal content is rendered to an HTML canvas, then applied as a texture to the 3D screen mesh.
 
 ```
-╔══════════════════════════════════════╗
-║  GALLEY ENVIRONMENTAL MONITOR        ║
-╠══════════════════════════════════════╣
-║                                      ║
-║  Temperature    22.4°C    ✓          ║
-║  Humidity       45%       ✓          ║
-║  O2 Level       18.2%     ⚠ LOW      ║
-║  CO2 Level      1.8%      ✓          ║
-║  Pressure       0.96 atm  ✓          ║
-║                                      ║
-╠══════════════════════════════════════╣
-║  ┌──────────────────────────────┐    ║
-║  │ O2 LEVEL - LAST 6 HOURS     │    ║
-║  │                         ╱   │    ║
-║  │                        ╱    │    ║
-║  │     ──────────────────      │    ║
-║  │                             │    ║
-║  └──────────────────────────────┘    ║
-║                                      ║
-╠══════════════════════════════════════╣
-║  [Refresh]  [Alert Settings]         ║
-╚══════════════════════════════════════╝
+┌──────────────────────────────────────────────────┐
+│                                                   │
+│   [HTML Canvas]  ──render──►  [Texture]          │
+│        │                          │               │
+│        │                          ▼               │
+│   React/DOM UI              3D Screen Mesh       │
+│                                                   │
+└──────────────────────────────────────────────────┘
 ```
 
-#### Application Terminal
+**Advantages:**
+- Full HTML/CSS capabilities for terminal UI
+- Syntax highlighting "just works"
+- Can reuse existing UI component patterns
 
-Purpose-built interfaces for specific systems. The player interacts through GUI controls, not code.
+**Implementation:**
+1. Create off-screen canvas
+2. Render terminal UI (React) to canvas
+3. Update Three.js texture each frame (or on change)
+4. Apply emissive material for screen glow
 
-```
-╔══════════════════════════════════════╗
-║  FOOD INVENTORY SYSTEM v2.4.1        ║
-╠══════════════════════════════════════╣
-║                                      ║
-║  COLD STORAGE                        ║
-║  ├─ Temperature: -18.2°C  [SET]      ║
-║  ├─ Protein: 124 kg                  ║
-║  ├─ Vegetables: 89 kg                ║
-║  └─ Dairy: 45 kg                     ║
-║                                      ║
-║  DRY GOODS                           ║
-║  ├─ Grains: 312 kg                   ║
-║  ├─ Preserved: 234 kg                ║
-║  └─ Spices: 28 kg                    ║
-║                                      ║
-║  FRESH (3 days remaining)            ║
-║  ├─ Fruits: 34 kg                    ║
-║  └─ Vegetables: 45 kg                ║
-║                                      ║
-╠══════════════════════════════════════╣
-║  [Meal Planning]  [Restock Request]  ║
-╚══════════════════════════════════════╝
-```
+### Text Rendering
 
-#### Engineering Workstation
-
-The code editor. Shows StarLang files. This is where the real gameplay happens.
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║  ENGINEERING WORKSTATION                                     ║
-║  User: CHEN, M. (Engineer First Class) [NOT YOU]             ║
-╠══════════════════════════════════════════════════════════════╣
-║  /deck_4/section_7/galley.sl                    [Modified]   ║
-╠══════════════════════════════════════════════════════════════╣
-║   1 │ # Galley - Deck 4, Section 7                           ║
-║   2 │ # Serves: 12 crew rotating shifts                      ║
-║   3 │                                                        ║
-║   4 │ room galley {                                          ║
-║   5 │   display_name: "Galley"                               ║
-║   6 │   deck: 4                                              ║
-║   7 │   section: 7                                           ║
-║   8 │   adjacent: [crew_mess, cold_storage, corridor_4a]     ║
-║   9 │   capacity: 6                                          ║
-║  10 │ }                                                      ║
-║  11 │                                                        ║
-║  12 │ node galley_outlet : AtmoOutlet {                      ║
-║  13 │   target: VOID.external  ← ERROR                       ║
-║  14 │   flow_rate: 2.4                                       ║
-║  15 │ }                                                      ║
-║     │                                                        ║
-╠══════════════════════════════════════════════════════════════╣
-║  ERRORS: Line 13 - Invalid target reference                  ║
-╠══════════════════════════════════════════════════════════════╣
-║  [Save] [Compile] [Revert] [History] [Help]                  ║
-╚══════════════════════════════════════════════════════════════╝
-```
-
-#### Command Terminal
-
-Text-based interface for querying ship systems and using version control.
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║  COMMAND INTERFACE                                           ║
-║  User: Riley Chen (Cook)                                     ║
-╠══════════════════════════════════════════════════════════════╣
-║                                                              ║
-║  > status door_galley_to_corridor                            ║
-║                                                              ║
-║  DOOR: door_galley_to_corridor                               ║
-║    state: SEALED                                             ║
-║    sealed_by: signal(atmo_local.critical) at 14:23:07        ║
-║    power: OK                                                 ║
-║    last_opened: 12:45:22 by Chen, M.                         ║
-║                                                              ║
-║  > slvc log galley.sl                                        ║
-║                                                              ║
-║  [4a7f2c1] 2287.203.14:22:58 - SYSTEM (automatic)            ║
-║      Emergency atmosphere reroute                            ║
-║  [3b8e1d0] 2287.156.09:15:33 - Chen, M.                      ║
-║      Increased scrubber capacity                             ║
-║                                                              ║
-║  > _                                                         ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-```
-
-#### Documentation Viewer
-
-The ship's manuals. Searchable but verbose.
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║  SHIP DOCUMENTATION SYSTEM                                   ║
-║  Search: [atmosphere routing____________] [Go]               ║
-╠══════════════════════════════════════════════════════════════╣
-║  Results for "atmosphere routing" (847 matches)              ║
-╠══════════════════════════════════════════════════════════════╣
-║                                                              ║
-║  ▸ ATMO-PRIMARY-001: Primary Atmosphere System Overview      ║
-║    "...atmosphere routing through the primary..."            ║
-║                                                              ║
-║  ▸ ATMO-EMERGENCY-042: Emergency Atmosphere Protocols        ║
-║    "...automatic atmosphere routing changes..."              ║
-║                                                              ║
-║  ▸ MAINT-HVAC-007: HVAC Maintenance Procedures               ║
-║    "...verify atmosphere routing connections..."             ║
-║                                                              ║
-║  ▸ COOK-GALLEY-003: Galley Operations Manual         ← Hmm   ║
-║    "...galley atmosphere routing is handled..."              ║
-║                                                              ║
-║  [Page 1 of 85]  [Next →]                                    ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-```
+For static in-world text (signs, labels):
+- SDF (Signed Distance Field) text for crisp rendering at any distance
+- Or: Three.js TextGeometry for 3D extruded text
+- Pre-baked textures for performance-critical text
 
 ---
 
-## Ship View (Right Side)
+## Interaction Model
 
-Top-down 2D view of the current deck/area.
+### Proximity Detection
 
-### Elements
+Player must be close enough to interact with terminals.
 
-- **Rooms**: Coloured by status (normal, warning, critical, inaccessible)
-- **Player Position**: Clear indicator of where Riley is
-- **Doors**: Show open/closed/locked/sealed state
-- **Interactables**: Terminals, panels, objects that can be clicked
-- **Connections**: Lines showing what connects to what (optional layer)
+```typescript
+const INTERACTION_RANGE = 2.0  // meters
 
-### Visual States
+function canInteract(player: Player, terminal: Terminal): boolean {
+  const distance = player.position.distanceTo(terminal.position)
+  return distance <= INTERACTION_RANGE && isLookingAt(player, terminal)
+}
+```
 
-| Element | Normal | Warning | Critical | Inaccessible |
-|---------|--------|---------|----------|--------------|
-| Room | Soft blue | Yellow | Red pulse | Grey/dark |
-| Door | Green | Yellow | Red | Dark grey |
-| Terminal | Lit screen | - | - | Dark |
+### Focus States
 
-### Interaction
+**Free Movement**
+- Player moves with WASD + mouse look
+- Crosshair in center of screen
+- Interactable objects highlight when looked at
 
-- Click a room to move there (if accessible)
-- Click a door to attempt to open/examine
-- Click a terminal/panel to access it (shows in left panel)
-- Hover for tooltips with basic status
+**Terminal Focused**
+- Camera locked to view terminal screen
+- Player cannot move (standing at terminal)
+- Mouse controls cursor on terminal screen
+- Keyboard input goes to terminal
+- Esc returns to free movement
 
-### Layers (Toggleable)
+### Interaction Feedback
 
-- **Default**: Rooms, doors, objects
-- **Power**: Power grid overlay, shows what's powered
-- **Atmosphere**: Airflow patterns, shows routing
-- **Signals**: Signal connections between systems
+When looking at an interactable object:
+- Subtle outline or highlight
+- Crosshair changes (expands, changes colour)
+- Proximity text appears: "Press E to use terminal"
 
 ---
 
-## Context Bar
+## Terminal Types and Locations
 
-Bottom bar showing current context.
+| Terminal Type | Found In | Capability |
+|--------------|----------|------------|
+| Status Panel | Corridors, all rooms | Read-only sensor data |
+| Door Panel | Beside every door | Door status, manual controls |
+| Command Terminal | Common areas | Text queries, slvc commands |
+| Engineering Terminal | Maintenance areas | Full code editor |
 
-### Elements
+### Narrative Placement
 
-- **Location**: Current room name
-- **Terminal**: What system you're accessing (if any)
-- **Access Level**: Your current credentials
-- **Notifications**: Queued messages/alerts
-
----
-
-## Modal Overlays
-
-For focused interactions that need full attention.
-
-### Error Display
-
-When compilation fails:
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║  COMPILATION FAILED                                          ║
-╠══════════════════════════════════════════════════════════════╣
-║                                                              ║
-║  galley.sl:13 - Invalid target reference                     ║
-║                                                              ║
-║    12 │ node galley_outlet : AtmoOutlet {                    ║
-║  → 13 │   target: VOID.external                              ║
-║    14 │   flow_rate: 2.4                                     ║
-║                                                              ║
-║  'VOID.external' is not a valid atmosphere target.           ║
-║  Did you mean: cold_storage.intake, galley_intake,           ║
-║                crew_mess.intake?                             ║
-║                                                              ║
-╠══════════════════════════════════════════════════════════════╣
-║                                              [Dismiss]       ║
-╚══════════════════════════════════════════════════════════════╝
-```
-
-### Confirmation Dialogs
-
-For dangerous actions:
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║  CONFIRM REVERT                                              ║
-╠══════════════════════════════════════════════════════════════╣
-║                                                              ║
-║  You are about to revert galley.sl to commit 3b8e1d0         ║
-║  (2287.156.09:15:33 by Chen, M.)                             ║
-║                                                              ║
-║  This will undo:                                             ║
-║  • Emergency atmosphere reroute (SYSTEM)                     ║
-║                                                              ║
-║  WARNING: The conditions that triggered the emergency        ║
-║  response may still exist. The system may immediately        ║
-║  re-apply the same changes.                                  ║
-║                                                              ║
-╠══════════════════════════════════════════════════════════════╣
-║                              [Cancel]  [Revert Anyway]       ║
-╚══════════════════════════════════════════════════════════════╝
-```
+Terminal placement tells stories:
+- Engineering terminals in maintenance areas (not public)
+- Status panels everywhere (crew need to monitor)
+- Riley starts near a terminal they can access (lucky?)
+- Higher-access terminals behind locked doors
 
 ---
 
-## Visual Design Notes
+## Visual Design
 
-### Aesthetic: Functional Future
+### Screen Aesthetics
 
-Not sleek sci-fi, not grimy industrial. The Meridian is a working ship—professional but not glamorous. Think: hospital meets cargo ship meets office building.
+Functional future aesthetic—professional equipment, not flashy sci-fi.
 
-- Muted colours (blues, greys, soft greens)
-- Functional typography (readable, not stylised)
-- Rounded corners on UI elements (feels less harsh)
-- Subtle gradients and shadows (depth without distraction)
+**Characteristics:**
+- Muted colour palette (blues, greys, soft greens)
+- Monospace fonts for code and data
+- Subtle scanlines or CRT effect (optional)
+- Screen glow illuminates nearby surfaces
+- Status colours: green (OK), amber (warning), red (critical)
 
 ### Colour Palette
 
-| Colour | Use |
-|--------|-----|
-| Deep blue (#1a2744) | Backgrounds, headers |
-| Soft blue (#4a6fa5) | Normal states, active elements |
-| Warm grey (#d0d0d0) | Text, borders |
-| Amber (#ffb347) | Warnings |
-| Coral red (#ff6b6b) | Critical, errors |
-| Soft green (#77dd77) | Success, OK states |
-| Dark grey (#2d2d2d) | Inaccessible, disabled |
+| Colour | Hex | Use |
+|--------|-----|-----|
+| Screen background | #1a2744 | Terminal backgrounds |
+| Text primary | #d0d0d0 | Main text |
+| Text secondary | #808080 | Comments, labels |
+| Accent blue | #4a6fa5 | Highlights, links |
+| Warning amber | #ffb347 | Warnings |
+| Critical red | #ff6b6b | Errors, alerts |
+| Success green | #77dd77 | OK states |
 
-### Typography
+### Lighting
 
-- **Headers**: Sans-serif, medium weight (system feels modern)
-- **Body text**: Sans-serif, regular weight
-- **Code**: Monospace, distinct from UI text
-- **Terminal**: Monospace with slight glow (feels "computerish")
-
-### Animation
-
-Minimal but meaningful:
-
-- Meters fill/drain smoothly
-- Doors slide open (brief animation)
-- Terminal text appears character-by-character for messages
-- Alert indicators pulse gently
-- No gratuitous transitions
+Terminal screens act as light sources:
+- Emissive material on screen mesh
+- Optional point light for ambient glow
+- Powered-off terminals are dark (no glow)
+- Critical alerts pulse red light
 
 ---
 
-## Responsive Considerations
+## Implementation Notes
 
-For jam scope, target a single resolution (1920x1080 or similar). The split-screen layout can flex slightly:
+### Performance
 
-- Terminal panel: 40-60% of width
-- Ship view: 40-60% of width
-- Header/context bars: Fixed height
+- Only render terminal content when player is nearby
+- LOD for distant screens (static texture or blank)
+- Batch text rendering where possible
+- Limit canvas-to-texture updates (not every frame)
 
-Future consideration: Collapsible panels for smaller screens.
+### Accessibility Considerations
+
+- Text size must be readable at interaction distance
+- High contrast text on screens
+- Audio cues for status changes (beeps, alerts)
+- Consider colour-blind friendly status indicators
+
+### Future Enhancements
+
+- VR support (native 3D interaction)
+- Hand/tool interaction instead of crosshair
+- Multi-screen terminals
+- Holographic displays (narrative unlock)

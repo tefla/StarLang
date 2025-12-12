@@ -256,16 +256,23 @@ src/
 ├── version-control/
 │   ├── CommitStore.ts
 │   └── Commands.ts         # slvc commands
-├── ui/
-│   ├── App.tsx             # Main app
-│   ├── components/
-│   │   ├── ShipView.tsx    # Right panel
-│   │   ├── TerminalPanel.tsx
-│   │   ├── Header.tsx
-│   │   └── terminals/
-│   │       ├── StatusTerminal.tsx
-│   │       ├── EngineeringTerminal.tsx
-│   │       └── CommandTerminal.tsx
+├── game/
+│   ├── Game.tsx            # Main Three.js game
+│   ├── scene/
+│   │   ├── ShipScene.ts    # 3D ship environment
+│   │   ├── RoomMesh.ts     # Room geometry
+│   │   ├── DoorMesh.ts     # Door objects
+│   │   └── LightingRig.ts  # Scene lighting
+│   ├── player/
+│   │   ├── PlayerController.ts  # WASD + mouse look
+│   │   ├── Interaction.ts       # Raycast interaction
+│   │   └── CameraRig.ts         # First-person camera
+│   ├── terminals/
+│   │   ├── TerminalMesh.ts      # 3D terminal object
+│   │   ├── ScreenTexture.ts     # Canvas-to-texture
+│   │   ├── StatusTerminal.tsx   # Status panel content
+│   │   ├── EngineeringTerminal.tsx
+│   │   └── CommandTerminal.tsx
 │   ├── hooks/
 │   │   ├── useShipState.ts
 │   │   └── useRuntime.ts

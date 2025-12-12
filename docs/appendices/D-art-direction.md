@@ -62,47 +62,51 @@
 
 ---
 
-## Ship View (2D Map)
+## 3D Environment
 
-### Room Representation
+### Room Design
 
-Rooms are represented as simplified shapes—rectangles with rounded corners. The map isn't architecturally accurate; it's a functional diagram.
+Rooms are fully 3D enclosed spaces with walls, floor, and ceiling. The aesthetic is functional spacecraft—utilitarian but not industrial.
 
-```
-┌────────────────┐
-│                │  ← Room shape (rounded rect)
-│    GALLEY      │  ← Room name (center)
-│                │
-└───────┬────────┘
-        │         ← Door indicator
-```
+**Characteristics:**
+- Modular wall panels (can show damage, access panels)
+- Ceiling-mounted lighting strips
+- Floor markings for navigation (deck numbers, directional arrows)
+- Wall-mounted status displays and terminals
 
 ### Visual States
 
-| State | Fill | Border | Icon |
-|-------|------|--------|------|
-| Normal | Soft blue | Grey | None |
-| Player here | Soft blue | Teal (2px) | Player dot |
-| Warning | Amber tint | Yellow | ⚠️ |
-| Critical | Red tint | Red | ⚠️ pulse |
-| Inaccessible | Dark grey | Dark grey | 🔒 |
-| Unexplored | Dark, no detail | Dashed | ? |
+| State | Lighting | Props | Audio |
+|-------|----------|-------|-------|
+| Normal | Standard warm white | Active displays | Ambient hum |
+| Warning | Amber tint | Flashing displays | Alert beep |
+| Critical | Red emergency lights | Alarms visible | Klaxon |
+| No Power | Dark, emergency strips only | Displays off | Silence |
+| Vacuum | Blue emergency | Frost effects | Muffled |
 
-### Door Indicators
+### Door Design
 
-| State | Visual |
-|-------|--------|
-| Open | Gap in wall, green line |
-| Closed | Solid line, grey |
-| Locked | Solid line, orange dot |
-| Sealed | Solid line, red glow |
+3D sliding doors with visible mechanism:
+- Track-mounted panels that slide into wall
+- Status light strip (green/amber/red)
+- Adjacent control panel with display
+- Animation for open/close (0.5s slide)
 
-### Interactables
+| State | Visual | Light | Panel Display |
+|-------|--------|-------|---------------|
+| Open | Panels retracted | Green | "OPEN" |
+| Closed | Panels extended | Grey | "CLOSED" |
+| Locked | Panels extended | Amber | "LOCKED" |
+| Sealed | Panels extended, red glow | Red pulse | "SEALED - EMERGENCY" |
 
-Terminals and objects are small icons within rooms:
-- 📺 Terminal (interactive)
-- 📦 Container (searchable)
-- 🔧 Panel (engineering access)
+### In-World Interactables
+
+Physical objects in the 3D space:
+- **Wall Terminals**: Mounted screens for status/commands
+- **Engineering Workstations**: Desk with large screen, keyboard
+- **Door Panels**: Small screen beside each door
+- **Status Displays**: Wall-mounted monitoring screens
+- **Signs**: 3D text for room names, warnings, directions
 
 ---
 
@@ -158,19 +162,31 @@ Syntax highlighting:
 
 ---
 
-## Header Bar
+## In-World Status Displays
 
-Always visible, showing vital stats:
+No HUD overlay—all information is displayed on physical screens in the environment.
+
+### Wall-Mounted Status Panels
+
+Small screens showing vital stats, found throughout the ship:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  ████████░░ O2: 82%    ██████████ PWR: 100%    ⏱ 16:42:07     │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────┐
+│  ╔═══════════════════════╗  │
+│  ║  SECTION 7 STATUS     ║  │
+│  ╠═══════════════════════╣  │
+│  ║  O2     82%  ████████░║  │
+│  ║  PWR   100%  ██████████║  │
+│  ║  TIME   16:42:07      ║  │
+│  ╚═══════════════════════╝  │
+│     [physical screen]       │
+└─────────────────────────────┘
 ```
 
-- Progress bars for resources
-- Pulse animation when critical
-- Click to expand details
+- Screen glows with status colour (green/amber/red)
+- Updates in real-time
+- Player glances at these while moving
+- No interaction needed—always visible when powered
 
 ---
 

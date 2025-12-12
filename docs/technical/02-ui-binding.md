@@ -202,96 +202,94 @@ function EngineeringTerminal({ terminalId }: { terminalId: string }) {
 
 ---
 
-## Ship View Rendering
+## 3D Scene Rendering
 
-The ship map renders based on definitions and state.
+The game world renders based on definitions and state using Three.js.
 
 ```typescript
-function ShipView() {
-  const runtime = useRuntime()
-  const currentDeck = useGameState(s => s.currentDeck)
-  const playerRoom = useGameState(s => s.playerRoom)
-  
-  // Get rooms for current deck
-  const rooms = useMemo(() => {
-    return runtime.getDefinitionsByType('ROOM')
-      .filter(r => r.properties.deck === currentDeck)
-  }, [runtime, currentDeck])
-  
-  // Subscribe to all room states
-  const roomStates = useMultipleShipStates(
-    rooms.map(r => r.id)
-  )
-  
-  return (
-    <svg className="ship-view" viewBox="0 0 800 600">
-      {rooms.map(room => (
-        <RoomShape
-          key={room.id}
-          definition={room}
-          state={roomStates[room.id]}
-          isPlayerHere={room.id === playerRoom}
-          onClick={() => handleRoomClick(room.id)}
-        />
-      ))}
-      
-      {/* Render doors between rooms */}
-      <DoorsLayer deck={currentDeck} />
-      
-      {/* Render interactable objects */}
-      <InteractablesLayer deck={currentDeck} />
-      
-      {/* Player indicator */}
-      <PlayerIndicator roomId={playerRoom} />
-    </svg>
-  )
+class ShipScene {
+  private scene: THREE.Scene
+  private runtime: StarLangRuntime
+  private roomMeshes: Map<string, RoomMesh>
+  private terminalMeshes: Map<string, TerminalMesh>
+
+  constructor(runtime: StarLangRuntime) {
+    this.runtime = runtime
+    this.scene = new THREE.Scene()
+    this.roomMeshes = new Map()
+    this.terminalMeshes = new Map()
+
+    this.buildFromDefinitions()
+    this.subscribeToState()
+  }
+
+  private buildFromDefinitions() {
+    // Build room geometry from definitions
+    const rooms = this.runtime.getDefinitionsByType('ROOM')
+    for (const room of rooms) {
+      const mesh = new RoomMesh(room)
+      this.roomMeshes.set(room.id, mesh)
+      this.scene.add(mesh.group)
+    }
+
+    // Build terminals
+    const terminals = this.runtime.getDefinitionsByType('TERMINAL')
+    for (const terminal of terminals) {
+      const mesh = new TerminalMesh(terminal)
+      this.terminalMeshes.set(terminal.id, mesh)
+      this.scene.add(mesh.group)
+    }
+  }
+
+  private subscribeToState() {
+    // Update room lighting based on state
+    this.runtime.subscribe('*.o2_level', (roomId, value) => {
+      const mesh = this.roomMeshes.get(roomId)
+      if (mesh) {
+        mesh.updateEnvironmentLighting(value)
+      }
+    })
+  }
 }
 ```
 
-### Room Rendering
+### In-World Terminal Rendering
 
 ```typescript
-function RoomShape({ 
-  definition, 
-  state, 
-  isPlayerHere,
-  onClick 
-}: RoomShapeProps) {
-  // Determine color based on state
-  const fill = useMemo(() => {
-    if (!state) return colors.offline
-    if (state.o2_level < 16) return colors.critical
-    if (state.o2_level < 19) return colors.warning
-    if (state.power_status === 'OFFLINE') return colors.dark
-    return colors.normal
-  }, [state])
-  
-  // Get room geometry from layout data
-  const geometry = useRoomGeometry(definition.id)
-  
-  return (
-    <g 
-      className={cn(
-        'room-shape',
-        isPlayerHere && 'room-shape--current'
-      )}
-      onClick={onClick}
-    >
-      <path
-        d={geometry.path}
-        fill={fill}
-        stroke={isPlayerHere ? colors.highlight : colors.border}
-        strokeWidth={isPlayerHere ? 2 : 1}
-      />
-      <text
-        x={geometry.labelX}
-        y={geometry.labelY}
-        className="room-label"
-      >
-        {definition.properties.display_name}
-      </text>
-    </g>
-  )
+class TerminalMesh {
+  public group: THREE.Group
+  private screenMesh: THREE.Mesh
+  private screenTexture: CanvasTexture
+  private canvas: HTMLCanvasElement
+
+  constructor(definition: NodeDefinition) {
+    this.group = new THREE.Group()
+    this.canvas = document.createElement('canvas')
+    this.canvas.width = 1024
+    this.canvas.height = 768
+
+    // Create screen texture from canvas
+    this.screenTexture = new THREE.CanvasTexture(this.canvas)
+
+    // Create screen mesh with emissive material
+    const screenGeometry = new THREE.PlaneGeometry(1.2, 0.9)
+    const screenMaterial = new THREE.MeshStandardMaterial({
+      map: this.screenTexture,
+      emissive: new THREE.Color(0x222244),
+      emissiveIntensity: 0.5
+    })
+    this.screenMesh = new THREE.Mesh(screenGeometry, screenMaterial)
+    this.group.add(this.screenMesh)
+
+    // Add terminal frame geometry
+    this.addFrameGeometry()
+  }
+
+  updateContent(reactElement: React.ReactElement) {
+    // Render React component to canvas
+    renderToCanvas(this.canvas, reactElement)
+    this.screenTexture.needsUpdate = true
+  }
 }
 ```
 

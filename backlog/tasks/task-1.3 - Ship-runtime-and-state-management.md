@@ -1,7 +1,7 @@
 ---
 id: task-1.3
 title: Ship runtime and state management
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-12-12 12:53'
 labels: []
@@ -18,8 +18,8 @@ Build runtime that compiles AST to ship structure and manages runtime state sepa
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Compiler transforms AST to runtime ship structure
-- [ ] #2 Separate state for door positions (open/closed)
-- [ ] #3 Hot-reload: recompile without losing state
-- [ ] #4 State persists across code changes
+- [x] #1 Compiler transforms AST to runtime ship structure
+- [x] #2 Separate state for door positions (open/closed)
+- [x] #3 Hot-reload: recompile without losing state
+- [x] #4 State persists across code changes
 <!-- AC:END -->

@@ -23,12 +23,12 @@ These features define the minimum viable game:
 - [x] At least one door puzzle
 - [x] At least one permission puzzle
 
-### UI
-- [x] Split-screen layout (terminal + map)
-- [x] Status terminal (read-only)
-- [x] Engineering terminal (editor)
-- [x] Ship map (simplified)
-- [x] Vital stats header
+### UI (In-World)
+- [x] 3D immersive environment (no HUD/split-screen)
+- [x] In-world status displays (wall-mounted screens)
+- [x] In-world engineering terminal (3D workstation)
+- [x] First-person movement (WASD + mouse look)
+- [x] Terminal interaction system (approach + E key)
 
 ### Narrative
 - [x] Wake-up scenario
@@ -100,7 +100,7 @@ Features that would be great but aren't essential:
 Features explicitly out of scope for the jam:
 
 ### Scope Limits
-- **No 3D**: Strictly 2D map representation
+- **No VR**: Standard first-person 3D only
 - **No real-time combat**: Puzzle/exploration only
 - **No voice acting**: Text only
 - **No multiplayer**: Single-player experience
@@ -234,8 +234,8 @@ Rough estimates for jam implementation:
 | Feature | Time | Priority |
 |---------|------|----------|
 | Core runtime (parse, compile, run) | 8-12 hrs | Must |
-| Basic UI (split screen, terminal) | 4-6 hrs | Must |
-| Ship map | 2-4 hrs | Must |
+| 3D environment + player controller | 6-10 hrs | Must |
+| In-world terminal system | 4-6 hrs | Must |
 | O2 system | 2-3 hrs | Must |
 | Door system | 2-3 hrs | Must |
 | First puzzle (O2 fix) | 1-2 hrs | Must |
@@ -258,7 +258,7 @@ Key decisions made during design:
 |----------|-----------|
 | Cook protagonist | Non-technical character learning = player learning |
 | Everyone in stasis | Avoids NPC complexity, explains isolation |
-| 2D map not 3D | Faster to implement, clearer navigation |
+| 3D immersive (no HUD) | Full immersion, terminals as physical objects |
 | Tick-based not real-time | Allows thinking time for puzzles |
 | Hot-reload core feature | Defines the "programming game" feel |
 | Version control included | Narrative delivery + safety net |

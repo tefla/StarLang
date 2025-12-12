@@ -504,4 +504,4 @@ room maintenance_junction_4a {
 }
 ```
 
-On the ship map, terminals appear as interactable objects. Clicking one opens it in the terminal panel (if the player has access).
+In the 3D environment, terminals are physical objects the player approaches and interacts with. The player must be within range and looking at the terminal to interact (E key). When interacting, the camera focuses on the terminal screen and keyboard input is captured for the terminal.

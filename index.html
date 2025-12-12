@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StarLang - Escape the Meridian</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0a0f;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    #game-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    /* Crosshair */
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    #crosshair::before,
+    #crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    #crosshair::before {
+      width: 2px;
+      height: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    #crosshair::after {
+      width: 100%;
+      height: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    #crosshair.interactive {
+      width: 30px;
+      height: 30px;
+    }
+
+    #crosshair.interactive::before,
+    #crosshair.interactive::after {
+      background: rgba(119, 221, 119, 0.9);
+    }
+
+    /* Interaction prompt */
+    #interaction-prompt {
+      position: fixed;
+      top: 60%;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+      text-align: center;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    #interaction-prompt.visible {
+      opacity: 1;
+    }
+
+    #interaction-prompt kbd {
+      display: inline-block;
+      padding: 2px 8px;
+      margin: 0 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    /* Loading screen */
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #0a0a0f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: #4a6fa5;
+      z-index: 1000;
+    }
+
+    #loading.hidden {
+      display: none;
+    }
+
+    #loading h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      letter-spacing: 4px;
+    }
+
+    #loading .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(74, 111, 165, 0.3);
+      border-top-color: #4a6fa5;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <h1>STARLANG</h1>
+    <div class="spinner"></div>
+  </div>
+
+  <div id="game-container"></div>
+  <div id="crosshair"></div>
+  <div id="interaction-prompt"></div>
+
+  <script type="module" src="./src/main.tsx"></script>
+</body>
+</html>
