@@ -9,10 +9,17 @@ import type {
   DoorDefinition,
   TerminalDefinition
 } from '../types/nodes'
+import type { ShipLayout } from '../types/layout'
 
 export type StateCallback = (path: string, value: any, oldValue: any) => void
-export type EventType = 'compile:success' | 'compile:error' | 'state:change' | 'door:open' | 'door:close'
+export type EventType = 'compile:success' | 'compile:error' | 'state:change' | 'door:open' | 'door:close' | 'atmosphere:warning' | 'atmosphere:critical' | 'game:over'
 export type EventHandler = (event: any) => void
+
+// Atmosphere simulation constants
+const O2_DEPLETION_RATE = 0.05 // % per second when room is occupied
+const O2_WARNING_THRESHOLD = 19
+const O2_CRITICAL_THRESHOLD = 16
+const O2_GAMEOVER_THRESHOLD = 12
 
 interface FileContent {
   path: string
@@ -27,6 +34,36 @@ export class Runtime {
   private subscribers = new Map<string, Set<StateCallback>>()
   private eventHandlers = new Map<EventType, Set<EventHandler>>()
   private files = new Map<string, FileContent>()
+  private layout: ShipLayout | null = null
+
+  // Player location tracking
+  private playerRoomId: string | null = null
+  private lastWarningLevel: 'none' | 'warning' | 'critical' = 'none'
+  private gameOver = false
+
+  // Set layout data (separate from StarLang code)
+  setLayout(layout: ShipLayout) {
+    this.layout = layout
+    this.compiler.setLayout(layout)
+  }
+
+  // Track which room the player is in
+  setPlayerRoom(roomId: string | null) {
+    this.playerRoomId = roomId
+  }
+
+  getPlayerRoom(): string | null {
+    return this.playerRoomId
+  }
+
+  isGameOver(): boolean {
+    return this.gameOver
+  }
+
+  resetGame() {
+    this.gameOver = false
+    this.lastWarningLevel = 'none'
+  }
 
   // Initialize runtime with ship definition
   async init(shipSource: string): Promise<CompileResult> {
@@ -89,11 +126,19 @@ export class Runtime {
       this.states.clear()
       this.initializeStates()
 
-      // Restore preserved states
+      // Restore preserved states (but respect definition changes)
       for (const [id, oldState] of oldStates) {
         const newState = this.states.get(id)
         if (newState) {
-          // Merge old values into new state
+          // For doors, check if locked property changed - if so, use new state
+          const door = this.structure.doors.get(id)
+          if (door) {
+            // Door's state is determined by the new locked property
+            // Don't restore old state - initializeStates already set it correctly
+            continue
+          }
+
+          // For other nodes, merge old values into new state
           for (const [key, value] of Object.entries(oldState.values)) {
             if (key in newState.values) {
               newState.values[key] = value
@@ -260,7 +305,32 @@ export class Runtime {
 
   // Simulation tick (for atmosphere, etc.)
   tick(deltaTime: number) {
-    // Future: atmosphere simulation, O2 consumption, etc.
+    if (this.gameOver) return
+
+    // Simulate O2 depletion in the room the player is in
+    if (this.playerRoomId) {
+      const state = this.states.get(this.playerRoomId)
+      if (state && state.values['powered']) {
+        const currentO2 = state.values['o2_level'] as number
+        const newO2 = Math.max(0, currentO2 - O2_DEPLETION_RATE * deltaTime)
+
+        if (newO2 !== currentO2) {
+          this.setProperty(`${this.playerRoomId}.o2_level`, newO2, 'SYSTEM')
+
+          // Check for warning/critical levels
+          if (newO2 <= O2_GAMEOVER_THRESHOLD && !this.gameOver) {
+            this.gameOver = true
+            this.emit('game:over', { o2Level: newO2, roomId: this.playerRoomId })
+          } else if (newO2 <= O2_CRITICAL_THRESHOLD && this.lastWarningLevel !== 'critical') {
+            this.lastWarningLevel = 'critical'
+            this.emit('atmosphere:critical', { o2Level: newO2, roomId: this.playerRoomId })
+          } else if (newO2 <= O2_WARNING_THRESHOLD && this.lastWarningLevel === 'none') {
+            this.lastWarningLevel = 'warning'
+            this.emit('atmosphere:warning', { o2Level: newO2, roomId: this.playerRoomId })
+          }
+        }
+      }
+    }
   }
 }
 

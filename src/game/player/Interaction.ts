@@ -5,10 +5,11 @@ import { PlayerController } from './PlayerController'
 import { ShipScene } from '../scene/ShipScene'
 import { TerminalMesh } from '../terminals/TerminalMesh'
 import { DoorMesh } from '../scene/DoorMesh'
+import { SwitchMesh } from '../scene/SwitchMesh'
 import { Runtime } from '../../runtime/Runtime'
 
 export type InteractionTarget = {
-  type: 'door' | 'terminal' | 'door_panel'
+  type: 'door' | 'terminal' | 'door_panel' | 'switch'
   id: string
   object: THREE.Object3D
   distance: number
@@ -71,8 +72,6 @@ export class InteractionSystem {
     })
   }
 
-  private debugCounter = 0
-
   update() {
     if (this.focusedTerminal) {
       // Don't update targeting while focused
@@ -83,23 +82,12 @@ export class InteractionSystem {
     const interactables = this.scene.getInteractables()
     const intersection = this.player.raycast(interactables)
 
-    // Debug logging every second
-    this.debugCounter++
-    if (this.debugCounter % 60 === 0) {
-      console.log('[Interaction] Interactables:', interactables.length,
-        'Hit:', intersection ? `${intersection.object.name} at ${intersection.distance.toFixed(2)}` : 'none')
-    }
-
     if (intersection && intersection.distance <= this.interactionRange) {
       const userData = intersection.object.userData as { type?: string; id?: string }
 
-      if (this.debugCounter % 60 === 0) {
-        console.log('[Interaction] Target userData:', userData)
-      }
-
       if (userData.type && userData.id) {
         this.currentTarget = {
-          type: userData.type as 'door' | 'terminal' | 'door_panel',
+          type: userData.type as 'door' | 'terminal' | 'door_panel' | 'switch',
           id: userData.id,
           object: intersection.object,
           distance: intersection.distance
@@ -118,65 +106,70 @@ export class InteractionSystem {
   }
 
   private interact() {
-    console.log('[Interaction] Interact called, target:', this.currentTarget)
-    if (!this.currentTarget) {
-      console.log('[Interaction] No target to interact with')
-      return
-    }
+    if (!this.currentTarget) return
 
-    console.log('[Interaction] Interacting with:', this.currentTarget.type, this.currentTarget.id)
     switch (this.currentTarget.type) {
-      case 'door':
-      case 'door_panel':
-        this.interactWithDoor(this.currentTarget.id)
+      case 'switch':
+        this.interactWithSwitch(this.currentTarget.id)
         break
       case 'terminal':
         this.interactWithTerminal(this.currentTarget.id)
         break
+      // Doors are controlled via switches, not direct interaction
     }
   }
 
-  private interactWithDoor(doorId: string) {
-    const doorMesh = this.scene.doorMeshes.get(doorId)
-    if (!doorMesh) return
+  private interactWithSwitch(switchId: string) {
+    const switchMesh = this.scene.switchMeshes.get(switchId)
+    if (!switchMesh) return
 
-    const state = doorMesh.getState()
-
-    if (state === 'OPEN') {
-      const result = this.runtime.closeDoor(doorId)
-      this.showMessage(result.message)
-    } else if (state === 'CLOSED') {
-      const result = this.runtime.openDoor(doorId)
-      this.showMessage(result.message)
-    } else if (state === 'LOCKED') {
-      this.showMessage('Door is locked. Find a terminal to unlock it.')
-    } else if (state === 'SEALED') {
-      this.showMessage('EMERGENCY SEAL - Cannot override manually')
+    // Check if switch is broken - just doesn't respond
+    if (switchMesh.getStatus() === 'FAULT') {
+      return
     }
+
+    // Switch works - animate it
+    switchMesh.press()
+
+    // Find which door this switch controls
+    const structure = this.runtime.getStructure()
+    if (!structure) return
+
+    for (const [doorId, doorDef] of structure.doors) {
+      if (doorDef.properties.control === switchId) {
+        // Found the door this switch controls - toggle it
+        const doorMesh = this.scene.doorMeshes.get(doorId)
+        if (doorMesh) {
+          const state = doorMesh.getState()
+          if (state === 'OPEN') {
+            this.runtime.closeDoor(doorId)
+          } else if (state === 'CLOSED') {
+            this.runtime.openDoor(doorId)
+          }
+        }
+        return
+      }
+    }
+
+    // Switch not connected to any door - just visual feedback (LED blink)
   }
 
   private interactWithTerminal(terminalId: string) {
     const terminalMesh = this.scene.terminalMeshes.get(terminalId)
-    if (!terminalMesh) {
-      console.log('[Interaction] Terminal not found:', terminalId)
-      return
-    }
+    if (!terminalMesh) return
 
     const terminalType = terminalMesh.definition.properties.terminal_type
-    console.log('[Interaction] Interacting with terminal:', terminalId, 'type:', terminalType)
 
+    // STATUS terminals are read-only, just don't respond to E
     if (terminalType === 'STATUS') {
-      this.showMessage('Status display - read only')
       return
     }
 
     // Focus on terminal
-    console.log('[Interaction] Calling focusTerminal...')
     this.focusTerminal(terminalMesh)
   }
 
   private focusTerminal(terminal: TerminalMesh) {
-    console.log('[Interaction] Focusing terminal:', terminal.definition.id)
     this.focusedTerminal = terminal
     terminal.focus()
 
@@ -279,8 +272,7 @@ export class InteractionSystem {
       if (structure) {
         this.scene.buildFromStructure(structure)
       }
-
-      this.showMessage('Code saved and compiled!')
+      // Editor status bar shows success - no toast needed
     } else {
       // Show errors in editor
       if (this.editorStatus) {
@@ -299,21 +291,14 @@ export class InteractionSystem {
 
     let text = ''
     switch (this.currentTarget.type) {
-      case 'door':
-        const doorMesh = this.scene.doorMeshes.get(this.currentTarget.id)
-        const state = doorMesh?.getState() ?? 'CLOSED'
-        if (state === 'OPEN') {
-          text = 'Press <kbd>E</kbd> to close door'
-        } else if (state === 'CLOSED') {
-          text = 'Press <kbd>E</kbd> to open door'
-        } else if (state === 'LOCKED') {
-          text = '<span style="color: #ffb347;">LOCKED</span> - Find terminal to unlock'
+      case 'switch':
+        const switchMesh = this.scene.switchMeshes.get(this.currentTarget.id)
+        const switchName = switchMesh?.definition.properties.display_name ?? 'Switch'
+        if (switchMesh?.getStatus() === 'FAULT') {
+          text = `<span style="color: #ff6b6b;">${switchName}</span> - Not responding`
         } else {
-          text = '<span style="color: #ff6b6b;">SEALED</span> - Emergency lockdown'
+          text = `Press <kbd>E</kbd> to use ${switchName}`
         }
-        break
-      case 'door_panel':
-        text = 'Press <kbd>E</kbd> to use door panel'
         break
       case 'terminal':
         const terminal = this.scene.terminalMeshes.get(this.currentTarget.id)
@@ -347,9 +332,6 @@ export class InteractionSystem {
   }
 
   private showMessage(message: string) {
-    // Temporary message display (could be improved with proper UI)
-    console.log('[Game]', message)
-
     // Show in prompt briefly
     if (this.prompt) {
       this.prompt.innerHTML = message

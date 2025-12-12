@@ -113,6 +113,12 @@ export class PlayerController {
     return this.mouseLocked
   }
 
+  unlock() {
+    if (this.mouseLocked) {
+      document.exitPointerLock()
+    }
+  }
+
   update(deltaTime: number) {
     if (!this.enabled) return
 

@@ -7,9 +7,11 @@ import type {
   RoomDefinition,
   DoorDefinition,
   TerminalDefinition,
+  SwitchDefinition,
   Position3D,
   ShipStructure
 } from '../types/nodes'
+import type { ShipLayout } from '../types/layout'
 
 export interface CompileResult {
   success: boolean
@@ -25,6 +27,12 @@ export interface CompileError {
 
 export class Compiler {
   private errors: CompileError[] = []
+  private layout: ShipLayout | null = null
+
+  // Set layout data to merge with StarLang definitions
+  setLayout(layout: ShipLayout) {
+    this.layout = layout
+  }
 
   compile(source: string): CompileResult {
     const parser = new Parser()
@@ -56,7 +64,8 @@ export class Compiler {
       rooms: new Map(),
       doors: new Map(),
       terminals: new Map(),
-      sensors: new Map()
+      sensors: new Map(),
+      switches: new Map()
     }
 
     for (const node of nodes) {
@@ -73,6 +82,10 @@ export class Compiler {
           case 'TERMINAL':
             const terminal = this.compileTerminal(node)
             structure.terminals.set(terminal.id, terminal)
+            break
+          case 'SWITCH':
+            const sw = this.compileSwitch(node)
+            structure.switches.set(sw.id, sw)
             break
         }
       } catch (error) {
@@ -91,6 +104,7 @@ export class Compiler {
 
   private compileRoom(node: ASTNode): RoomDefinition {
     const props = node.properties
+    const layoutData = this.layout?.rooms[node.name]
 
     return {
       id: node.name,
@@ -99,8 +113,9 @@ export class Compiler {
         display_name: this.getString(props['display_name']) ?? node.name,
         deck: this.getNumber(props['deck']) ?? 1,
         section: this.getNumber(props['section']) ?? 1,
-        position: this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
-        size: this.getSize(props['size']) ?? { width: 6, height: 3, depth: 6 },
+        // Use layout data if available, else StarLang props, else defaults
+        position: layoutData?.position ?? this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
+        size: layoutData?.size ?? this.getSize(props['size']) ?? { width: 6, height: 3, depth: 6 },
         adjacent: this.getStringArray(props['adjacent']) ?? []
       }
     }
@@ -108,6 +123,7 @@ export class Compiler {
 
   private compileDoor(node: ASTNode): DoorDefinition {
     const props = node.properties
+    const layoutData = this.layout?.doors[node.name]
 
     const connects = this.getStringArray(props['connects'])
     if (!connects || connects.length !== 2) {
@@ -120,16 +136,36 @@ export class Compiler {
       properties: {
         display_name: this.getString(props['display_name']) ?? node.name,
         connects: connects as [string, string],
-        position: this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
-        rotation: this.getNumber(props['rotation']) ?? 0,
-        locked: this.getBoolean(props['locked']) ?? false,
+        // Use layout data if available, else StarLang props, else defaults
+        position: layoutData?.position ?? this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
+        rotation: layoutData?.rotation ?? this.getNumber(props['rotation']) ?? 0,
+        control: this.getString(props['control']) ?? '',  // ID of switch that controls this door
         access: this.getString(props['access']) as any
+      }
+    }
+  }
+
+  private compileSwitch(node: ASTNode): SwitchDefinition {
+    const props = node.properties
+    const layoutData = this.layout?.switches?.[node.name]
+
+    return {
+      id: node.name,
+      type: 'SWITCH',
+      properties: {
+        display_name: this.getString(props['display_name']) ?? node.name,
+        location: this.getString(props['location']) ?? '',
+        // Use layout data for physical properties
+        position: layoutData?.position ?? this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
+        rotation: layoutData?.rotation ?? this.getNumber(props['rotation']) ?? 0,
+        status: layoutData?.status ?? 'OK'  // Status comes from layout (physical state)
       }
     }
   }
 
   private compileTerminal(node: ASTNode): TerminalDefinition {
     const props = node.properties
+    const layoutData = this.layout?.terminals[node.name]
 
     return {
       id: node.name,
@@ -138,8 +174,9 @@ export class Compiler {
         display_name: this.getString(props['display_name']) ?? node.name,
         terminal_type: (this.getString(props['terminal_type']) ?? 'STATUS') as any,
         location: this.getString(props['location']) ?? '',
-        position: this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
-        rotation: this.getNumber(props['rotation']) ?? 0,
+        // Use layout data if available, else StarLang props, else defaults
+        position: layoutData?.position ?? this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
+        rotation: layoutData?.rotation ?? this.getNumber(props['rotation']) ?? 0,
         mounted_files: this.getStringArray(props['mounted_files']),
         access: this.getString(props['access']) as any
       }

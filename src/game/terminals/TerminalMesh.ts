@@ -4,6 +4,18 @@ import * as THREE from 'three'
 import type { TerminalDefinition, TerminalType } from '../../types/nodes'
 import { Runtime } from '../../runtime/Runtime'
 
+// Engineering terminal startup message
+const ENGINEERING_MESSAGE = [
+  '═══ ENGINEERING TERMINAL ═══',
+  '',
+  'System Status: DEGRADED',
+  'AI Core: OFFLINE',
+  '',
+  'Ship configuration loaded.',
+  '',
+  '─────────────────────────────────',
+]
+
 export class TerminalMesh {
   public group: THREE.Group
   public definition: TerminalDefinition
@@ -24,6 +36,10 @@ export class TerminalMesh {
   private cursorLine = 0
   private cursorCol = 0
   private inputBuffer = ''
+
+  // Status update timer (for polling state)
+  private updateTimer = 0
+  private updateInterval = 1.0 // seconds
 
   constructor(definition: TerminalDefinition, runtime: Runtime) {
     this.definition = definition
@@ -164,15 +180,7 @@ export class TerminalMesh {
         'System Status: NOMINAL',
       ]
     } else if (type === 'ENGINEERING') {
-      this.lines = [
-        '═══ ENGINEERING WORKSTATION ═══',
-        `User: Riley Chen (Cook)`,
-        '',
-        'Files:',
-        '  galley.sl',
-        '',
-        '> Press E to interact',
-      ]
+      this.lines = [...ENGINEERING_MESSAGE]
     } else {
       this.lines = [
         '═══ COMMAND INTERFACE ═══',
@@ -216,6 +224,12 @@ export class TerminalMesh {
         ctx.fillStyle = '#ffb347'
       } else if (line.includes('✗') || line.includes('ERROR') || line.includes('CRITICAL')) {
         ctx.fillStyle = '#ff6b6b'
+      } else if (line.includes('EMERGENCY') || line.includes('malfunction')) {
+        ctx.fillStyle = '#ff8866'
+      } else if (line.includes('locked: true') || line.includes('← Change')) {
+        ctx.fillStyle = '#77dd77' // Highlight the solution
+      } else if (line.includes('Press E') || line.includes('Ctrl+S')) {
+        ctx.fillStyle = '#77aaff' // Controls
       } else if (line.startsWith('>')) {
         ctx.fillStyle = '#77dd77'
       } else if (line.startsWith('  ')) {
@@ -244,8 +258,24 @@ export class TerminalMesh {
       const temp = state.values['temperature']?.toFixed(1) ?? '??'
       const pressure = state.values['pressure']?.toFixed(2) ?? '??'
 
-      const o2Status = parseFloat(o2) < 16 ? '✗' : parseFloat(o2) < 19 ? '⚠' : '✓'
-      const o2Color = parseFloat(o2) < 16 ? 'CRITICAL' : parseFloat(o2) < 19 ? 'WARNING' : 'NOMINAL'
+      // O2 status: < 16% critical, < 19% warning
+      const o2Val = parseFloat(o2)
+      const o2Status = o2Val < 16 ? '✗ CRITICAL' : o2Val < 19 ? '⚠ LOW' : '✓'
+
+      // Temperature status: < 15°C or > 30°C warning, < 5°C or > 40°C critical
+      const tempVal = parseFloat(temp)
+      const tempStatus = (tempVal < 5 || tempVal > 40) ? '✗ CRITICAL' :
+                         (tempVal < 15 || tempVal > 30) ? '⚠ WARN' : '✓'
+
+      // Pressure status: < 0.8 or > 1.2 warning, < 0.5 or > 1.5 critical
+      const pressVal = parseFloat(pressure)
+      const pressStatus = (pressVal < 0.5 || pressVal > 1.5) ? '✗ CRITICAL' :
+                          (pressVal < 0.8 || pressVal > 1.2) ? '⚠ WARN' : '✓'
+
+      // Overall status
+      const hasCritical = o2Val < 16 || tempVal < 5 || tempVal > 40 || pressVal < 0.5 || pressVal > 1.5
+      const hasWarning = o2Val < 19 || tempVal < 15 || tempVal > 30 || pressVal < 0.8 || pressVal > 1.2
+      const overallStatus = hasCritical ? 'CRITICAL' : hasWarning ? 'WARNING' : 'NOMINAL'
 
       this.lines = [
         `═══ ${this.definition.properties.display_name} ═══`,
@@ -253,12 +283,12 @@ export class TerminalMesh {
         'ENVIRONMENTAL STATUS',
         '────────────────────',
         '',
-        `  O2 Level:    ${o2}%  ${o2Status}`,
-        `  Temperature: ${temp}°C ✓`,
-        `  Pressure:    ${pressure}atm ✓`,
+        `  O2 Level:    ${o2.padStart(5)}%  ${o2Status}`,
+        `  Temperature: ${temp.padStart(5)}°C ${tempStatus}`,
+        `  Pressure:    ${pressure.padStart(5)}atm ${pressStatus}`,
         '',
         '────────────────────',
-        `System Status: ${o2Color}`,
+        `System Status: ${overallStatus}`,
       ]
       this.renderScreen()
     }
@@ -301,9 +331,13 @@ export class TerminalMesh {
   }
 
   update(deltaTime: number) {
-    // Periodic state updates for status terminals
+    // Periodic state updates for status terminals (every 1 second)
     if (this.definition.properties.terminal_type === 'STATUS') {
-      this.updateFromState()
+      this.updateTimer += deltaTime
+      if (this.updateTimer >= this.updateInterval) {
+        this.updateTimer = 0
+        this.updateFromState()
+      }
     }
   }
 

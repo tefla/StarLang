@@ -3,7 +3,7 @@
 import { Lexer } from './lexer'
 import type { Token, TokenType } from './lexer'
 
-export type ASTNodeType = 'ROOM' | 'DOOR' | 'TERMINAL' | 'SENSOR' | 'SIGNAL'
+export type ASTNodeType = 'ROOM' | 'DOOR' | 'TERMINAL' | 'SENSOR' | 'SIGNAL' | 'SWITCH'
 
 export interface ASTNode {
   type: ASTNodeType
@@ -79,7 +79,7 @@ export class Parser {
     }
 
     const type = keyword.value.toUpperCase() as ASTNodeType
-    if (!['ROOM', 'DOOR', 'TERMINAL', 'SENSOR', 'SIGNAL'].includes(type)) {
+    if (!['ROOM', 'DOOR', 'TERMINAL', 'SENSOR', 'SIGNAL', 'SWITCH'].includes(type)) {
       throw new Error(`Unknown definition type: ${keyword.value}`)
     }
 

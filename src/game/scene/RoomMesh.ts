@@ -1,7 +1,12 @@
-// 3D Room Geometry
+// 3D Room Geometry with door openings
 
 import * as THREE from 'three'
-import type { RoomDefinition } from '../../types/nodes'
+import type { RoomDefinition, DoorDefinition } from '../../types/nodes'
+
+export interface DoorOpening {
+  position: { x: number; z: number }
+  rotation: number // 0 or 180 = Z wall, 90 or 270 = X wall
+}
 
 export class RoomMesh {
   public group: THREE.Group
@@ -12,7 +17,7 @@ export class RoomMesh {
   private ceiling: THREE.Mesh
   private ambientLight: THREE.PointLight
 
-  constructor(definition: RoomDefinition) {
+  constructor(definition: RoomDefinition, doorOpenings: DoorOpening[] = []) {
     this.definition = definition
     this.group = new THREE.Group()
     this.group.name = `room_${definition.id}`
@@ -20,7 +25,7 @@ export class RoomMesh {
     const { position, size } = definition.properties
     const { width, height, depth } = size
 
-    // Materials - using brighter colors and side:DoubleSide so they're visible from inside
+    // Materials
     const wallMaterial = new THREE.MeshStandardMaterial({
       color: 0x5a6a7a,
       roughness: 0.8,
@@ -58,21 +63,21 @@ export class RoomMesh {
     this.ceiling.receiveShadow = true
     this.group.add(this.ceiling)
 
-    // Walls (4 walls with potential door cutouts)
-    this.createWalls(width, height, depth, wallMaterial)
+    // Walls with door openings
+    this.createWallsWithOpenings(width, height, depth, wallMaterial, doorOpenings, position)
 
-    // Room lighting - increased intensity and distance
+    // Room lighting
     this.ambientLight = new THREE.PointLight(0xffffee, 2, width * 3)
     this.ambientLight.position.set(0, height - 0.5, 0)
     this.ambientLight.castShadow = true
     this.group.add(this.ambientLight)
 
-    // Add a secondary fill light for better visibility
+    // Fill light
     const fillLight = new THREE.PointLight(0x8888ff, 0.5, width * 2)
     fillLight.position.set(0, 0.5, 0)
     this.group.add(fillLight)
 
-    // Ceiling light fixture (visual)
+    // Ceiling light fixture
     const lightFixture = new THREE.Mesh(
       new THREE.BoxGeometry(1, 0.1, 0.3),
       new THREE.MeshStandardMaterial({
@@ -84,76 +89,217 @@ export class RoomMesh {
     lightFixture.position.set(0, height - 0.05, 0)
     this.group.add(lightFixture)
 
-    // Position the entire room
+    // Position the room
     this.group.position.set(position.x, position.y, position.z)
   }
 
-  private createWalls(width: number, height: number, depth: number, material: THREE.Material) {
+  private createWallsWithOpenings(
+    width: number,
+    height: number,
+    depth: number,
+    material: THREE.Material,
+    doorOpenings: DoorOpening[],
+    roomPos: { x: number; y: number; z: number }
+  ) {
     const wallThickness = 0.2
+    const doorWidth = 1.5  // Match door frame outer width (1.2 + 0.15*2)
+    const doorHeight = 2.55  // Match door frame total height (2.4 + 0.15 frame top)
 
-    // Back wall (positive Z)
-    const backWall = new THREE.Mesh(
-      new THREE.BoxGeometry(width, height, wallThickness),
-      material
-    )
-    backWall.position.set(0, height / 2, depth / 2)
-    backWall.receiveShadow = true
-    backWall.castShadow = true
-    this.walls.push(backWall)
-    this.group.add(backWall)
+    // Determine which walls have doors
+    // Door positions are in world coords, convert to local
+    const doorsOnWalls = {
+      back: [] as number[],   // +Z wall, stores local X positions
+      front: [] as number[],  // -Z wall
+      left: [] as number[],   // -X wall, stores local Z positions
+      right: [] as number[]   // +X wall
+    }
 
-    // Front wall (negative Z)
-    const frontWall = new THREE.Mesh(
-      new THREE.BoxGeometry(width, height, wallThickness),
-      material
-    )
-    frontWall.position.set(0, height / 2, -depth / 2)
-    frontWall.receiveShadow = true
-    frontWall.castShadow = true
-    this.walls.push(frontWall)
-    this.group.add(frontWall)
+    for (const door of doorOpenings) {
+      // Convert world position to local position relative to room
+      const localX = door.position.x - roomPos.x
+      const localZ = door.position.z - roomPos.z
 
-    // Left wall (negative X)
-    const leftWall = new THREE.Mesh(
-      new THREE.BoxGeometry(wallThickness, height, depth),
-      material
-    )
-    leftWall.position.set(-width / 2, height / 2, 0)
-    leftWall.receiveShadow = true
-    leftWall.castShadow = true
-    this.walls.push(leftWall)
-    this.group.add(leftWall)
+      // Determine which wall based on position and rotation
+      // rotation 90 or 270 = door on X walls (left/right)
+      // rotation 0 or 180 = door on Z walls (front/back)
+      const isXWall = door.rotation === 90 || door.rotation === 270
 
-    // Right wall (positive X)
-    const rightWall = new THREE.Mesh(
-      new THREE.BoxGeometry(wallThickness, height, depth),
-      material
+      if (isXWall) {
+        // Door is on left or right wall
+        if (localX > 0) {
+          doorsOnWalls.right.push(localZ)
+        } else {
+          doorsOnWalls.left.push(localZ)
+        }
+      } else {
+        // Door is on front or back wall
+        if (localZ > 0) {
+          doorsOnWalls.back.push(localX)
+        } else {
+          doorsOnWalls.front.push(localX)
+        }
+      }
+    }
+
+    // Create walls with openings
+
+    // Back wall (+Z)
+    this.createWallWithOpenings(
+      width, height, wallThickness,
+      { x: 0, y: height / 2, z: depth / 2 },
+      'horizontal', doorsOnWalls.back, doorWidth, doorHeight, material
     )
-    rightWall.position.set(width / 2, height / 2, 0)
-    rightWall.receiveShadow = true
-    rightWall.castShadow = true
-    this.walls.push(rightWall)
-    this.group.add(rightWall)
+
+    // Front wall (-Z)
+    this.createWallWithOpenings(
+      width, height, wallThickness,
+      { x: 0, y: height / 2, z: -depth / 2 },
+      'horizontal', doorsOnWalls.front, doorWidth, doorHeight, material
+    )
+
+    // Left wall (-X)
+    this.createWallWithOpenings(
+      depth, height, wallThickness,
+      { x: -width / 2, y: height / 2, z: 0 },
+      'vertical', doorsOnWalls.left, doorWidth, doorHeight, material
+    )
+
+    // Right wall (+X)
+    this.createWallWithOpenings(
+      depth, height, wallThickness,
+      { x: width / 2, y: height / 2, z: 0 },
+      'vertical', doorsOnWalls.right, doorWidth, doorHeight, material
+    )
   }
 
-  // Update lighting based on room state (O2, power, etc.)
-  updateLighting(o2Level: number, powered: boolean) {
-    if (!powered) {
-      this.ambientLight.intensity = 0.1
-      this.ambientLight.color.setHex(0xff4444) // Emergency red
-    } else if (o2Level < 16) {
-      this.ambientLight.intensity = 0.5
-      this.ambientLight.color.setHex(0xff6666) // Critical red
-    } else if (o2Level < 19) {
-      this.ambientLight.intensity = 0.8
-      this.ambientLight.color.setHex(0xffaa66) // Warning amber
-    } else {
-      this.ambientLight.intensity = 1.0
-      this.ambientLight.color.setHex(0xffffee) // Normal warm white
+  private createWallWithOpenings(
+    wallLength: number,
+    wallHeight: number,
+    wallThickness: number,
+    position: { x: number; y: number; z: number },
+    orientation: 'horizontal' | 'vertical',
+    doorPositions: number[], // positions along the wall where doors are
+    doorWidth: number,
+    doorHeight: number,
+    material: THREE.Material
+  ) {
+    if (doorPositions.length === 0) {
+      // No doors - create solid wall
+      const isHorizontal = orientation === 'horizontal'
+      const geometry = isHorizontal
+        ? new THREE.BoxGeometry(wallLength, wallHeight, wallThickness)
+        : new THREE.BoxGeometry(wallThickness, wallHeight, wallLength)
+
+      const wall = new THREE.Mesh(geometry, material)
+      wall.position.set(position.x, position.y, position.z)
+      wall.receiveShadow = true
+      wall.castShadow = true
+      this.walls.push(wall)
+      this.group.add(wall)
+      return
+    }
+
+    // Sort door positions
+    const sortedDoors = [...doorPositions].sort((a, b) => a - b)
+    const halfLength = wallLength / 2
+    const isHorizontal = orientation === 'horizontal'
+
+    // Create wall segments around doors
+    let currentPos = -halfLength
+
+    for (const doorPos of sortedDoors) {
+      const doorStart = doorPos - doorWidth / 2
+      const doorEnd = doorPos + doorWidth / 2
+
+      // Wall segment before door
+      if (doorStart > currentPos) {
+        const segmentLength = doorStart - currentPos
+        const segmentCenter = currentPos + segmentLength / 2
+
+        const geometry = isHorizontal
+          ? new THREE.BoxGeometry(segmentLength, wallHeight, wallThickness)
+          : new THREE.BoxGeometry(wallThickness, wallHeight, segmentLength)
+
+        const wall = new THREE.Mesh(geometry, material)
+        if (isHorizontal) {
+          wall.position.set(position.x + segmentCenter, position.y, position.z)
+        } else {
+          wall.position.set(position.x, position.y, position.z + segmentCenter)
+        }
+        wall.receiveShadow = true
+        wall.castShadow = true
+        this.walls.push(wall)
+        this.group.add(wall)
+      }
+
+      // Wall segment above door
+      const aboveDoorHeight = wallHeight - doorHeight
+      if (aboveDoorHeight > 0) {
+        const geometry = isHorizontal
+          ? new THREE.BoxGeometry(doorWidth, aboveDoorHeight, wallThickness)
+          : new THREE.BoxGeometry(wallThickness, aboveDoorHeight, doorWidth)
+
+        const wall = new THREE.Mesh(geometry, material)
+        if (isHorizontal) {
+          wall.position.set(
+            position.x + doorPos,
+            doorHeight + aboveDoorHeight / 2,
+            position.z
+          )
+        } else {
+          wall.position.set(
+            position.x,
+            doorHeight + aboveDoorHeight / 2,
+            position.z + doorPos
+          )
+        }
+        wall.receiveShadow = true
+        wall.castShadow = true
+        this.walls.push(wall)
+        this.group.add(wall)
+      }
+
+      currentPos = doorEnd
+    }
+
+    // Wall segment after last door
+    if (currentPos < halfLength) {
+      const segmentLength = halfLength - currentPos
+      const segmentCenter = currentPos + segmentLength / 2
+
+      const geometry = isHorizontal
+        ? new THREE.BoxGeometry(segmentLength, wallHeight, wallThickness)
+        : new THREE.BoxGeometry(wallThickness, wallHeight, segmentLength)
+
+      const wall = new THREE.Mesh(geometry, material)
+      if (isHorizontal) {
+        wall.position.set(position.x + segmentCenter, position.y, position.z)
+      } else {
+        wall.position.set(position.x, position.y, position.z + segmentCenter)
+      }
+      wall.receiveShadow = true
+      wall.castShadow = true
+      this.walls.push(wall)
+      this.group.add(wall)
     }
   }
 
-  // Get collision boxes for the room
+  updateLighting(o2Level: number, powered: boolean) {
+    if (!powered) {
+      this.ambientLight.intensity = 0.1
+      this.ambientLight.color.setHex(0xff4444)
+    } else if (o2Level < 16) {
+      this.ambientLight.intensity = 0.5
+      this.ambientLight.color.setHex(0xff6666)
+    } else if (o2Level < 19) {
+      this.ambientLight.intensity = 0.8
+      this.ambientLight.color.setHex(0xffaa66)
+    } else {
+      this.ambientLight.intensity = 1.0
+      this.ambientLight.color.setHex(0xffffee)
+    }
+  }
+
   getCollisionBoxes(): THREE.Box3[] {
     return this.walls.map(wall => new THREE.Box3().setFromObject(wall))
   }

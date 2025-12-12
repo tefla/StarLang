@@ -5,6 +5,7 @@ export type NodeType =
   | 'DOOR'
   | 'SENSOR'
   | 'TERMINAL'
+  | 'SWITCH'
   | 'ATMO_OUTLET'
   | 'ATMO_INLET'
   | 'SIGNAL'
@@ -20,6 +21,8 @@ export type Role =
 export type DoorState = 'OPEN' | 'CLOSED' | 'LOCKED' | 'SEALED'
 
 export type TerminalType = 'STATUS' | 'COMMAND' | 'ENGINEERING'
+
+export type SwitchStatus = 'OK' | 'FAULT'
 
 export interface Position3D {
   x: number
@@ -52,8 +55,19 @@ export interface DoorDefinition extends NodeDefinition {
     connects: [string, string]
     position: Position3D
     rotation: number
-    locked: boolean
+    control: string  // ID of switch that controls this door
     access?: Role
+  }
+}
+
+export interface SwitchDefinition extends NodeDefinition {
+  type: 'SWITCH'
+  properties: {
+    display_name: string
+    location: string
+    position: Position3D
+    rotation: number
+    status: SwitchStatus  // From layout - OK = works, FAULT = broken
   }
 }
 
@@ -110,4 +124,5 @@ export interface ShipStructure {
   doors: Map<string, DoorDefinition>
   terminals: Map<string, TerminalDefinition>
   sensors: Map<string, SensorDefinition>
+  switches: Map<string, SwitchDefinition>
 }

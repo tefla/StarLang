@@ -25,7 +25,7 @@ export interface Token {
 }
 
 const KEYWORDS = new Set([
-  'room', 'door', 'terminal', 'sensor', 'signal',
+  'room', 'door', 'terminal', 'sensor', 'signal', 'switch',
   'true', 'false'
 ])
 

@@ -14,7 +14,6 @@ export class DoorMesh {
   private rightPanel: THREE.Mesh
   private frame: THREE.Group
   private statusLight: THREE.Mesh
-  private controlPanel: THREE.Group
 
   private doorWidth = 1.2
   private doorHeight = 2.4
@@ -43,7 +42,7 @@ export class DoorMesh {
     })
 
     const panelGeometry = new THREE.BoxGeometry(
-      this.doorWidth / 2 - 0.05,
+      this.doorWidth / 2,
       this.doorHeight - 0.1,
       this.panelThickness
     )
@@ -62,19 +61,12 @@ export class DoorMesh {
     this.statusLight = this.createStatusLight()
     this.group.add(this.statusLight)
 
-    // Control panel
-    this.controlPanel = this.createControlPanel()
-    this.group.add(this.controlPanel)
-
     // Position and rotate
     const { position, rotation } = definition.properties
     this.group.position.set(position.x, position.y, position.z)
     this.group.rotation.y = (rotation * Math.PI) / 180
 
-    // Set initial state
-    if (definition.properties.locked) {
-      this.setState('LOCKED')
-    }
+    // Doors start closed - state managed by runtime based on control switch
   }
 
   private createFrame(): THREE.Group {
@@ -128,37 +120,6 @@ export class DoorMesh {
     return light
   }
 
-  private createControlPanel(): THREE.Group {
-    const panel = new THREE.Group()
-    panel.userData = { type: 'door_panel', id: this.definition.id, interactable: true }
-
-    // Panel backing
-    const backingGeometry = new THREE.BoxGeometry(0.2, 0.3, 0.05)
-    const backingMaterial = new THREE.MeshStandardMaterial({
-      color: 0x2a3a4a,
-      roughness: 0.7,
-      metalness: 0.3,
-    })
-    const backing = new THREE.Mesh(backingGeometry, backingMaterial)
-    panel.add(backing)
-
-    // Screen
-    const screenGeometry = new THREE.PlaneGeometry(0.15, 0.2)
-    const screenMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1a2a3a,
-      emissive: 0x4a6fa5,
-      emissiveIntensity: 0.3
-    })
-    const screen = new THREE.Mesh(screenGeometry, screenMaterial)
-    screen.position.z = 0.026
-    panel.add(screen)
-
-    // Position panel to right of door
-    panel.position.set(this.doorWidth / 2 + 0.3, 1.2, 0.1)
-
-    return panel
-  }
-
   setState(state: DoorStateType) {
     this.currentState = state
     const lightMaterial = this.statusLight.material as THREE.MeshStandardMaterial
@@ -204,16 +165,16 @@ export class DoorMesh {
         this.openAmount = this.targetOpenAmount
       }
 
-      // Slide panels
-      const slideAmount = this.openAmount * (this.doorWidth / 2)
-      this.leftPanel.position.x = -this.doorWidth / 4 - slideAmount
-      this.rightPanel.position.x = this.doorWidth / 4 + slideAmount
+      // Slide panels UP into ceiling (avoids clipping through walls)
+      const slideAmount = this.openAmount * this.doorHeight
+      this.leftPanel.position.y = this.doorHeight / 2 + slideAmount
+      this.rightPanel.position.y = this.doorHeight / 2 + slideAmount
     }
   }
 
-  // Check if player can pass through
+  // Check if player can pass through (based on target state, not animation)
   canPassThrough(): boolean {
-    return this.openAmount > 0.8
+    return this.currentState === 'OPEN'
   }
 
   // Get bounding box for collision
