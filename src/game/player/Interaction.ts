@@ -26,6 +26,11 @@ export class InteractionSystem {
   // UI elements
   private crosshair: HTMLElement | null = null
   private prompt: HTMLElement | null = null
+  private editorOverlay: HTMLElement | null = null
+  private editorTextarea: HTMLTextAreaElement | null = null
+  private editorFilename: HTMLElement | null = null
+  private editorStatus: HTMLElement | null = null
+  private editorErrors: HTMLElement | null = null
 
   // Code editing state
   private isEditingCode = false
@@ -39,6 +44,11 @@ export class InteractionSystem {
 
     this.crosshair = document.getElementById('crosshair')
     this.prompt = document.getElementById('interaction-prompt')
+    this.editorOverlay = document.getElementById('code-editor-overlay')
+    this.editorTextarea = document.getElementById('code-editor-textarea') as HTMLTextAreaElement
+    this.editorFilename = document.getElementById('code-editor-filename')
+    this.editorStatus = document.getElementById('code-editor-status')
+    this.editorErrors = document.getElementById('code-editor-errors')
 
     this.setupEventListeners()
   }
@@ -53,9 +63,10 @@ export class InteractionSystem {
         this.exitFocus()
       }
 
-      // Handle code editing
-      if (this.isEditingCode) {
-        this.handleCodeInput(e)
+      // Handle Ctrl+S for save in editor
+      if (this.isEditingCode && e.ctrlKey && e.code === 'KeyS') {
+        e.preventDefault()
+        this.saveCode()
       }
     })
   }
@@ -171,44 +182,54 @@ export class InteractionSystem {
 
     // Disable player movement
     this.player.setEnabled(false)
-    console.log('[Interaction] Player movement disabled')
 
     // Exit pointer lock
     document.exitPointerLock()
-    console.log('[Interaction] Pointer lock exited')
 
     // Hide interaction UI
     this.hideInteractionPrompt()
     if (this.crosshair) this.crosshair.style.display = 'none'
 
-    // Load file content
+    // Load file content and show editor
     if (terminal.definition.properties.terminal_type === 'ENGINEERING') {
       const files = terminal.definition.properties.mounted_files ?? []
-      console.log('[Interaction] Mounted files:', files)
 
       if (files.length > 0) {
         const file = this.runtime.getFile(files[0]!)
-        console.log('[Interaction] Loaded file:', file ? 'found' : 'not found')
 
         if (file) {
           this.currentFile = files[0]!
           this.currentCode = file.content
-          this.isEditingCode = true
-          terminal.setCodeContent(this.currentFile, this.currentCode)
-          console.log('[Interaction] Code content set, editing enabled')
         } else {
-          // File not found - show tutorial/help text
           this.currentFile = files[0]!
-          this.currentCode = '# No file loaded\n# Press Esc to exit'
-          this.isEditingCode = true
-          terminal.setCodeContent(this.currentFile, this.currentCode)
-          console.log('[Interaction] File not found, showing placeholder')
+          this.currentCode = '# File not found\n# Press Esc to exit'
         }
+
+        this.isEditingCode = true
+        this.showEditor()
       }
     }
+  }
 
-    this.showMessage('Terminal focused - Press Esc to exit')
-    console.log('[Interaction] Terminal focus complete')
+  private showEditor() {
+    if (!this.editorOverlay || !this.editorTextarea || !this.editorFilename || !this.editorStatus || !this.editorErrors) return
+
+    this.editorFilename.textContent = this.currentFile
+    this.editorTextarea.value = this.currentCode
+    this.editorStatus.textContent = 'Ready'
+    this.editorErrors.textContent = ''
+    this.editorOverlay.classList.add('visible')
+
+    // Focus textarea for immediate typing
+    setTimeout(() => {
+      this.editorTextarea?.focus()
+    }, 100)
+  }
+
+  private hideEditor() {
+    if (this.editorOverlay) {
+      this.editorOverlay.classList.remove('visible')
+    }
   }
 
   private exitFocus() {
@@ -218,6 +239,9 @@ export class InteractionSystem {
     this.focusedTerminal = null
     this.isEditingCode = false
 
+    // Hide editor
+    this.hideEditor()
+
     // Re-enable player
     this.player.setEnabled(true)
 
@@ -225,30 +249,12 @@ export class InteractionSystem {
     if (this.crosshair) this.crosshair.style.display = 'block'
   }
 
-  private handleCodeInput(e: KeyboardEvent) {
-    if (!this.focusedTerminal) return
-
-    // Ctrl+S to save
-    if (e.ctrlKey && e.code === 'KeyS') {
-      e.preventDefault()
-      this.saveCode()
-      return
-    }
-
-    // Handle text input (simplified for MVP)
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-      this.currentCode += e.key
-      this.focusedTerminal.setCodeContent(this.currentFile, this.currentCode)
-    } else if (e.code === 'Backspace') {
-      this.currentCode = this.currentCode.slice(0, -1)
-      this.focusedTerminal.setCodeContent(this.currentFile, this.currentCode)
-    } else if (e.code === 'Enter') {
-      this.currentCode += '\n'
-      this.focusedTerminal.setCodeContent(this.currentFile, this.currentCode)
-    }
-  }
-
   private saveCode() {
+    // Get code from textarea
+    if (this.editorTextarea) {
+      this.currentCode = this.editorTextarea.value
+    }
+
     // Update file in runtime
     this.runtime.loadFile(this.currentFile, this.currentCode)
 
@@ -259,15 +265,31 @@ export class InteractionSystem {
     const result = this.runtime.recompile(allCode)
 
     if (result.success) {
-      this.showMessage('Saved and compiled successfully!')
-      if (this.focusedTerminal) {
-        this.focusedTerminal.setCodeContent(this.currentFile, this.currentCode)
+      // Update editor status
+      if (this.editorStatus) {
+        this.editorStatus.textContent = 'Compiled successfully!'
+        this.editorStatus.style.color = '#77dd77'
       }
+      if (this.editorErrors) {
+        this.editorErrors.textContent = ''
+      }
+
+      // Rebuild the scene with new structure
+      const structure = this.runtime.getStructure()
+      if (structure) {
+        this.scene.buildFromStructure(structure)
+      }
+
+      this.showMessage('Code saved and compiled!')
     } else {
-      const errors = result.errors.map(e => `Line ${e.line}: ${e.message}`)
-      this.showMessage('Compile error!')
-      if (this.focusedTerminal) {
-        this.focusedTerminal.setCodeContent(this.currentFile, this.currentCode, errors)
+      // Show errors in editor
+      if (this.editorStatus) {
+        this.editorStatus.textContent = 'Compile error'
+        this.editorStatus.style.color = '#ff6b6b'
+      }
+      if (this.editorErrors) {
+        const errorText = result.errors.map(e => `Line ${e.line}: ${e.message}`).join('\n')
+        this.editorErrors.textContent = errorText
       }
     }
   }

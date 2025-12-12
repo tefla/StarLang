@@ -138,6 +138,98 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    /* Code editor overlay */
+    #code-editor-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 10, 15, 0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+
+    #code-editor-overlay.visible {
+      display: flex;
+    }
+
+    #code-editor-container {
+      width: 80%;
+      max-width: 900px;
+      height: 80%;
+      background: #1a2744;
+      border: 2px solid #4a6fa5;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 40px rgba(74, 111, 165, 0.3);
+    }
+
+    #code-editor-header {
+      padding: 12px 16px;
+      background: #2a3a5a;
+      border-bottom: 1px solid #4a6fa5;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 6px 6px 0 0;
+    }
+
+    #code-editor-filename {
+      color: #77dd77;
+      font-size: 14px;
+    }
+
+    #code-editor-status {
+      color: #9ca3af;
+      font-size: 12px;
+    }
+
+    #code-editor-textarea {
+      flex: 1;
+      width: 100%;
+      padding: 16px;
+      background: #1a2744;
+      color: #d0d0d0;
+      border: none;
+      outline: none;
+      resize: none;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    #code-editor-footer {
+      padding: 12px 16px;
+      background: #2a3a5a;
+      border-top: 1px solid #4a6fa5;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 0 0 6px 6px;
+    }
+
+    #code-editor-footer kbd {
+      display: inline-block;
+      padding: 2px 8px;
+      margin: 0 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #d0d0d0;
+      font-size: 12px;
+    }
+
+    #code-editor-errors {
+      color: #ff6b6b;
+      font-size: 12px;
+      max-height: 60px;
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body>
@@ -149,6 +241,20 @@
   <div id="game-container"></div>
   <div id="crosshair"></div>
   <div id="interaction-prompt"></div>
+
+  <div id="code-editor-overlay">
+    <div id="code-editor-container">
+      <div id="code-editor-header">
+        <span id="code-editor-filename">galley.sl</span>
+        <span id="code-editor-status">Ready</span>
+      </div>
+      <textarea id="code-editor-textarea" spellcheck="false"></textarea>
+      <div id="code-editor-footer">
+        <div><kbd>Ctrl+S</kbd> Save &amp; Compile <kbd>Esc</kbd> Exit</div>
+        <div id="code-editor-errors"></div>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="./src/main.tsx"></script>
 </body>

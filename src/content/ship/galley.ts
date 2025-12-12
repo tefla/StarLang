@@ -40,7 +40,7 @@ room engineering {
 door galley_exit {
   display_name: "Galley Exit"
   connects: [galley, corridor]
-  position: { x: 3.1, y: 0, z: 0 }
+  position: { x: 2.8, y: 0, z: 0 }
   rotation: 90
   locked: true
 }
@@ -68,7 +68,7 @@ terminal galley_engineering {
   display_name: "Engineering Terminal"
   terminal_type: ENGINEERING
   location: galley
-  position: { x: 2, y: 0, z: -2.5 }
+  position: { x: 1.5, y: 0, z: -2 }
   rotation: 180
   mounted_files: ["galley.sl"]
 }

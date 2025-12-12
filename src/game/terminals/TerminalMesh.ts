@@ -57,14 +57,11 @@ export class TerminalMesh {
     this.screenMesh = new THREE.Mesh(screenGeometry, screenMaterial)
 
     // Position screen based on terminal type - flush with the frame surface
-    // Note: screen is a PlaneGeometry which faces +Z by default
+    // PlaneGeometry faces +Z by default
     if (definition.properties.terminal_type === 'ENGINEERING') {
-      // Workstation monitor frame is at z=0.06, depth 0.08
-      // Screen should be on the front face (toward keyboard at +z side of desk)
-      // Frame front is at z = 0.06 + 0.04 = 0.10, but we want it on the back (keyboard side)
-      // Frame back is at z = 0.06 - 0.04 = 0.02
-      this.screenMesh.position.set(0, 1.2, 0.019)
-      // No rotation needed - screen faces +Z which is toward the keyboard
+      // Monitor frame center at z=-0.11, depth 0.08, so front face at z=-0.07
+      // Place screen just in front of frame, no rotation needed (faces +Z toward player)
+      this.screenMesh.position.set(0, 1.2, -0.068)
     } else {
       // Wall panel backing is at z=0, depth 0.1, so front face at z=0.05
       this.screenMesh.position.set(0, 1.2, 0.051)
@@ -118,19 +115,19 @@ export class TerminalMesh {
       this.group.add(leg)
     }
 
-    // Monitor stand
+    // Monitor stand - at back of desk (-Z side)
     const standGeometry = new THREE.BoxGeometry(0.1, 0.4, 0.1)
     const stand = new THREE.Mesh(standGeometry, material)
-    stand.position.set(0, 0.97, 0)
+    stand.position.set(0, 0.97, -0.15)
     this.group.add(stand)
 
-    // Monitor frame
+    // Monitor frame - screen faces +Z (toward keyboard/player)
     const frameGeometry = new THREE.BoxGeometry(0.9, 0.7, 0.08)
     const frame = new THREE.Mesh(frameGeometry, material)
-    frame.position.set(0, 1.2, 0.06)
+    frame.position.set(0, 1.2, -0.11)
     this.group.add(frame)
 
-    // Keyboard
+    // Keyboard - at front of desk (+Z side, toward player)
     const keyboardGeometry = new THREE.BoxGeometry(0.5, 0.02, 0.15)
     const keyboardMaterial = new THREE.MeshStandardMaterial({
       color: 0x1a2a3a,
