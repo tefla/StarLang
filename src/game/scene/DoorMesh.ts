@@ -2,6 +2,7 @@
 
 import * as THREE from 'three'
 import type { DoorDefinition } from '../../types/nodes'
+import { audioSystem } from '../audio/AudioSystem'
 
 export type DoorStateType = 'OPEN' | 'CLOSED' | 'LOCKED' | 'SEALED'
 
@@ -121,8 +122,18 @@ export class DoorMesh {
   }
 
   setState(state: DoorStateType) {
+    const previousState = this.currentState
     this.currentState = state
     const lightMaterial = this.statusLight.material as THREE.MeshStandardMaterial
+
+    // Play door sound when state changes
+    if (previousState !== state) {
+      if (state === 'OPEN') {
+        audioSystem.playDoorSound(this.group.position, true)
+      } else if (previousState === 'OPEN') {
+        audioSystem.playDoorSound(this.group.position, false)
+      }
+    }
 
     switch (state) {
       case 'OPEN':

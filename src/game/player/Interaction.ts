@@ -7,6 +7,7 @@ import { TerminalMesh } from '../terminals/TerminalMesh'
 import { DoorMesh } from '../scene/DoorMesh'
 import { SwitchMesh } from '../scene/SwitchMesh'
 import { Runtime } from '../../runtime/Runtime'
+import { audioSystem } from '../audio/AudioSystem'
 
 export type InteractionTarget = {
   type: 'door' | 'terminal' | 'door_panel' | 'switch'
@@ -123,8 +124,11 @@ export class InteractionSystem {
     const switchMesh = this.scene.switchMeshes.get(switchId)
     if (!switchMesh) return
 
-    // Check if switch is broken - just doesn't respond
+    // Check if switch is broken - give feedback but doesn't work
     if (switchMesh.getStatus() === 'FAULT') {
+      switchMesh.pressBroken()
+      // Emit visual sparks
+      this.scene.sparkEffect.emit(switchMesh.group.position, 12)
       return
     }
 
@@ -151,7 +155,14 @@ export class InteractionSystem {
       }
     }
 
-    // Switch not connected to any door - just visual feedback (LED blink)
+    // Check if this is a light switch - toggle room lights
+    if (switchId.includes('light_switch') || switchMesh.definition.properties.display_name.toLowerCase().includes('light')) {
+      const roomId = switchMesh.definition.properties.location
+      const roomMesh = this.scene.roomMeshes.get(roomId)
+      if (roomMesh) {
+        roomMesh.toggleLights()
+      }
+    }
   }
 
   private interactWithTerminal(terminalId: string) {
@@ -172,6 +183,7 @@ export class InteractionSystem {
   private focusTerminal(terminal: TerminalMesh) {
     this.focusedTerminal = terminal
     terminal.focus()
+    audioSystem.playTerminalAccess()
 
     // Disable player movement
     this.player.setEnabled(false)
@@ -258,6 +270,9 @@ export class InteractionSystem {
     const result = this.runtime.recompile(allCode)
 
     if (result.success) {
+      // Play success sound
+      audioSystem.playCompileSuccess()
+
       // Update editor status
       if (this.editorStatus) {
         this.editorStatus.textContent = 'Compiled successfully!'
@@ -274,6 +289,9 @@ export class InteractionSystem {
       }
       // Editor status bar shows success - no toast needed
     } else {
+      // Play error sound
+      audioSystem.playCompileError()
+
       // Show errors in editor
       if (this.editorStatus) {
         this.editorStatus.textContent = 'Compile error'

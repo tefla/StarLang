@@ -2,6 +2,7 @@
 
 import * as THREE from 'three'
 import type { SwitchDefinition } from '../../types/nodes'
+import { audioSystem } from '../audio/AudioSystem'
 
 export class SwitchMesh {
   public group: THREE.Group
@@ -76,6 +77,9 @@ export class SwitchMesh {
 
   // Visual feedback when pressed
   press() {
+    // Play click sound
+    audioSystem.playSwitchClick(this.group.position, true)
+
     // Animate button press
     this.button.position.z = this.plateDepth / 2 - 0.005
     setTimeout(() => {
@@ -97,6 +101,30 @@ export class SwitchMesh {
       lightMaterial.emissive.setHex(originalColor)
       lightMaterial.emissiveIntensity = 0.5
     }, 150)
+  }
+
+  // Called when broken switch is pressed - plays fault sounds
+  pressBroken() {
+    // Play broken click sound and sparks
+    audioSystem.playSwitchClick(this.group.position, false)
+    audioSystem.playSparks(this.group.position)
+
+    // Slight button movement but no satisfying click
+    this.button.position.z = this.plateDepth / 2 - 0.002
+    setTimeout(() => {
+      this.button.position.z = this.plateDepth / 2 + 0.01
+    }, 50)
+
+    // Flicker the red LED erratically
+    const lightMaterial = this.statusLight.material as THREE.MeshStandardMaterial
+    const flicker = () => {
+      lightMaterial.emissiveIntensity = Math.random() * 0.8 + 0.2
+    }
+    const flickerInterval = setInterval(flicker, 50)
+    setTimeout(() => {
+      clearInterval(flickerInterval)
+      lightMaterial.emissiveIntensity = 0.5
+    }, 300)
   }
 
   updateStatus(status: 'OK' | 'FAULT') {

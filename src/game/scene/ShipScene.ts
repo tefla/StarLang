@@ -8,6 +8,7 @@ import { SwitchMesh } from './SwitchMesh'
 import { TerminalMesh } from '../terminals/TerminalMesh'
 import { Runtime } from '../../runtime/Runtime'
 import type { ShipStructure } from '../../types/nodes'
+import { SparkEffect } from '../effects/ParticleSystem'
 
 export class ShipScene {
   public scene: THREE.Scene
@@ -15,6 +16,7 @@ export class ShipScene {
   public doorMeshes = new Map<string, DoorMesh>()
   public switchMeshes = new Map<string, SwitchMesh>()
   public terminalMeshes = new Map<string, TerminalMesh>()
+  public sparkEffect: SparkEffect
 
   private runtime: Runtime
 
@@ -26,22 +28,15 @@ export class ShipScene {
     this.scene.fog = new THREE.Fog(0x101520, 20, 80)
 
     this.setupLighting()
+
+    // Initialize particle effects
+    this.sparkEffect = new SparkEffect(this.scene)
   }
 
   private setupLighting() {
-    // Ambient light - brighter for better visibility
-    const ambientLight = new THREE.AmbientLight(0x606070, 0.6)
+    // Minimal ambient - room lights should be primary source
+    const ambientLight = new THREE.AmbientLight(0x101015, 0.1)
     this.scene.add(ambientLight)
-
-    // Hemisphere light for subtle environment
-    const hemisphereLight = new THREE.HemisphereLight(0x8888aa, 0x444466, 0.5)
-    this.scene.add(hemisphereLight)
-
-    // Add a directional light for better shadows
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.3)
-    directionalLight.position.set(5, 10, 5)
-    this.scene.add(directionalLight)
-
   }
 
   buildFromStructure(structure: ShipStructure) {
@@ -113,6 +108,11 @@ export class ShipScene {
   }
 
   update(deltaTime: number) {
+    // Update room lighting effects (alert pulsing)
+    for (const room of this.roomMeshes.values()) {
+      room.update(deltaTime)
+    }
+
     // Update door animations
     for (const door of this.doorMeshes.values()) {
       door.update(deltaTime)
@@ -122,6 +122,9 @@ export class ShipScene {
     for (const terminal of this.terminalMeshes.values()) {
       terminal.update(deltaTime)
     }
+
+    // Update particle effects
+    this.sparkEffect.update(deltaTime)
   }
 
   // Get all interactable objects for raycasting
@@ -194,5 +197,6 @@ export class ShipScene {
 
   dispose() {
     this.clear()
+    this.sparkEffect.dispose()
   }
 }

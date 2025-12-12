@@ -16,6 +16,12 @@ export class RoomMesh {
   private floor: THREE.Mesh
   private ceiling: THREE.Mesh
   private ambientLight: THREE.PointLight
+  private fillLight: THREE.PointLight | null = null
+  private lightFixture: THREE.Mesh | null = null
+  private alertLight: THREE.PointLight | null = null
+  private isAlertActive = false
+  private alertPhase = 0
+  private lightsOn = true
 
   constructor(definition: RoomDefinition, doorOpenings: DoorOpening[] = []) {
     this.definition = definition
@@ -25,25 +31,25 @@ export class RoomMesh {
     const { position, size } = definition.properties
     const { width, height, depth } = size
 
-    // Materials
+    // Materials - neutral grey to show lighting changes better
     const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x5a6a7a,
+      color: 0x808080,
       roughness: 0.8,
-      metalness: 0.2,
+      metalness: 0.1,
       side: THREE.DoubleSide,
     })
 
     const floorMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3a4a5a,
+      color: 0x606060,
       roughness: 0.9,
       metalness: 0.1,
       side: THREE.DoubleSide,
     })
 
     const ceilingMaterial = new THREE.MeshStandardMaterial({
-      color: 0x4a5a6a,
+      color: 0x707070,
       roughness: 0.7,
-      metalness: 0.3,
+      metalness: 0.1,
       side: THREE.DoubleSide,
     })
 
@@ -66,19 +72,19 @@ export class RoomMesh {
     // Walls with door openings
     this.createWallsWithOpenings(width, height, depth, wallMaterial, doorOpenings, position)
 
-    // Room lighting
-    this.ambientLight = new THREE.PointLight(0xffffee, 2, width * 3)
+    // Room lighting - primary light source
+    this.ambientLight = new THREE.PointLight(0xffffee, 4, width * 4)
     this.ambientLight.position.set(0, height - 0.5, 0)
     this.ambientLight.castShadow = true
     this.group.add(this.ambientLight)
 
-    // Fill light
-    const fillLight = new THREE.PointLight(0x8888ff, 0.5, width * 2)
-    fillLight.position.set(0, 0.5, 0)
-    this.group.add(fillLight)
+    // Fill light - neutral white from below
+    this.fillLight = new THREE.PointLight(0xffeedd, 1.0, width * 3)
+    this.fillLight.position.set(0, 0.5, 0)
+    this.group.add(this.fillLight)
 
     // Ceiling light fixture
-    const lightFixture = new THREE.Mesh(
+    this.lightFixture = new THREE.Mesh(
       new THREE.BoxGeometry(1, 0.1, 0.3),
       new THREE.MeshStandardMaterial({
         color: 0xffffff,
@@ -86,8 +92,13 @@ export class RoomMesh {
         emissiveIntensity: 0.5
       })
     )
-    lightFixture.position.set(0, height - 0.05, 0)
-    this.group.add(lightFixture)
+    this.lightFixture.position.set(0, height - 0.05, 0)
+    this.group.add(this.lightFixture)
+
+    // Alert light (starts off, activates when O2 critical)
+    this.alertLight = new THREE.PointLight(0xff0000, 0, width * 2)
+    this.alertLight.position.set(0, height - 0.3, 0)
+    this.group.add(this.alertLight)
 
     // Position the room
     this.group.position.set(position.x, position.y, position.z)
@@ -285,19 +296,101 @@ export class RoomMesh {
   }
 
   updateLighting(o2Level: number, powered: boolean) {
+    // Don't override if lights are manually turned off
+    if (!this.lightsOn) return
+
+    const fixtureMaterial = this.lightFixture?.material as THREE.MeshStandardMaterial | undefined
+
     if (!powered) {
       this.ambientLight.intensity = 0.1
       this.ambientLight.color.setHex(0xff4444)
+      this.isAlertActive = false
+      if (this.fillLight) this.fillLight.intensity = 0
+      if (fixtureMaterial) {
+        fixtureMaterial.emissive.setHex(0x330000)
+        fixtureMaterial.emissiveIntensity = 0.2
+      }
     } else if (o2Level < 16) {
-      this.ambientLight.intensity = 0.5
-      this.ambientLight.color.setHex(0xff6666)
+      // Critical - activate alert
+      this.ambientLight.intensity = 2
+      this.ambientLight.color.setHex(0xff4444)
+      this.isAlertActive = true
+      if (this.fillLight) this.fillLight.intensity = 0.5
+      if (fixtureMaterial) {
+        fixtureMaterial.emissive.setHex(0xff0000)
+        fixtureMaterial.emissiveIntensity = 0.8
+      }
     } else if (o2Level < 19) {
-      this.ambientLight.intensity = 0.8
+      // Warning
+      this.ambientLight.intensity = 3
       this.ambientLight.color.setHex(0xffaa66)
+      this.isAlertActive = false
+      if (this.fillLight) this.fillLight.intensity = 1
+      if (fixtureMaterial) {
+        fixtureMaterial.emissive.setHex(0xffaa44)
+        fixtureMaterial.emissiveIntensity = 0.5
+      }
     } else {
-      this.ambientLight.intensity = 1.0
+      // Normal
+      this.ambientLight.intensity = 4
       this.ambientLight.color.setHex(0xffffee)
+      this.isAlertActive = false
+      if (this.fillLight) this.fillLight.intensity = 1.5
+      if (fixtureMaterial) {
+        fixtureMaterial.emissive.setHex(0xffffee)
+        fixtureMaterial.emissiveIntensity = 0.5
+      }
     }
+
+    // Turn off alert light if not active
+    if (!this.isAlertActive && this.alertLight) {
+      this.alertLight.intensity = 0
+    }
+  }
+
+  update(deltaTime: number) {
+    // Pulsing red alert effect when O2 critical
+    if (this.isAlertActive && this.alertLight) {
+      this.alertPhase += deltaTime * 4 // Pulse speed
+      const pulse = (Math.sin(this.alertPhase) + 1) / 2 // 0 to 1
+      this.alertLight.intensity = pulse * 2
+
+      // Also pulse the fixture emissive
+      const fixtureMaterial = this.lightFixture?.material as THREE.MeshStandardMaterial | undefined
+      if (fixtureMaterial) {
+        fixtureMaterial.emissiveIntensity = 0.3 + pulse * 0.7
+      }
+    }
+  }
+
+  toggleLights(): boolean {
+    this.lightsOn = !this.lightsOn
+    const fixtureMaterial = this.lightFixture?.material as THREE.MeshStandardMaterial | undefined
+
+    if (this.lightsOn) {
+      this.ambientLight.intensity = 4
+      this.ambientLight.color.setHex(0xffffee)
+      if (this.fillLight) this.fillLight.intensity = 1.5
+      if (fixtureMaterial) {
+        fixtureMaterial.emissive.setHex(0xffffee)
+        fixtureMaterial.emissiveIntensity = 0.5
+      }
+    } else {
+      // Almost completely dark
+      this.ambientLight.intensity = 0.01
+      this.ambientLight.color.setHex(0x020204)
+      if (this.fillLight) this.fillLight.intensity = 0
+      if (fixtureMaterial) {
+        fixtureMaterial.emissive.setHex(0x000000)
+        fixtureMaterial.emissiveIntensity = 0
+      }
+    }
+
+    return this.lightsOn
+  }
+
+  areLightsOn(): boolean {
+    return this.lightsOn
   }
 
   getCollisionBoxes(): THREE.Box3[] {

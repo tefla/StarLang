@@ -7,6 +7,7 @@ import { InteractionSystem } from './player/Interaction'
 import { Runtime } from '../runtime/Runtime'
 import { GALLEY_SHIP } from '../content/ship/galley'
 import { GALLEY_LAYOUT } from '../content/ship/galley.layout'
+import { audioSystem } from './audio/AudioSystem'
 
 export class Game {
   private container: HTMLElement
@@ -101,11 +102,11 @@ export class Game {
 
   private setupAtmosphereEvents() {
     this.runtime.on('atmosphere:warning', (event) => {
-      this.showWarning(`⚠ WARNING: O2 levels low (${event.o2Level.toFixed(1)}%)`)
+      audioSystem.playWarningBeep(false)
     })
 
     this.runtime.on('atmosphere:critical', (event) => {
-      this.showWarning(`🚨 CRITICAL: O2 at ${event.o2Level.toFixed(1)}% - Find breathable air!`, true)
+      audioSystem.playWarningBeep(true)
     })
 
     this.runtime.on('game:over', (event) => {
@@ -298,6 +299,11 @@ export class Game {
     // Update player room based on position
     this.updatePlayerRoom()
 
+    // Update audio listener position
+    const cameraDirection = new THREE.Vector3()
+    this.player.camera.getWorldDirection(cameraDirection)
+    audioSystem.updateListener(this.player.camera.position, cameraDirection)
+
     // Update systems
     this.player.update(deltaTime)
     this.scene.update(deltaTime)
@@ -355,6 +361,7 @@ export class Game {
     this.player.dispose()
     this.interaction.dispose()
     this.renderer.dispose()
+    audioSystem.dispose()
     this.container.removeChild(this.renderer.domElement)
   }
 }
