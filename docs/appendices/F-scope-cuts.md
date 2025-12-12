@@ -100,7 +100,6 @@ Features that would be great but aren't essential:
 Features explicitly out of scope for the jam:
 
 ### Scope Limits
-- **No 3D**: Strictly 2D map representation
 - **No real-time combat**: Puzzle/exploration only
 - **No voice acting**: Text only
 - **No multiplayer**: Single-player experience
@@ -258,7 +257,7 @@ Key decisions made during design:
 |----------|-----------|
 | Cook protagonist | Non-technical character learning = player learning |
 | Everyone in stasis | Avoids NPC complexity, explains isolation |
-| 2D map not 3D | Faster to implement, clearer navigation |
+| Retro 3D (Three.js) | Immersion + same TypeScript codebase; pixelation hides rough edges |
 | Tick-based not real-time | Allows thinking time for puzzles |
 | Hot-reload core feature | Defines the "programming game" feel |
 | Version control included | Narrative delivery + safety net |

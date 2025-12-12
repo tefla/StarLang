@@ -2,29 +2,47 @@
 
 ## Screen Structure
 
-The game uses a split-screen layout:
+The game uses a **3D first-person view** with HUD overlays and modal terminal interfaces:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                            HEADER BAR                               │
-│  O2: ██████░░░░ 62%    PWR: ████████░░ 84%    TIME: 2287.203.16:42  │
-├─────────────────────────────────┬───────────────────────────────────┤
-│                                 │                                   │
-│                                 │                                   │
-│         TERMINAL PANEL          │          SHIP VIEW                │
-│         (Interactive)           │          (Map/Visual)             │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-│                                 │                                   │
-├─────────────────────────────────┴───────────────────────────────────┤
-│                          CONTEXT BAR                                │
-│  [Location: Galley]  [Terminal: Food Inventory]  [Access: COOK]     │
+│  O2: ██████░░ 62%   PWR: ████████░░ 84%              ┌───────────┐  │
+│                                                      │  MINI-MAP │  │
+│                                                      │  (toggle) │  │
+│                                                      └───────────┘  │
+│                                                                     │
+│                     ┌─────────────────────┐                         │
+│                     │   ███  TERMINAL ███ │                         │
+│                     │   ███           ███ │  ← 3D terminal object   │
+│                     │   ███  [SCREEN] ███ │                         │
+│                     │   ███           ███ │                         │
+│                     └─────────────────────┘                         │
+│                              ═══════                                │
+│                            ═════════  ← corridor floor              │
+│                                                                     │
+│                                                                     │
+│  Galley                                      [E] Access Terminal    │
 └─────────────────────────────────────────────────────────────────────┘
+
+When accessing a terminal, UI overlays the 3D view:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│
+│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│
+│░░░░╔══════════════════════════════════════════════════════════╗░░░░│
+│░░░░║  ENGINEERING WORKSTATION                                 ║░░░░│
+│░░░░╠══════════════════════════════════════════════════════════╣░░░░│
+│░░░░║  /deck_4/galley.sl                          [Modified]   ║░░░░│
+│░░░░╠══════════════════════════════════════════════════════════╣░░░░│
+│░░░░║   1 │ room galley {                                      ║░░░░│
+│░░░░║   2 │   display_name: "Galley"                           ║░░░░│
+│░░░░║   3 │   ...                                              ║░░░░│
+│░░░░╠══════════════════════════════════════════════════════════╣░░░░│
+│░░░░║  [Save] [Compile] [Revert]              [ESC to close]   ║░░░░│
+│░░░░╚══════════════════════════════════════════════════════════╝░░░░│
+│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│
+└─────────────────────────────────────────────────────────────────────┘
+  ░ = dimmed/blurred 3D world behind terminal overlay
 ```
 
 ---
@@ -207,39 +225,62 @@ The ship's manuals. Searchable but verbose.
 
 ---
 
-## Ship View (Right Side)
+## 3D Ship View
 
-Top-down 2D view of the current deck/area.
+First-person 3D exploration of the ship using a retro, pixelated aesthetic (Three.js with post-processing).
 
-### Elements
+### Perspective
 
-- **Rooms**: Coloured by status (normal, warning, critical, inaccessible)
-- **Player Position**: Clear indicator of where Riley is
-- **Doors**: Show open/closed/locked/sealed state
-- **Interactables**: Terminals, panels, objects that can be clicked
-- **Connections**: Lines showing what connects to what (optional layer)
+Player sees through Riley's eyes, walking through corridors and rooms. WASD + mouse controls (standard FPS).
 
-### Visual States
+### Visual Style
 
-| Element | Normal | Warning | Critical | Inaccessible |
-|---------|--------|---------|----------|--------------|
-| Room | Soft blue | Yellow | Red pulse | Grey/dark |
-| Door | Green | Yellow | Red | Dark grey |
-| Terminal | Lit screen | - | - | Dark |
+**Retro/Lo-Fi Aesthetic:**
+- Pixelation post-processing (4-6 pixel size)
+- Single-pixel edge outlines
+- Low-poly box geometry (no curves)
+- Flat Lambert shading (no PBR)
+- Limited color palette
+
+The chunky, pixelated look reinforces that the ship IS a system—it looks like a simulation Riley is learning to understand.
+
+### Environment Elements
+
+- **Rooms**: Simple box geometry with flat-colored walls
+- **Corridors**: Modular pieces (straight, corner, T-junction)
+- **Doors**: Visible state via color (green=open, red=sealed, grey=locked)
+- **Terminals**: 3D objects with glowing screens, interactable
+- **Props**: Minimal furniture (tables, counters) as simple boxes
 
 ### Interaction
 
-- Click a room to move there (if accessible)
-- Click a door to attempt to open/examine
-- Click a terminal/panel to access it (shows in left panel)
-- Hover for tooltips with basic status
+- **WASD**: Move through the ship
+- **Mouse**: Look around
+- **E**: Interact with terminals/doors when near
+- **Tab**: Toggle mini-map overlay (optional 2D deck diagram)
+- **ESC**: Release pointer lock / exit terminal
 
-### Layers (Toggleable)
+### Terminal Interaction Flow
 
-- **Default**: Rooms, doors, objects
-- **Power**: Power grid overlay, shows what's powered
-- **Atmosphere**: Airflow patterns, shows routing
-- **Signals**: Signal connections between systems
+1. Player approaches terminal in 3D space
+2. Press E → pointer unlocks, terminal UI appears as HTML overlay
+3. 3D world dims/blurs behind the terminal interface
+4. ESC → return to 3D exploration
+
+### Visual States
+
+| Element | Normal | Warning | Critical | Offline |
+|---------|--------|---------|----------|---------|
+| Room lighting | Cool white | Amber tint | Red pulse | Dark |
+| Door frame | Green glow | Yellow | Red | No glow |
+| Terminal screen | Blue glow | - | - | Dark |
+
+### HUD Elements (Always Visible)
+
+- **O2/Power bars**: Top of screen, minimal
+- **Context prompt**: Bottom center ("Press E to access terminal")
+- **Location**: Bottom left (current room name)
+- **Mini-map**: Top right corner (optional toggle)
 
 ---
 
@@ -354,10 +395,11 @@ Minimal but meaningful:
 
 ## Responsive Considerations
 
-For jam scope, target a single resolution (1920x1080 or similar). The split-screen layout can flex slightly:
+For jam scope, target a single resolution (1920x1080 or similar).
 
-- Terminal panel: 40-60% of width
-- Ship view: 40-60% of width
-- Header/context bars: Fixed height
+- 3D canvas fills the screen
+- HUD elements use fixed positioning (corners)
+- Terminal overlay is centered, max-width constrained
+- Pixelation effect scales with resolution (maintains chunky look)
 
-Future consideration: Collapsible panels for smaller screens.
+Future consideration: Resolution options for lower-end devices (increase pixel size).

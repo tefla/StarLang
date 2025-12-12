@@ -62,47 +62,70 @@
 
 ---
 
-## Ship View (2D Map)
+## 3D Ship View (Retro/Lo-Fi)
 
-### Room Representation
+### Visual Style
 
-Rooms are represented as simplified shapes—rectangles with rounded corners. The map isn't architecturally accurate; it's a functional diagram.
+First-person 3D with a deliberately **retro, pixelated aesthetic**. Think PS1-era graphics or Minecraft's chunky simplicity.
+
+**Key Techniques:**
+- **Pixelation post-processing** (4-6 pixel block size)
+- **Single-pixel edge outlines** on geometry
+- **Flat/Lambert shading** (no PBR materials)
+- **Low-poly box geometry** (no smooth curves)
+- **Limited color palette** (matches existing palette)
+
+This style:
+- Hides rough edges (no need for perfect models)
+- Reinforces the "ship as system" theme
+- Is fast to create assets for
+- Runs well on modest hardware
+
+### Room Construction
+
+Rooms built from simple box geometry on a grid:
 
 ```
-┌────────────────┐
-│                │  ← Room shape (rounded rect)
-│    GALLEY      │  ← Room name (center)
-│                │
-└───────┬────────┘
-        │         ← Door indicator
+┌─────────────────────────────────────┐
+│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  │  ← Ceiling (box)
+│  ▓                              ▓  │
+│  ▓   ┌────┐          ┌────┐    ▓  │  ← Props (boxes)
+│  ▓   │TERM│          │TABL│    ▓  │
+│  ▓   └────┘          └────┘    ▓  │
+│  ▓                              ▓  │
+│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  │  ← Floor (box)
+└─────────────────────────────────────┘
+    Walls = boxes, Props = boxes, Everything = boxes
 ```
 
-### Visual States
+### Visual States (3D)
 
-| State | Fill | Border | Icon |
-|-------|------|--------|------|
-| Normal | Soft blue | Grey | None |
-| Player here | Soft blue | Teal (2px) | Player dot |
-| Warning | Amber tint | Yellow | ⚠️ |
-| Critical | Red tint | Red | ⚠️ pulse |
-| Inaccessible | Dark grey | Dark grey | 🔒 |
-| Unexplored | Dark, no detail | Dashed | ? |
+| State | Lighting | Material Color | Effect |
+|-------|----------|----------------|--------|
+| Normal | Cool white | Soft blue/grey | None |
+| Warning | Amber tint | Yellow accent | Subtle pulse |
+| Critical | Red emergency | Red accent | Alarm pulse |
+| Offline | Minimal | Dark grey | Flicker |
 
-### Door Indicators
+### Door Representation
+
+Doors as 3D sliding panels:
 
 | State | Visual |
 |-------|--------|
-| Open | Gap in wall, green line |
-| Closed | Solid line, grey |
-| Locked | Solid line, orange dot |
-| Sealed | Solid line, red glow |
+| Open | Panel slid into wall, green frame glow |
+| Closed | Panel visible, grey frame |
+| Locked | Panel visible, orange frame glow |
+| Sealed | Panel visible, red frame glow + warning stripe |
 
-### Interactables
+### Interactable Objects
 
-Terminals and objects are small icons within rooms:
-- 📺 Terminal (interactive)
-- 📦 Container (searchable)
-- 🔧 Panel (engineering access)
+3D objects with glowing elements to indicate interactivity:
+
+- **Terminal**: Box with glowing screen face (blue)
+- **Panel**: Wall-mounted box with light strip
+- **Door control**: Small box beside door frame
+- **Container**: Box with lid seam
 
 ---
 
@@ -223,23 +246,25 @@ The ship is lit by artificial light—slightly cool, even. Emergency lighting (a
 
 ## Asset List (Jam Scope)
 
-### Required
+### Required (3D)
 
-- [ ] Ship map tileset (rooms, corridors, doors)
-- [ ] Terminal frame graphics
-- [ ] Status icons (OK, warning, critical)
-- [ ] Player indicator
+- [ ] Modular corridor kit (straight, corner, T-junction, dead-end)
+- [ ] Basic room shells (galley, crew mess, cold storage)
+- [ ] Door model (sliding panel + frame)
+- [ ] Terminal model (box with screen face)
+- [ ] Pixelation shader / post-processing setup
 - [ ] Font files (or use system fonts)
 
 ### Nice to Have
 
-- [ ] Room detail sprites (furniture, equipment)
-- [ ] Character portrait (Riley)
-- [ ] Animated terminal cursor
-- [ ] Particle effects for atmosphere
+- [ ] Props (tables, counters, storage units) - simple boxes
+- [ ] Wall details (panels, vents, signs) - flat decals or simple geometry
+- [ ] Ambient particle effects (dust, atmosphere)
+- [ ] Character portrait (Riley) for dialogue/logs
 
 ### Can Skip
 
-- [ ] Detailed room interiors
-- [ ] Character animations
-- [ ] Cutscene art
+- [ ] Detailed prop models
+- [ ] Character model (first-person, never see Riley)
+- [ ] Complex lighting setups (baked is fine)
+- [ ] Smooth animations (snappy/instant is fine for retro feel)

@@ -202,96 +202,124 @@ function EngineeringTerminal({ terminalId }: { terminalId: string }) {
 
 ---
 
-## Ship View Rendering
+## 3D Ship View Rendering
 
-The ship map renders based on definitions and state.
+The 3D view renders using Three.js with pixelation post-processing.
 
 ```typescript
-function ShipView() {
-  const runtime = useRuntime()
-  const currentDeck = useGameState(s => s.currentDeck)
-  const playerRoom = useGameState(s => s.playerRoom)
-  
-  // Get rooms for current deck
-  const rooms = useMemo(() => {
-    return runtime.getDefinitionsByType('ROOM')
-      .filter(r => r.properties.deck === currentDeck)
-  }, [runtime, currentDeck])
-  
-  // Subscribe to all room states
-  const roomStates = useMultipleShipStates(
-    rooms.map(r => r.id)
-  )
-  
-  return (
-    <svg className="ship-view" viewBox="0 0 800 600">
-      {rooms.map(room => (
-        <RoomShape
-          key={room.id}
-          definition={room}
-          state={roomStates[room.id]}
-          isPlayerHere={room.id === playerRoom}
-          onClick={() => handleRoomClick(room.id)}
-        />
-      ))}
-      
-      {/* Render doors between rooms */}
-      <DoorsLayer deck={currentDeck} />
-      
-      {/* Render interactable objects */}
-      <InteractablesLayer deck={currentDeck} />
-      
-      {/* Player indicator */}
-      <PlayerIndicator roomId={playerRoom} />
-    </svg>
-  )
+// renderer/scene.ts
+import * as THREE from 'three'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
+import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass'
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
+
+class ShipRenderer {
+  private scene: THREE.Scene
+  private camera: THREE.PerspectiveCamera
+  private renderer: THREE.WebGLRenderer
+  private composer: EffectComposer
+  private controls: PointerLockControls
+  private runtime: StarLangRuntime
+
+  constructor(canvas: HTMLCanvasElement, runtime: StarLangRuntime) {
+    this.runtime = runtime
+    this.scene = new THREE.Scene()
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false })
+
+    // Pixelation post-processing
+    this.composer = new EffectComposer(this.renderer)
+    const pixelPass = new RenderPixelatedPass(6, this.scene, this.camera)
+    pixelPass.normalEdgeStrength = 1
+    pixelPass.depthEdgeStrength = 1
+    this.composer.addPass(pixelPass)
+
+    // First-person controls
+    this.controls = new PointerLockControls(this.camera, canvas)
+
+    this.buildShipFromDefinitions()
+    this.subscribeToStateChanges()
+  }
+
+  private buildShipFromDefinitions() {
+    const rooms = this.runtime.getDefinitionsByType('ROOM')
+    for (const room of rooms) {
+      const roomMesh = this.createRoomMesh(room)
+      this.scene.add(roomMesh)
+    }
+  }
+
+  private subscribeToStateChanges() {
+    // Update room visuals when state changes
+    this.runtime.subscribe('*.o2_level', (change) => {
+      this.updateRoomLighting(change.nodeId, change.newValue)
+    })
+  }
 }
 ```
 
-### Room Rendering
+### Room Mesh Creation
 
 ```typescript
-function RoomShape({ 
-  definition, 
-  state, 
-  isPlayerHere,
-  onClick 
-}: RoomShapeProps) {
-  // Determine color based on state
-  const fill = useMemo(() => {
-    if (!state) return colors.offline
-    if (state.o2_level < 16) return colors.critical
-    if (state.o2_level < 19) return colors.warning
-    if (state.power_status === 'OFFLINE') return colors.dark
-    return colors.normal
-  }, [state])
-  
-  // Get room geometry from layout data
-  const geometry = useRoomGeometry(definition.id)
-  
-  return (
-    <g 
-      className={cn(
-        'room-shape',
-        isPlayerHere && 'room-shape--current'
-      )}
-      onClick={onClick}
-    >
-      <path
-        d={geometry.path}
-        fill={fill}
-        stroke={isPlayerHere ? colors.highlight : colors.border}
-        strokeWidth={isPlayerHere ? 2 : 1}
-      />
-      <text
-        x={geometry.labelX}
-        y={geometry.labelY}
-        className="room-label"
-      >
-        {definition.properties.display_name}
-      </text>
-    </g>
+// renderer/rooms.ts
+function createRoomMesh(definition: NodeDefinition): THREE.Group {
+  const room = new THREE.Group()
+  room.name = definition.id
+
+  const { width, height, depth } = definition.properties.dimensions
+  const material = new THREE.MeshLambertMaterial({ color: PALETTE.MID })
+
+  // Floor
+  const floor = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 0.2, depth),
+    material
   )
+  floor.position.y = -height / 2
+  room.add(floor)
+
+  // Walls (with door openings)
+  const walls = createWallsWithOpenings(definition)
+  room.add(walls)
+
+  // Ceiling
+  const ceiling = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 0.2, depth),
+    material
+  )
+  ceiling.position.y = height / 2
+  room.add(ceiling)
+
+  // Position based on ship layout
+  const pos = definition.properties.position
+  room.position.set(pos.x, pos.y, pos.z)
+
+  return room
+}
+```
+
+### State-Driven Lighting
+
+```typescript
+// Update room appearance based on ship state
+function updateRoomLighting(roomId: string, o2Level: number) {
+  const room = scene.getObjectByName(roomId)
+  if (!room) return
+
+  const light = room.getObjectByName('ambient_light') as THREE.PointLight
+
+  if (o2Level < 16) {
+    // Critical - red emergency lighting
+    light.color.setHex(PALETTE.CRIT)
+    light.intensity = 0.5 + Math.sin(Date.now() / 200) * 0.3 // Pulse
+  } else if (o2Level < 19) {
+    // Warning - amber tint
+    light.color.setHex(PALETTE.WARN)
+    light.intensity = 0.8
+  } else {
+    // Normal - cool white
+    light.color.setHex(0xffffff)
+    light.intensity = 1
+  }
 }
 ```
 

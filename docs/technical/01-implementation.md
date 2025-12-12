@@ -6,11 +6,13 @@ For a LangJam project targeting web:
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| Runtime | TypeScript | Type safety, good for compilers |
-| UI | React | Component model, reactive updates |
-| Styling | Tailwind CSS | Rapid prototyping |
-| State | Zustand or Redux | Predictable state management |
-| Parser | Hand-written or PEG.js | Control over error messages |
+| Runtime | TypeScript / Bun | Type safety, good for compilers, fast bundling |
+| 3D Renderer | Three.js | Industry standard web 3D, great TypeScript support |
+| Post-processing | RenderPixelatedPass | Built-in retro pixelation effect |
+| UI Overlays | HTML/CSS | Terminal interfaces as DOM overlays |
+| State | Zustand | Lightweight, works well with Three.js |
+| Parser | Hand-written | Control over error messages |
+| Server | Bun.serve() | Native HTML imports, hot reload |
 
 ---
 
@@ -235,7 +237,8 @@ class SignalGraph {
 
 ```
 src/
-├── index.ts                 # Entry point
+├── index.ts                 # Entry point (Bun.serve)
+├── index.html               # Main HTML with canvas
 ├── runtime/
 │   ├── Runtime.ts          # Main runtime class
 │   ├── DefinitionStore.ts
@@ -256,26 +259,30 @@ src/
 ├── version-control/
 │   ├── CommitStore.ts
 │   └── Commands.ts         # slvc commands
-├── ui/
-│   ├── App.tsx             # Main app
-│   ├── components/
-│   │   ├── ShipView.tsx    # Right panel
-│   │   ├── TerminalPanel.tsx
-│   │   ├── Header.tsx
-│   │   └── terminals/
-│   │       ├── StatusTerminal.tsx
-│   │       ├── EngineeringTerminal.tsx
-│   │       └── CommandTerminal.tsx
-│   ├── hooks/
-│   │   ├── useShipState.ts
-│   │   └── useRuntime.ts
+├── renderer/                # NEW: 3D rendering
+│   ├── ShipRenderer.ts     # Main Three.js setup + pixelation
+│   ├── rooms.ts            # Room mesh generation
+│   ├── doors.ts            # Door meshes and animations
+│   ├── terminals.ts        # Terminal 3D objects
+│   ├── player.ts           # First-person controller
+│   ├── lighting.ts         # State-driven lighting
+│   └── palette.ts          # Color constants
+├── ui/                      # HTML overlays (not 3D)
+│   ├── hud.ts              # O2/power bars, context prompts
+│   ├── terminals/
+│   │   ├── StatusTerminal.ts
+│   │   ├── EngineeringTerminal.ts
+│   │   └── CommandTerminal.ts
+│   ├── modals/
+│   │   ├── ErrorModal.ts
+│   │   └── ConfirmModal.ts
 │   └── store/
 │       └── gameStore.ts
 └── content/
     ├── ship/               # .sl files defining the ship
     │   ├── manifest.sl
     │   ├── systems/
-    │   ├── deck_1/
+    │   ├── deck_4/
     │   └── ...
     └── docs/               # In-game documentation
         └── manuals/
