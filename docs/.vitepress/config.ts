@@ -5,10 +5,10 @@ export default defineConfig({
   title: 'StarLang',
   description: 'A survival/discovery game where the ship is the programming language',
 
-  base: '/StarLang/',
+  base: '/StarLang/docs/',
 
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/StarLang/logo.svg' }]
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/StarLang/docs/logo.svg' }]
   ],
 
   markdown: {
