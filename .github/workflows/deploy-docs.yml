@@ -1,4 +1,4 @@
-name: Deploy Docs
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -31,8 +31,16 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Build game
+        run: bun run build
+
       - name: Build docs
         run: bun run docs:build
+
+      - name: Combine outputs
+        run: |
+          # Move docs to /docs subfolder within dist
+          mv docs/.vitepress/dist dist/docs
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -40,7 +48,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/.vitepress/dist
+          path: dist
 
   deploy:
     environment:
