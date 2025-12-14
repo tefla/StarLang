@@ -1,0 +1,197 @@
+/**
+ * Core voxel type definitions and coordinate utilities.
+ *
+ * Voxel size is 0.1m (10cm) - small enough for detailed objects like
+ * chairs, tables, buttons, screens.
+ */
+
+// Voxel size in world units (meters)
+export const VOXEL_SIZE = 0.1
+
+// Chunk size in voxels (16x16x16 = 4096 voxels per chunk)
+// At 0.1m voxels, each chunk is 1.6m³
+export const CHUNK_SIZE = 16
+
+/**
+ * Voxel material types.
+ * Lower 8 bits of a Voxel value encode the type.
+ */
+export enum VoxelType {
+  AIR = 0,           // Empty space
+  HULL = 1,          // Ship exterior (thick, no light pass)
+  WALL = 2,          // Interior wall
+  FLOOR = 3,         // Floor surface
+  CEILING = 4,       // Ceiling surface
+  GLASS = 5,         // Transparent (windows, viewports)
+  METAL_GRATE = 6,   // Semi-transparent floor grating
+  PANEL = 7,         // Interactive panel surface
+  CONDUIT = 8,       // Pipe/cable housing
+  TRIM = 9,          // Decorative trim
+  LIGHT_FIXTURE = 10, // Light emission source
+}
+
+/**
+ * A voxel is a 16-bit value:
+ * - Lower 8 bits: VoxelType
+ * - Upper 8 bits: Variant/color index (0-255)
+ */
+export type Voxel = number
+
+/**
+ * Extract the type from a voxel value.
+ */
+export function getVoxelType(voxel: Voxel): VoxelType {
+  return voxel & 0xFF
+}
+
+/**
+ * Extract the variant/color index from a voxel value.
+ */
+export function getVoxelVariant(voxel: Voxel): number {
+  return (voxel >> 8) & 0xFF
+}
+
+/**
+ * Create a voxel value from type and variant.
+ */
+export function makeVoxel(type: VoxelType, variant: number = 0): Voxel {
+  return (type & 0xFF) | ((variant & 0xFF) << 8)
+}
+
+/**
+ * Check if a voxel type is solid (blocks movement and light).
+ */
+export function isSolid(voxel: Voxel): boolean {
+  const type = getVoxelType(voxel)
+  return type !== VoxelType.AIR &&
+         type !== VoxelType.GLASS &&
+         type !== VoxelType.METAL_GRATE
+}
+
+/**
+ * Check if a voxel type is transparent (allows light through).
+ */
+export function isTransparent(voxel: Voxel): boolean {
+  const type = getVoxelType(voxel)
+  return type === VoxelType.AIR ||
+         type === VoxelType.GLASS ||
+         type === VoxelType.METAL_GRATE
+}
+
+/**
+ * Integer voxel coordinates.
+ */
+export interface VoxelCoord {
+  x: number
+  y: number
+  z: number
+}
+
+/**
+ * Convert world coordinates (meters) to voxel coordinates.
+ */
+export function worldToVoxel(wx: number, wy: number, wz: number): VoxelCoord {
+  return {
+    x: Math.floor(wx / VOXEL_SIZE),
+    y: Math.floor(wy / VOXEL_SIZE),
+    z: Math.floor(wz / VOXEL_SIZE)
+  }
+}
+
+/**
+ * Convert voxel coordinates to world coordinates.
+ * Returns the corner (minimum x,y,z) of the voxel.
+ */
+export function voxelToWorld(vx: number, vy: number, vz: number): [number, number, number] {
+  return [
+    vx * VOXEL_SIZE,
+    vy * VOXEL_SIZE,
+    vz * VOXEL_SIZE
+  ]
+}
+
+/**
+ * Convert voxel coordinates to world coordinates (center of voxel).
+ */
+export function voxelToWorldCenter(vx: number, vy: number, vz: number): [number, number, number] {
+  const half = VOXEL_SIZE / 2
+  return [
+    vx * VOXEL_SIZE + half,
+    vy * VOXEL_SIZE + half,
+    vz * VOXEL_SIZE + half
+  ]
+}
+
+/**
+ * Convert voxel coordinates to chunk coordinates.
+ */
+export function voxelToChunk(vx: number, vy: number, vz: number): VoxelCoord {
+  return {
+    x: Math.floor(vx / CHUNK_SIZE),
+    y: Math.floor(vy / CHUNK_SIZE),
+    z: Math.floor(vz / CHUNK_SIZE)
+  }
+}
+
+/**
+ * Get local coordinates within a chunk (0 to CHUNK_SIZE-1).
+ */
+export function voxelToLocal(vx: number, vy: number, vz: number): VoxelCoord {
+  return {
+    x: ((vx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE,
+    y: ((vy % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE,
+    z: ((vz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+  }
+}
+
+/**
+ * Pack a coordinate string for use as a Map key.
+ */
+export function coordKey(x: number, y: number, z: number): string {
+  return `${x},${y},${z}`
+}
+
+/**
+ * Parse a coordinate string back to numbers.
+ */
+export function parseCoordKey(key: string): VoxelCoord {
+  const parts = key.split(',').map(Number)
+  return { x: parts[0] ?? 0, y: parts[1] ?? 0, z: parts[2] ?? 0 }
+}
+
+/**
+ * Face directions for voxel faces.
+ * Order: -X, +X, -Y, +Y, -Z, +Z
+ */
+export enum Face {
+  NEG_X = 0,
+  POS_X = 1,
+  NEG_Y = 2,
+  POS_Y = 3,
+  NEG_Z = 4,
+  POS_Z = 5
+}
+
+/**
+ * Normal vectors for each face direction.
+ */
+export const FACE_NORMALS: readonly [number, number, number][] = [
+  [-1, 0, 0],  // NEG_X
+  [1, 0, 0],   // POS_X
+  [0, -1, 0],  // NEG_Y
+  [0, 1, 0],   // POS_Y
+  [0, 0, -1],  // NEG_Z
+  [0, 0, 1],   // POS_Z
+]
+
+/**
+ * Offset to neighbor voxel for each face.
+ */
+export const FACE_OFFSETS: readonly [number, number, number][] = FACE_NORMALS
+
+/**
+ * Get the opposite face.
+ */
+export function oppositeFace(face: Face): Face {
+  return face ^ 1  // XOR with 1 flips between pairs (0,1), (2,3), (4,5)
+}
