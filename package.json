@@ -7,6 +7,7 @@
     "dev": "bun --hot ./index.html",
     "start": "bun ./index.html",
     "build": "bun build ./index.html --outdir ./dist",
+    "voxel-editor": "bun --hot ./tools/voxel-editor/server.ts",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
