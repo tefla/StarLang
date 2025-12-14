@@ -9,6 +9,39 @@ Every puzzle in StarLang follows four core rules:
 3. **Failure has consequences, not game-overs**: Wrong answers make things harder, not impossible
 4. **Puzzles ARE the tutorial**: Never provide explicit tutorials, hints, or instruction overlays
 
+### The Ship Was Correct
+
+**Critical Narrative Principle**: The ship's operating system was delivered correctly by the shipyard. Every StarLang definition was accurate. Every reference pointed to the right system. Every configuration was valid.
+
+Then the incident happened.
+
+The player wakes to find:
+- **Physical hardware damaged** - switches broken, junctions offline, conduits ruptured
+- **Systems disrupted** - power rerouted incorrectly, atmosphere compromised
+- **The ship fighting to survive** - emergency protocols engaged, areas sealed
+
+**Puzzles are workarounds, not bug fixes.** The player isn't fixing bad code—they're adapting working software to route around physical damage. This creates emergent gameplay:
+
+- A broken switch means finding another way to control the door
+- A damaged power junction means rerouting to a backup or sharing from another system
+- A ruptured conduit means reconfiguring flow paths
+
+The ship has **redundant systems** built in for exactly this scenario. The puzzle is discovering and activating these alternatives.
+
+### Emergent Gameplay Through Redundancy
+
+The ship was designed with backup systems:
+- Multiple power junctions per deck
+- Backup atmosphere scrubbers
+- Alternative routing paths
+- Emergency overrides
+
+This means:
+- **Multiple valid solutions** exist for each puzzle
+- Players can be **creative** in how they work around problems
+- The ship feels like a **real, engineered system**
+- Later puzzles can involve **combining** or **trading off** between systems
+
 ### Puzzles as Tutorials
 
 **Critical Design Principle**: The game never explains mechanics through tutorials, hint systems, or instructional text. Instead, each puzzle is designed to force discovery of a specific skill through necessity.
@@ -29,8 +62,8 @@ Each puzzle teaches exactly one or two new concepts. The sequence is carefully d
 
 | Puzzle | Forces Discovery Of |
 |--------|---------------------|
-| 1 - Broken Switch | Terminals exist, code editing works, changes affect world |
-| 2 - O2 Crisis | STATUS vs config files, node references, tradeoffs |
+| 1 - Broken Switch | Terminals exist, code editing works, software bypasses damaged hardware |
+| 2 - Damaged Junction | Redundant systems exist, STATUS shows damage, rerouting to backups |
 | 3 - Frozen Door | Systems affect each other, physical vs software state |
 | 4 - Permission Block | Permission system, credential inheritance, exploits |
 | 5 - Sealed Bridge | Chaining systems, signals, documentation diving |
@@ -88,12 +121,14 @@ A control mechanism is broken. Find an alternative path.
 
 **Location**: Galley
 **Urgency**: High (O2 slowly depleting, door is locked)
-**Type**: Bypass (Type 5)
+**Type**: Bypass (Type 5) - Hardware damage, software workaround
+
+**Narrative Context**: The door switch was physically damaged during the incident. The StarLang code is correct (`control: door_switch`), but the hardware it references is broken. The player must adapt the software to work around the physical damage.
 
 **Setup**: The player wakes up in the galley. The door to the corridor won't open. The door switch on the wall is marked "FAULT" - pressing it produces sparks but doesn't work.
 
 **Implementation Details** (Current):
-- Door switch has `status: "FAULT"` in layout data
+- Door switch has `status: "FAULT"` in layout data (physical damage)
 - Pressing FAULT switch triggers spark particle effect, no door action
 - Engineering terminal in galley mounts `galley.sl`
 - Door definition: `door galley_exit { connects: [galley, corridor], control: door_switch }`
@@ -104,118 +139,135 @@ A control mechanism is broken. Find an alternative path.
 - Approaching it, they see "Press E to use terminal"
 - Terminal shows the galley.sl file with the ship configuration
 
-**Discovery**: The door is controlled by `door_switch`, which is broken. The player realizes they can edit the code.
+**Discovery**: The door is controlled by `door_switch`, which is physically broken. The player realizes they can edit the code to bypass the damaged hardware.
 
 **Solution Options**:
 
 1. **Remove switch dependency**: Delete or comment out `control: door_switch`
-   - Door becomes manually operable
+   - Door becomes manually operable (no switch needed)
 
 2. **Reassign to working switch**: Change `control: light_switch`
-   - Now the light switch opens the door (clever but confusing)
+   - The light switch (which still works) now controls the door
 
-3. **Add direct open**: Add `state: OPEN` or `locked: false` to door definition
-   - Door opens immediately on compile
+3. **Add direct trigger**: Use an always-true condition or signal
+   - More advanced, teaches signals early
 
 **Teaching**: This puzzle forces discovery of:
 - Terminals exist and can be interacted with
 - Code is visible and editable
 - Saving code recompiles and changes the world
-- The connection between code and physical objects
+- **Software can route around hardware damage**
 
-**Why This Works as Tutorial**:
-The player's first instinct (press the switch) fails. This creates a problem that demands investigation. The terminal is visible but not explained. When they figure out they can edit code and see the door open, they've learned the core mechanic through experience, not instruction.
+**Why This Works**:
+The code is correct—`door_switch` IS what should control the door. But the physical switch is broken. The player learns that when hardware fails, you adapt the software. This sets up the entire game's puzzle philosophy.
 
 ---
 
-### Puzzle 2: Wrong Wiring
+### Puzzle 2: The Damaged Junction
 
 **Location**: Corridor (after escaping galley)
 **Urgency**: High (dark corridor, O2 dropping)
-**Type**: Configuration (Type 1) - 2-hop reference chain
+**Type**: Configuration (Type 1) - Rerouting around physical damage
 
-**Setup**: The player enters the corridor. It's dark - almost pitch black except for the faint glow of the STATUS terminal (which runs on emergency power). The STATUS display shows O2 is dropping and main power is offline.
+**Narrative Context**: The corridor's primary power junction (junction_4a) was damaged during the incident. The StarLang code correctly references junction_4a, but that physical hardware is now offline. The player must reroute the corridor to draw from an alternative source.
 
-**The Core Problem**: The corridor's systems are configured to draw from the wrong sources. Someone (during the incident?) changed the references to point to systems on deck 3 instead of deck 4.
+**Setup**: The player enters the corridor. It's dark—almost pitch black except for the faint glow of the STATUS terminal (which runs on emergency power). The STATUS display shows the primary junction is offline and O2 is dropping.
 
-**Key Design Note**: This is a DEFINITION problem, not a STATE problem. The `.sl` files don't contain `enabled: false` - they contain wrong references. A shipyard wouldn't deliver a ship with disabled systems; they'd deliver correctly wired systems. The puzzle is that the wiring (references) got changed.
+**The Core Problem**: Physical damage, not bad code. The corridor.sl correctly says `power_source: junction_4a`, but junction_4a is damaged and offline. The ship has backup systems—the player must find and use them.
 
-**File 1: `corridor.sl`**
+**File 1: `corridor.sl`** (code is correct, hardware is damaged)
 ```starlang
 room corridor {
   display_name: "Corridor 4A"
   deck: 4
 
-  # These references are WRONG - pointing to deck 3 systems
-  power_source: junction_3b      # ← Should be junction_4a
-  air_supply: scrubber_alpha     # ← Should be scrubber_beta
+  # These references are CORRECT - but junction_4a is damaged
+  power_source: junction_4a      # Hardware offline!
+  air_supply: scrubber_4a        # Also damaged!
 }
 
 lights corridor_main {
   location: corridor
-  power: junction_3b.main        # ← Same wrong reference
+  power: junction_4a.main        # Can't draw from damaged junction
 }
 ```
 
-**File 2: `ship_systems.sl`** (or player finds via STATUS terminal)
+**File 2: `ship_systems.sl`** (shows what's available)
 ```starlang
-# Deck 3 systems
-junction junction_3b {
-  location: deck_3
-  serves: [medbay, science_lab]
-}
-
-scrubber scrubber_alpha {
-  location: deck_3
-  serves: [medbay, science_lab]
-}
-
-# Deck 4 systems - THE CORRECT ONES
+# Primary systems (DAMAGED)
 junction junction_4a {
   location: deck_4
   serves: [galley, corridor, cold_storage]
+  # STATUS: OFFLINE (physical damage from incident)
 }
 
-scrubber scrubber_beta {
+scrubber scrubber_4a {
   location: deck_4
   serves: [galley, corridor, cold_storage]
+  # STATUS: OFFLINE (physical damage from incident)
 }
+
+# Backup systems (OPERATIONAL)
+junction junction_4b {
+  location: deck_4
+  serves: [backup_deck_4]
+  # STATUS: STANDBY - available for rerouting
+}
+
+scrubber scrubber_4b {
+  location: deck_4
+  serves: [backup_deck_4]
+  # STATUS: STANDBY - available for rerouting
+}
+```
+
+**STATUS Terminal Shows**:
+```
+CORRIDOR 4A - SYSTEM STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+POWER:      ■ OFFLINE
+  Source:   junction_4a
+  Status:   HARDWARE FAULT - physical damage detected
+
+ATMOSPHERE: ■ CRITICAL
+  Source:   scrubber_4a
+  Status:   HARDWARE FAULT - physical damage detected
+  O2:       17.2% (dropping)
+
+BACKUP SYSTEMS AVAILABLE:
+  junction_4b: STANDBY
+  scrubber_4b: STANDBY
 ```
 
 **Discovery Flow**:
 1. Enter dark corridor, STATUS terminal glows faintly
-2. STATUS shows: "Main Power: NO SOURCE" and "O2: CRITICAL - NO SUPPLY"
-3. Open `corridor.sl` → see `power_source: junction_3b` and `air_supply: scrubber_alpha`
-4. Think: "What junctions exist? Which one is correct?"
-5. Find `ship_systems.sl` (mounted on same terminal, or visible in file list)
-6. See that `junction_4a` and `scrubber_beta` are for deck 4
-7. Fix references: change `junction_3b` → `junction_4a`, `scrubber_alpha` → `scrubber_beta`
-8. Lights come on, O2 stabilizes
+2. STATUS shows: junction_4a OFFLINE, scrubber_4a OFFLINE
+3. Notice: "BACKUP SYSTEMS AVAILABLE: junction_4b, scrubber_4b"
+4. Open `corridor.sl` → see it correctly references the damaged systems
+5. Open `ship_systems.sl` → find the backup systems
+6. Reroute: change references from damaged `_4a` systems to backup `_4b` systems
+7. Lights come on, O2 stabilizes
 
-**Solution**:
-Edit `corridor.sl`:
-```starlang
-room corridor {
-  power_source: junction_4a      # Fixed!
-  air_supply: scrubber_beta      # Fixed!
-}
-```
+**Solution Options**:
 
-**Why 2-Hop Matters**:
-- Hop 1: corridor.sl contains wrong references
-- Hop 2: ship_systems.sl reveals what the correct references should be
-- Player must cross-reference between files to find the answer
+1. **Use backup systems**: Change `junction_4a` → `junction_4b`, `scrubber_4a` → `scrubber_4b`
+   - Clean solution using ship's built-in redundancy
+
+2. **Share from galley**: If galley uses a different junction, reroute corridor to share
+   - Creative solution, may have power draw consequences
+
+3. **Partial fix**: Fix just power OR just atmosphere first
+   - Viable if player is panicking about O2
 
 **Teaching**: This puzzle forces discovery of:
-- Definitions contain references to other nodes
-- References must point to correct/appropriate systems
-- You need to look at multiple files to understand the ship
-- The ship is a connected system with topology
+- **Physical damage requires software adaptation**
+- The ship has redundant systems for emergencies
+- STATUS terminals show what's working and what's not
+- Multiple files define the ship's systems
+- Rerouting is about changing references, not "fixing bugs"
 
-**What This Does NOT Teach** (saved for later puzzles):
-- Version control (slvc) - too early
-- Permissions - not blocked yet
-- Signals - not needed here
+**Why This Works**:
+The code was correct. The hardware broke. The player isn't debugging—they're adapting. This reinforces that StarLang definitions are CORRECT, but the physical world has changed. The ship's designers anticipated failures and built in backups. The player's job is to activate them.
 
 ---
 
@@ -400,8 +452,8 @@ It's dormant. The crew needs to be woken. This isn't your problem. Let the exper
 
 | Phase | Puzzle | Complexity | New Concepts |
 |-------|--------|------------|--------------|
-| Opening | 1 - Broken Switch | Single change | Terminals, editing, cause-effect |
-| Early | 2 - O2 Crisis | Multi-node awareness | Status vs config, references, tradeoffs |
+| Opening | 1 - Broken Switch | Single workaround | Terminals, editing, bypass damaged hardware |
+| Early | 2 - Damaged Junction | Rerouting to backup | Redundant systems, STATUS displays, multi-file |
 | Early-Mid | 3 - Frozen Door | Cross-system | Physical state, connected systems |
 | Mid | 4 - Permission Block | Permission exploitation | Access control, categorization gaps |
 | Late | 5 - Sealed Bridge | Multi-system chain | Signals, documentation, timing |

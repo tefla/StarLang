@@ -1,6 +1,6 @@
 ---
 id: task-3.4
-title: Reference validation in runtime
+title: Hardware damage tracking in runtime
 status: To Do
 assignee: []
 created_date: '2025-12-14 08:38'
@@ -13,14 +13,15 @@ priority: high
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Runtime should validate that references point to valid nodes and check if the referenced system can actually serve the room (deck matching). STATUS terminal should show appropriate errors when references are wrong.
+Runtime should track which physical systems are damaged vs operational. STATUS terminal should show HARDWARE FAULT for damaged systems and list available backup systems. This creates the information the player needs to solve the puzzle.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Compiler validates references exist
-- [ ] #2 Runtime tracks when power_source reference is unreachable/mismatched
-- [ ] #3 Runtime tracks when air_supply reference is unreachable/mismatched
-- [ ] #4 STATUS terminal shows "Main Power: NO SOURCE" for wrong power ref
-- [ ] #5 STATUS terminal shows "O2: NO SUPPLY" for wrong air ref
+- [ ] #1 Runtime tracks damage state for junctions and scrubbers
+- [ ] #2 junction_4a and scrubber_4a marked as DAMAGED at game start
+- [ ] #3 junction_4b and scrubber_4b marked as STANDBY (available)
+- [ ] #4 STATUS terminal shows "HARDWARE FAULT - physical damage detected"
+- [ ] #5 STATUS terminal shows "BACKUP SYSTEMS AVAILABLE" with list
+- [ ] #6 Referencing damaged system = no power/atmosphere
 <!-- AC:END -->

@@ -1,6 +1,6 @@
 ---
 id: task-3
-title: Vertical Slice 3 - Wrong Wiring Puzzle (Puzzle 2)
+title: Vertical Slice 3 - Damaged Junction Puzzle (Puzzle 2)
 status: To Do
 assignee: []
 created_date: '2025-12-14 08:38'
@@ -12,51 +12,49 @@ priority: high
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Implement Puzzle 2: Wrong Wiring. After escaping the galley (Puzzle 1), player enters a dark corridor with dropping O2. The problem is that the corridor's system references are WRONG - pointing to deck 3 systems instead of deck 4. This puzzle builds on skills learned in Puzzle 1 and introduces multi-file investigation.
+Implement Puzzle 2: The Damaged Junction. After escaping the galley (Puzzle 1), player enters a dark corridor with dropping O2. The primary power junction and scrubber were physically damaged during the incident. The player must reroute to backup systems.
+
+**Narrative Principle:**
+The ship's code is CORRECT. The hardware is DAMAGED. The player adapts working software to route around physical damage. This is a workaround, not a bug fix.
 
 **Context:**
-- **Puzzle 1 (complete)**: Door switch FAULT → edit galley.sl to bypass control → teaches basic editing
-- **Puzzle 2 (this VS)**: Dark corridor, O2 dropping → find and fix wrong references → teaches 2-hop reference tracing
+- **Puzzle 1 (complete)**: Door switch physically broken → edit galley.sl to bypass → teaches software workaround
+- **Puzzle 2 (this VS)**: Junction physically damaged → reroute to backup systems → teaches redundancy and multi-file
 
 **Puzzle 2 Setup:**
-Player enters corridor. It's dark except for STATUS terminal glow (emergency power). STATUS shows "Main Power: NO SOURCE" and "O2: CRITICAL - NO SUPPLY". Investigation reveals corridor.sl has wrong references to deck 3 systems.
+Player enters corridor. It's dark except for STATUS terminal glow (emergency power). STATUS shows junction_4a OFFLINE (hardware fault) and O2 dropping. The code correctly references junction_4a, but the hardware is broken.
 
 **The Core Problem:**
-The corridor's `.sl` file contains WRONG REFERENCES - not disabled state, but incorrect node references:
-- `power_source: junction_3b` → should be `junction_4a`
-- `air_supply: scrubber_alpha` → should be `scrubber_beta`
+Physical damage, not bad code. The corridor.sl correctly says `power_source: junction_4a`, but junction_4a is damaged. The ship has backup systems (junction_4b, scrubber_4b) that the player must activate.
+
+**STATUS Terminal Shows:**
+- junction_4a: HARDWARE FAULT - physical damage detected
+- scrubber_4a: HARDWARE FAULT - physical damage detected
+- BACKUP SYSTEMS AVAILABLE: junction_4b, scrubber_4b (STANDBY)
 
 **Solution:**
-1. Open corridor.sl - see wrong references (junction_3b, scrubber_alpha)
-2. Check ship_systems.sl - find deck 4 systems (junction_4a, scrubber_beta)
-3. Fix references in corridor.sl to point to correct deck 4 systems
-4. Lights come on, O2 stabilizes
-
-**Why 2-hop matters:**
-- Hop 1: corridor.sl contains wrong references
-- Hop 2: ship_systems.sl reveals correct references
-- Player must cross-reference between files
+1. See STATUS showing damaged primary systems and available backups
+2. Open corridor.sl - see correct references to damaged systems
+3. Open ship_systems.sl - find backup systems defined
+4. Reroute: change references from `_4a` to `_4b` systems
+5. Lights come on, O2 stabilizes
 
 **What this teaches:**
-- Definitions contain references to other nodes
-- References must point to correct/appropriate systems
-- Multiple files work together to define the ship
-- The ship has topology (deck 3 vs deck 4 systems)
-
-**What this does NOT teach (saved for later):**
-- Version control (slvc) - too early
-- Permissions - not blocked yet
-- Signals - not needed here
+- Physical damage requires software adaptation
+- The ship has redundant systems for emergencies
+- STATUS terminals show what's working and what's damaged
+- Multiple files define the ship's systems
+- Rerouting is about changing references, not "fixing bugs"
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Corridor room exists with STATUS terminal and engineering terminal
-- [ ] #2 ship_systems.sl file defines deck 3 and deck 4 power/atmo systems
-- [ ] #3 corridor.sl file initially has wrong references (deck 3 instead of deck 4)
+- [ ] #2 ship_systems.sl defines primary (damaged) and backup (working) systems
+- [ ] #3 corridor.sl correctly references primary systems (which are damaged)
 - [ ] #4 Corridor starts dark with O2 dropping when player enters
-- [ ] #5 STATUS terminal shows "NO SOURCE" / "NO SUPPLY" errors
-- [ ] #6 Fixing references in corridor.sl restores power and O2
-- [ ] #7 Lights come on and O2 stabilizes when puzzle is solved
-- [ ] #8 Victory condition: player reaches end of corridor with stable atmosphere
+- [ ] #5 STATUS terminal shows HARDWARE FAULT for junction_4a and scrubber_4a
+- [ ] #6 STATUS terminal shows BACKUP SYSTEMS AVAILABLE
+- [ ] #7 Rerouting to backup systems restores power and O2
+- [ ] #8 Lights come on and O2 stabilizes when puzzle is solved
 <!-- AC:END -->
