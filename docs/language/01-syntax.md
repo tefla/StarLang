@@ -11,6 +11,36 @@ StarLang is designed to be:
 
 ---
 
+## Critical Design Principle: Definition vs. State
+
+**StarLang files (.sl) contain DEFINITIONS, not STATE.**
+
+| Definitions (.sl files) | State (runtime only) |
+|------------------------|---------------------|
+| What things ARE | What things ARE DOING |
+| Structure and topology | Current values |
+| Connections and references | On/off, open/closed |
+| Configuration and thresholds | Sensor readings |
+| How the ship was BUILT | How the ship is NOW |
+
+A shipyard delivers a working ship. The `.sl` files define how systems connect - they don't contain "disabled" or "offline" flags. The ship was built correctly; state emerges at runtime.
+
+**What belongs in .sl files:**
+- Node declarations (rooms, doors, vents, junctions)
+- References to other nodes (`power_source: junction_4a`)
+- Configuration values (`flow_rate: 2.4`, `target_temp: 22C`)
+- Behavior definitions (`on_open: { ... }`)
+- Thresholds and limits (`alarm_threshold: 18%`)
+
+**What does NOT belong in .sl files:**
+- Current state (`state: DISABLED` ❌)
+- Runtime values (`current_temp: 22.4` ❌)
+- On/off switches (`enabled: false` ❌)
+
+**Puzzle implications**: When something is broken in the game, it's because a **reference is wrong** (pointing to the wrong node) or a **configuration value is incorrect** (wrong threshold, wrong target). The player fixes the ship by correcting the definition, not by toggling state.
+
+---
+
 ## Basic Structure
 
 A StarLang file consists of **declarations**. Each declaration defines a thing: a room, a door, a sensor, a relay, etc.

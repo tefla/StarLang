@@ -1,6 +1,6 @@
 ---
 id: task-3.1
-title: Atmosphere nodes in StarLang
+title: Corridor room and 3D geometry
 status: To Do
 assignee: []
 created_date: '2025-12-14 08:38'
@@ -13,5 +13,14 @@ priority: high
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Add AtmoOutlet and AtmoIntake node types to StarLang. Outlets have a target property that can be VOID.external, another room's intake, or a closed loop to self. Parser and compiler must support these new node types.
+Create the corridor 3D room connected to galley via the exit door. Corridor should be dark (no main lights) with only a STATUS terminal glowing on emergency power. Include engineering terminal for editing files.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 Corridor 3D geometry with walls, floor, ceiling
+- [ ] #2 Door from galley to corridor (the exit door from Puzzle 1)
+- [ ] #3 STATUS terminal (glows on emergency power - always visible)
+- [ ] #4 Engineering terminal for editing .sl files
+- [ ] #5 Corridor starts dark until power is fixed
+<!-- AC:END -->

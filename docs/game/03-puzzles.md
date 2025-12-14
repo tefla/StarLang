@@ -128,72 +128,94 @@ The player's first instinct (press the switch) fails. This creates a problem tha
 
 ---
 
-### Puzzle 2: The Oxygen Crisis
+### Puzzle 2: Wrong Wiring
 
 **Location**: Corridor (after escaping galley)
-**Urgency**: High (O2 dropping fast)
-**Type**: Configuration (Type 1)
+**Urgency**: High (dark corridor, O2 dropping)
+**Type**: Configuration (Type 1) - 2-hop reference chain
 
-**Setup**: The player enters the corridor. Victory message briefly appears, but then alarms sound. The corridor STATUS terminal shows O2 at 16% and dropping fast. The galley was fine - what's happening here?
+**Setup**: The player enters the corridor. It's dark - almost pitch black except for the faint glow of the STATUS terminal (which runs on emergency power). The STATUS display shows O2 is dropping and main power is offline.
 
-**Implementation Details** (Planned):
-- Corridor has `AtmoOutlet` node with `target: VOID.external` (venting to space)
-- O2 depletion rate calculated from outlet config
-- STATUS terminal shows live O2/temp/pressure from runtime state
-- Engineering terminal in corridor mounts `env_config.sl`
+**The Core Problem**: The corridor's systems are configured to draw from the wrong sources. Someone (during the incident?) changed the references to point to systems on deck 3 instead of deck 4.
 
-**Investigation**:
-```
-═══ Corridor Status ═══
+**Key Design Note**: This is a DEFINITION problem, not a STATE problem. The `.sl` files don't contain `enabled: false` - they contain wrong references. A shipyard wouldn't deliver a ship with disabled systems; they'd deliver correctly wired systems. The puzzle is that the wiring (references) got changed.
 
-ENVIRONMENTAL STATUS
-────────────────────
-  O2 Level:    16.2%  ✗ CRITICAL
-  Temperature: 21.0°C ✓
-  Pressure:    0.94atm ⚠ LOW
-
-────────────────────
-System Status: CRITICAL
-```
-
-**Discovery**: Player finds engineering terminal, opens `env_config.sl`:
-
+**File 1: `corridor.sl`**
 ```starlang
-# Atmosphere routing - Deck 4
-outlet corridor_outlet {
-  location: corridor
-  target: VOID.external    # ERROR - this is wrong!
-  flow_rate: 2.4
+room corridor {
+  display_name: "Corridor 4A"
+  deck: 4
+
+  # These references are WRONG - pointing to deck 3 systems
+  power_source: junction_3b      # ← Should be junction_4a
+  air_supply: scrubber_alpha     # ← Should be scrubber_beta
 }
 
-intake corridor_intake {
+lights corridor_main {
   location: corridor
-  source: life_support.main
-  flow_rate: 1.2
+  power: junction_3b.main        # ← Same wrong reference
 }
 ```
 
-**Solution Options**:
+**File 2: `ship_systems.sl`** (or player finds via STATUS terminal)
+```starlang
+# Deck 3 systems
+junction junction_3b {
+  location: deck_3
+  serves: [medbay, science_lab]
+}
 
-1. **Basic - Closed loop**: Change `target: corridor_intake`
-   - Recycles air, stops venting
-   - Side effect: CO2 builds up slowly (becomes a problem later if not properly fixed)
+scrubber scrubber_alpha {
+  location: deck_3
+  serves: [medbay, science_lab]
+}
 
-2. **Better - Redirect**: Change `target: cold_storage.intake`
-   - Valid target, air flows to cold storage
-   - Side effect: Cold storage warms up, food begins to spoil
+# Deck 4 systems - THE CORRECT ONES
+junction junction_4a {
+  location: deck_4
+  serves: [galley, corridor, cold_storage]
+}
 
-3. **Best - Restore original**: Use `slvc revert env_config.sl`
-   - Requires discovering version control exists
-   - Restores proper routing to life support recycler
-   - No negative side effects
+scrubber scrubber_beta {
+  location: deck_4
+  serves: [galley, corridor, cold_storage]
+}
+```
+
+**Discovery Flow**:
+1. Enter dark corridor, STATUS terminal glows faintly
+2. STATUS shows: "Main Power: NO SOURCE" and "O2: CRITICAL - NO SUPPLY"
+3. Open `corridor.sl` → see `power_source: junction_3b` and `air_supply: scrubber_alpha`
+4. Think: "What junctions exist? Which one is correct?"
+5. Find `ship_systems.sl` (mounted on same terminal, or visible in file list)
+6. See that `junction_4a` and `scrubber_beta` are for deck 4
+7. Fix references: change `junction_3b` → `junction_4a`, `scrubber_alpha` → `scrubber_beta`
+8. Lights come on, O2 stabilizes
+
+**Solution**:
+Edit `corridor.sl`:
+```starlang
+room corridor {
+  power_source: junction_4a      # Fixed!
+  air_supply: scrubber_beta      # Fixed!
+}
+```
+
+**Why 2-Hop Matters**:
+- Hop 1: corridor.sl contains wrong references
+- Hop 2: ship_systems.sl reveals what the correct references should be
+- Player must cross-reference between files to find the answer
 
 **Teaching**: This puzzle forces discovery of:
-- STATUS terminals show live state that changes
-- Configuration files exist separately from main definitions
-- Node references (outlets have targets that must point somewhere valid)
-- Multiple solutions exist with different tradeoffs
-- Actions have consequences beyond the immediate fix
+- Definitions contain references to other nodes
+- References must point to correct/appropriate systems
+- You need to look at multiple files to understand the ship
+- The ship is a connected system with topology
+
+**What This Does NOT Teach** (saved for later puzzles):
+- Version control (slvc) - too early
+- Permissions - not blocked yet
+- Signals - not needed here
 
 ---
 
