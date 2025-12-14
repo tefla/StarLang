@@ -9,6 +9,10 @@ import type {
   TerminalDefinition,
   SwitchDefinition,
   WallLightDefinition,
+  PipeDefinition,
+  VentDefinition,
+  ConduitDefinition,
+  HullSectionDefinition,
   Position3D,
   ShipStructure
 } from '../types/nodes'
@@ -67,7 +71,12 @@ export class Compiler {
       terminals: new Map(),
       sensors: new Map(),
       switches: new Map(),
-      wallLights: new Map()
+      wallLights: new Map(),
+      // Ambient systems
+      pipes: new Map(),
+      vents: new Map(),
+      conduits: new Map(),
+      hullSections: new Map()
     }
 
     for (const node of nodes) {
@@ -88,6 +97,23 @@ export class Compiler {
           case 'SWITCH':
             const sw = this.compileSwitch(node)
             structure.switches.set(sw.id, sw)
+            break
+          // Ambient systems
+          case 'PIPE':
+            const pipe = this.compilePipe(node)
+            structure.pipes.set(pipe.id, pipe)
+            break
+          case 'VENT':
+            const vent = this.compileVent(node)
+            structure.vents.set(vent.id, vent)
+            break
+          case 'CONDUIT':
+            const conduit = this.compileConduit(node)
+            structure.conduits.set(conduit.id, conduit)
+            break
+          case 'HULL_SECTION':
+            const hull = this.compileHullSection(node)
+            structure.hullSections.set(hull.id, hull)
             break
         }
       } catch (error) {
@@ -198,6 +224,74 @@ export class Compiler {
         rotation: layoutData?.rotation ?? this.getNumber(props['rotation']) ?? 0,
         mounted_files: this.getStringArray(props['mounted_files']),
         access: this.getString(props['access']) as any
+      }
+    }
+  }
+
+  // Ambient system compilers
+  private compilePipe(node: ASTNode): PipeDefinition {
+    const props = node.properties
+    const layoutData = (this.layout as any)?.pipes?.[node.name]
+
+    return {
+      id: node.name,
+      type: 'PIPE',
+      properties: {
+        display_name: this.getString(props['display_name']) ?? node.name,
+        location: this.getString(props['location']) ?? '',
+        position: layoutData?.position ?? this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
+        material: (this.getString(props['material']) ?? 'STEEL') as any,
+        contents: (this.getString(props['contents']) ?? 'AIR') as any,
+        diameter: this.getNumber(props['diameter']) ?? 4
+      }
+    }
+  }
+
+  private compileVent(node: ASTNode): VentDefinition {
+    const props = node.properties
+    const layoutData = (this.layout as any)?.vents?.[node.name]
+
+    return {
+      id: node.name,
+      type: 'VENT',
+      properties: {
+        display_name: this.getString(props['display_name']) ?? node.name,
+        location: this.getString(props['location']) ?? '',
+        position: layoutData?.position ?? this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
+        rotation: layoutData?.rotation ?? this.getNumber(props['rotation']) ?? 0,
+        size: (this.getString(props['size']) ?? 'MEDIUM') as any
+      }
+    }
+  }
+
+  private compileConduit(node: ASTNode): ConduitDefinition {
+    const props = node.properties
+    const layoutData = (this.layout as any)?.conduits?.[node.name]
+
+    return {
+      id: node.name,
+      type: 'CONDUIT',
+      properties: {
+        display_name: this.getString(props['display_name']) ?? node.name,
+        location: this.getString(props['location']) ?? '',
+        position: layoutData?.position ?? this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
+        voltage: (this.getString(props['voltage']) ?? 'LOW') as any
+      }
+    }
+  }
+
+  private compileHullSection(node: ASTNode): HullSectionDefinition {
+    const props = node.properties
+    const layoutData = (this.layout as any)?.hullSections?.[node.name]
+
+    return {
+      id: node.name,
+      type: 'HULL_SECTION',
+      properties: {
+        display_name: this.getString(props['display_name']) ?? node.name,
+        location: this.getString(props['location']) ?? '',
+        position: layoutData?.position ?? this.getPosition(props['position']) ?? { x: 0, y: 0, z: 0 },
+        structural_integrity: layoutData?.structural_integrity ?? this.getNumber(props['structural_integrity']) ?? 1.0
       }
     }
   }

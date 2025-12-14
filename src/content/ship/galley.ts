@@ -70,4 +70,104 @@ terminal corridor_status {
   terminal_type: STATUS
   location: corridor
 }
+
+# ============================================
+# Ambient Systems - Environmental sound sources
+# ============================================
+
+# Pipes - carry air, water, coolant through the ship
+pipe galley_water_main {
+  display_name: "Water Supply Line"
+  location: galley
+  material: COPPER
+  contents: WATER
+  diameter: 2
+}
+
+pipe galley_atmo_duct {
+  display_name: "Atmosphere Duct"
+  location: galley
+  material: STEEL
+  contents: AIR
+  diameter: 6
+}
+
+pipe corridor_coolant {
+  display_name: "Coolant Line"
+  location: corridor
+  material: COMPOSITE
+  contents: COOLANT
+  diameter: 3
+}
+
+pipe engineering_main {
+  display_name: "Main Coolant Feed"
+  location: engineering
+  material: STEEL
+  contents: COOLANT
+  diameter: 8
+}
+
+# Vents - air circulation and atmosphere control
+vent galley_intake {
+  display_name: "Galley Air Intake"
+  location: galley
+  size: MEDIUM
+}
+
+vent galley_exhaust {
+  display_name: "Galley Exhaust"
+  location: galley
+  size: SMALL
+}
+
+vent corridor_main_vent {
+  display_name: "Corridor Ventilation"
+  location: corridor
+  size: LARGE
+}
+
+vent engineering_vent {
+  display_name: "Engineering Vent"
+  location: engineering
+  size: LARGE
+}
+
+# Conduits - power distribution
+conduit galley_power {
+  display_name: "Galley Power Feed"
+  location: galley
+  voltage: LOW
+}
+
+conduit corridor_lighting {
+  display_name: "Corridor Lighting Circuit"
+  location: corridor
+  voltage: LOW
+}
+
+conduit engineering_main_power {
+  display_name: "Engineering Main Power"
+  location: engineering
+  voltage: HIGH
+}
+
+# Hull sections - structural elements that creak and groan
+hull_section galley_bulkhead {
+  display_name: "Galley Bulkhead"
+  location: galley
+  structural_integrity: 1.0
+}
+
+hull_section corridor_hull {
+  display_name: "Corridor Hull Panel"
+  location: corridor
+  structural_integrity: 0.95
+}
+
+hull_section engineering_frame {
+  display_name: "Engineering Frame"
+  location: engineering
+  structural_integrity: 0.9
+}
 `

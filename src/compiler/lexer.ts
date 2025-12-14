@@ -26,6 +26,8 @@ export interface Token {
 
 const KEYWORDS = new Set([
   'room', 'door', 'terminal', 'sensor', 'signal', 'switch',
+  // Ambient systems
+  'pipe', 'vent', 'conduit', 'hull_section',
   'true', 'false'
 ])
 
