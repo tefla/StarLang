@@ -127,6 +127,29 @@ export class EditorCamera {
   }
 
   /**
+   * Set the target point for orbit mode.
+   */
+  setTarget(target: THREE.Vector3): void {
+    this.target.copy(target)
+    this.updateCameraPosition()
+  }
+
+  /**
+   * Set the distance from target.
+   */
+  setDistance(distance: number): void {
+    this.distance = Math.max(this.config.minDistance, Math.min(this.config.maxDistance, distance))
+    this.updateCameraPosition()
+  }
+
+  /**
+   * Get current distance.
+   */
+  getDistance(): number {
+    return this.distance
+  }
+
+  /**
    * Attach to a DOM element for input handling.
    */
   attach(element: HTMLElement): void {

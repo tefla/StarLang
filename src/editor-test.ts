@@ -6,6 +6,11 @@ import * as THREE from 'three'
 import { Editor } from './editor/Editor'
 import { EditorMode, BrushMode } from './editor/EditorState'
 import { VoxelType } from './voxel/VoxelTypes'
+import { VoxelMapBuilder } from './voxel/VoxelMapBuilder'
+import type { ShipLayout } from './types/layout'
+
+// Import the galley layout
+import galleyLayout from './content/ship/galley.layout.json'
 
 // Get canvas element
 const canvas = document.getElementById('canvas') as HTMLCanvasElement
@@ -64,8 +69,34 @@ const editor = new Editor({
 // Enable editor mode
 editor.enable()
 
-// Create test world with a simple room
-editor.createTestWorld()
+// Build the galley map from V1 layout
+const builder = new VoxelMapBuilder({
+  wallThickness: 2,      // 20cm thick walls
+  floorThickness: 2,     // 20cm thick floor
+  ceilingThickness: 2,   // 20cm thick ceiling
+  doorWidth: 12,         // 1.2m wide doors
+  doorHeight: 22         // 2.2m tall doors
+})
+const result = builder.buildFromLayout(galleyLayout as ShipLayout)
+
+// Copy voxels from built world to editor's world
+for (const chunk of result.world.getAllChunks()) {
+  for (const [coord, voxel] of chunk.entries()) {
+    const wx = chunk.cx * 16 + coord.x
+    const wy = chunk.cy * 16 + coord.y
+    const wz = chunk.cz * 16 + coord.z
+    editor.world.setVoxel(wx, wy, wz, voxel)
+  }
+}
+
+// Rebuild meshes
+editor.voxelRenderer.rebuildAll()
+
+// Update camera to look at the galley
+editor.camera.setTarget(new THREE.Vector3(10, 1.5, 3))
+editor.camera.setDistance(30)
+
+console.log('Loaded galley map:', Object.keys(result.rooms).join(', '))
 
 // UI Elements
 const statsEl = document.getElementById('stats')!
