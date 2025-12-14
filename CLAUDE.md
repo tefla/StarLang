@@ -1,3 +1,39 @@
+# StarLang Development Guide
+
+## Core Architecture: Three-Layer Model
+
+StarLang uses strict separation between definitions, layout, and state:
+
+### 1. StarLang Files (.sl) - Ship OS
+- **Contains**: Definitions, connections, behaviours, signals, permissions
+- **Never contains**: State (enabled/disabled, current values, open/closed)
+- **Player editable**: Yes
+- **Correctness**: Always correct when delivered by shipyard
+- **Can be broken by** (late-game only): Sabotage, bad repair job, corruption
+- Use `slvc` (version control) to investigate WHO changed code and WHEN
+
+### 2. Layout Files (.layout.json) - Physical World
+- **Contains**: 3D positions, rotations, hardware damage status
+- **Player editable**: No (read-only)
+- **Hardware status**: FAULT, DAMAGED, STANDBY, OK
+- Physical damage from "the incident" is recorded here, not in .sl files
+
+### 3. Runtime State - Current Values
+- **Contains**: Door states, O2 levels, sensor readings, signal states
+- **Sources**: Default from layout, simulation ticks, .sl execution, player actions
+- **Ephemeral**: Lives in memory, preserved across hot-reloads
+
+### Key Principles
+- **Puzzles are workarounds, not bug fixes**: Hardware is damaged, player adapts software
+- **State never in .sl files**: `enabled: false` or `state: OPEN` don't belong in definitions
+- **Ship has redundancy**: Backup systems exist for emergent gameplay
+- **No tutorials**: Puzzles force discovery through necessity
+
+See `docs/technical/00-architecture.md` for full details.
+
+---
+
+## Development Environment
 
 Default to using Bun instead of Node.js.
 

@@ -13,15 +13,18 @@ StarLang is designed to be:
 
 ## Critical Design Principle: Definition vs. State
 
+> See also: [System Architecture](../technical/00-architecture.md) for the full three-layer model.
+
 **StarLang files (.sl) contain DEFINITIONS, not STATE.**
 
-| Definitions (.sl files) | State (runtime only) |
-|------------------------|---------------------|
-| What things ARE | What things ARE DOING |
-| Structure and topology | Current values |
-| Connections and references | On/off, open/closed |
-| Configuration and thresholds | Sensor readings |
-| How the ship was BUILT | How the ship is NOW |
+| Definitions (.sl files) | Layout (.json files) | State (runtime only) |
+|------------------------|---------------------|---------------------|
+| What things ARE | Where things ARE | What things ARE DOING |
+| Connections and behaviour | 3D positions | Current values |
+| References to other nodes | Hardware damage status | On/off, open/closed |
+| Configuration and thresholds | Physical geometry | Sensor readings |
+
+### The Ship Was Correct
 
 A shipyard delivers a working ship. The `.sl` files define how systems connect - they don't contain "disabled" or "offline" flags. The ship was built correctly; state emerges at runtime.
 
@@ -36,8 +39,29 @@ A shipyard delivers a working ship. The `.sl` files define how systems connect -
 - Current state (`state: DISABLED` ❌)
 - Runtime values (`current_temp: 22.4` ❌)
 - On/off switches (`enabled: false` ❌)
+- Hardware damage status (`status: "FAULT"` ❌) - this goes in layout files
 
-**Puzzle implications**: When something is broken in the game, it's because a **reference is wrong** (pointing to the wrong node) or a **configuration value is incorrect** (wrong threshold, wrong target). The player fixes the ship by correcting the definition, not by toggling state.
+### When StarLang CAN Be "Wrong" (Late-Game Puzzles)
+
+While the ship was delivered correct, .sl files CAN be broken by:
+
+1. **Malicious intent**: Someone (a saboteur?) deliberately changed the code
+2. **Bad repair job**: A crew member tried to fix something and made it worse
+3. **The incident**: Whatever happened corrupted some files
+
+These scenarios are **late-game puzzles** that require `slvc` (version control) to investigate:
+- `slvc log` - See who changed what and when
+- `slvc diff` - Compare current vs previous versions
+- `slvc revert` - Restore previous versions
+
+### Early-Game vs Late-Game Puzzles
+
+| Early Game | Late Game |
+|------------|-----------|
+| Hardware damaged (layout) | Code changed (slvc) |
+| Software workaround | Investigate who/why |
+| Reroute to backups | Revert sabotage |
+| Adapt correct code | Fix incorrect code |
 
 ---
 

@@ -1,15 +1,18 @@
 # Layout Files
 
+> See also: [System Architecture](../technical/00-architecture.md) for the full three-layer model.
+
 ## Separation of Concerns
 
-StarLang separates **logical ship definition** from **physical layout**:
+StarLang uses a **three-layer architecture**:
 
-| File Type | Contains | Player Editable |
-|-----------|----------|-----------------|
-| `.sl` (StarLang) | Logical structure, connections, systems, behaviours | Yes |
-| `.layout` | Physical positions, rotations, sizes, 3D geometry | No (read-only) |
+| Layer | File Type | Contains | Player Editable |
+|-------|-----------|----------|-----------------|
+| **Definitions** | `.sl` (StarLang) | Logical structure, connections, behaviours | Yes |
+| **Layout** | `.layout.json` | Physical positions, hardware status | No (read-only) |
+| **State** | Runtime only | Current values (O2, door states, etc.) | Indirectly |
 
-This separation reflects reality: a cook can reconfigure door access rules, but can't physically move walls.
+This separation reflects reality: a cook can reconfigure door access rules, but can't physically move walls or repair damaged hardware.
 
 ---
 
@@ -99,6 +102,53 @@ terminals:
 - Room sizes (width, height, depth)
 - Visual/geometric properties
 - Prop placements
+- **Hardware status** (physical damage from the incident)
+
+---
+
+## Hardware Status
+
+Layout files record the **physical condition** of hardware. This is where damage from "the incident" is defined:
+
+```json
+{
+  "switches": {
+    "door_switch": {
+      "position": { "x": 2.5, "y": 1.2, "z": -2.8 },
+      "status": "FAULT"
+    }
+  },
+  "junctions": {
+    "junction_4a": {
+      "position": { "x": 0, "y": 2.5, "z": 0 },
+      "status": "DAMAGED"
+    },
+    "junction_4b": {
+      "position": { "x": 2, "y": 2.5, "z": 0 },
+      "status": "STANDBY"
+    }
+  }
+}
+```
+
+### Status Values
+
+| Status | Meaning | Visual Feedback |
+|--------|---------|-----------------|
+| `OK` | Working normally | Normal appearance |
+| `FAULT` | Malfunctioning | Sparks, flickering |
+| `DAMAGED` | Physically broken | Visible damage, offline |
+| `STANDBY` | Working but inactive | Dim indicator light |
+
+### Why Hardware Status is in Layout, Not StarLang
+
+The ship's code (.sl) was correct when delivered. Physical damage happened during the incident. This means:
+
+- **StarLang**: `door { control: door_switch }` - Correct definition
+- **Layout**: `door_switch: { status: "FAULT" }` - Physical damage
+- **Puzzle**: Player must adapt correct software to work around damaged hardware
+
+This is NOT a bug to fix - it's a workaround to discover.
 
 ---
 
