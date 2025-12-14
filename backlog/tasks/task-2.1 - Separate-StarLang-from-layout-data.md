@@ -1,7 +1,7 @@
 ---
 id: task-2.1
 title: Separate StarLang from layout data
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-12-12 17:59'
 labels: []

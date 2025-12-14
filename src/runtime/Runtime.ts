@@ -99,13 +99,12 @@ export class Runtime {
       })
     }
 
-    // Initialize door states
+    // Initialize door states - doors start CLOSED (controlled by switches)
     for (const [id, door] of this.structure.doors) {
       this.states.set(id, {
         id,
         values: {
-          state: door.properties.locked ? 'LOCKED' : 'CLOSED',
-          locked_by: door.properties.locked ? 'SYSTEM' : undefined
+          state: 'CLOSED'
         },
         lastModified: Date.now(),
         modifiedBy: 'SYSTEM'

@@ -12,64 +12,101 @@ These three gates work together. Getting into a new room might reveal a terminal
 
 ---
 
+## Learning Through Play (No Tutorials)
+
+**Critical Design Principle**: The game teaches entirely through puzzles. There are no tutorials, hint systems, or instructional overlays. Every mechanic is discovered through necessity.
+
+### Why No Tutorials
+
+- Tutorials break immersion - Riley Chen doesn't have a floating hint system
+- Tutorials assume the player is stupid - our players are problem-solvers
+- Tutorials rob players of discovery - the "aha!" moment IS the reward
+- Tutorials create dependency - players expect to be told what to do
+
+### How Puzzles Teach
+
+Each puzzle is designed to force discovery of exactly one or two mechanics:
+
+| Puzzle | What It Forces Player to Discover |
+|--------|-----------------------------------|
+| 1 - Broken Switch | Terminals exist, code is editable, changes affect the world |
+| 2 - O2 Crisis | STATUS shows live state, config files control behavior, tradeoffs exist |
+| 3 - Frozen Door | Systems are connected, physical state differs from software state |
+| 4 - Permission Block | Access control exists, legacy systems have gaps |
+| 5 - Sealed Bridge | Systems can be chained, signals matter, documentation is useful |
+| 6 - The Anomaly | Everything synthesized into a moral choice |
+
+The player never reads "Press E to interact with terminals." They discover it because the door won't open, the switch is broken, and the glowing terminal is the only other object in the room.
+
+See [03-puzzles.md](03-puzzles.md) for detailed puzzle designs and the "Anti-Tutorial Design" section.
+
+---
+
 ## Physical Access
 
 ### Starting State
 
-The player begins in the **Galley** with access to:
+The player begins in the **Galley**, trapped:
 
-- Galley (starting room)
-- Cold Storage (adjacent, unlocked)
-- Crew Mess Hall (adjacent, but door is stuck—minor obstacle)
+- Galley (starting room) - locked in by Puzzle 1
+- Corridor 4A (adjacent, blocked by broken door switch)
+- Engineering Bay (beyond corridor, accessible after Puzzle 1)
 
-All other areas are blocked by:
+**Current Implementation (VS1-VS2)**:
+- Player spawns in galley at position (0, 0, 0)
+- Door switch marked "FAULT" - sparks when pressed, doesn't work
+- Engineering terminal mounts `galley.sl` - player must edit to escape
+- Corridor has STATUS terminal showing atmosphere data
+- Victory condition triggers when player enters corridor
 
-- Emergency seals (atmosphere containment)
+All other areas blocked by:
+
+- Broken mechanisms (Puzzle 1 - door switch)
+- Atmosphere emergencies (Puzzle 2 - O2 venting)
 - Locked doors (permission required)
 - Physical damage (debris, ice, hull breach)
 
 ### Expansion Paths
 
 ```
-GALLEY (start)
-    │
-    ├── Cold Storage (immediate access)
-    │       │
-    │       └── Medical Bay Corridor (solve: frozen door)
-    │               │
-    │               └── Medical Bay Auxiliary (solve: permission or manual override)
-    │
-    ├── Crew Mess Hall (solve: stuck door mechanism)
-    │       │
-    │       ├── Crew Quarters Corridor (solve: emergency seal)
-    │       │       │
-    │       │       └── Individual Quarters (various locks)
-    │       │
-    │       └── Maintenance Junction 4A (solve: find access code)
-    │               │
-    │               └── Engineering Sublevel (solve: permission escalation)
-    │
-    └── Corridor 4A (solve: atmosphere crisis)
+GALLEY (start) ─────────────────────────────────────────────────────────
+    │                                                                   │
+    │  [PUZZLE 1: Broken Switch]                                        │
+    │  Door switch is FAULT - must edit galley.sl to bypass             │
+    │                                                                   │
+    └── Corridor 4A ────────────────────────────────────────────────────
+            │                                                           │
+            │  [PUZZLE 2: O2 Crisis]                                    │
+            │  Atmosphere venting to space - edit env_config.sl         │
+            │                                                           │
+            ├── Cold Storage (solution option for Puzzle 2)
+            │       │
+            │       └── Medical Bay Corridor (solve: frozen door - Puzzle 3)
+            │               │
+            │               └── Medical Bay (solve: permission)
             │
-            ├── Life Support Local (solve: engineering credentials)
+            ├── Engineering Bay (after Puzzle 2)
+            │       │
+            │       └── Maintenance Junction 4A (solve: find access)
+            │               │
+            │               └── Engineering Sublevel (solve: Puzzle 4)
             │
-            └── Deck Access Elevator (solve: late game)
+            └── Deck Access Elevator (late game)
                     │
-                    ├── Deck 1: Bridge Area (solve: major security)
+                    ├── Deck 1: Bridge Area (solve: Puzzle 5)
                     │
-                    └── Deck 2: Engineering (solve: clearance)
+                    └── Deck 2: Main Engineering (solve: clearance)
 ```
 
 ### Physical Obstacles
 
-| Obstacle | Blocks | Solution |
-|----------|--------|----------|
-| Venting atmosphere | Corridor 4A | Fix O2 routing |
-| Ice in mechanism | Cold Storage → Medical | Redirect heating |
-| Stuck door | Galley → Mess | Kick it / power cycle |
-| Emergency seal | Mess → Quarters | Trigger all-clear or fire alarm |
-| Access code | Mess → Maintenance | Find it in documentation or on a body |
-| Security door | Anywhere → Bridge | Major late-game puzzle |
+| Obstacle | Blocks | Solution | Puzzle |
+|----------|--------|----------|--------|
+| Broken door switch | Galley → Corridor | Edit code to bypass switch | 1 |
+| O2 venting to space | Corridor progress | Fix outlet target in config | 2 |
+| Ice in mechanism | Cold Storage → Medical | Redirect heating system | 3 |
+| No charging access | Tablet dead | Permission exploitation | 4 |
+| Security seal | Corridor → Bridge | Fake emergency signal | 5 |
 
 ---
 
@@ -186,17 +223,22 @@ What the player *understands* is as important as what they can access.
 
 ### Concept Milestones
 
-| Milestone | Player Learns | Unlocked By |
-|-----------|---------------|-------------|
-| Files exist | The ship is defined in code | Opening first terminal |
-| Status vs definition | Current state vs configured behaviour | First puzzle |
-| Editing works | Changes affect the ship | Fixing O2 |
-| Permissions limit access | You can't edit everything | First "access denied" |
-| Signals connect things | Systems talk to each other | Reading a relay definition |
-| Version control exists | Files have history | First `slvc` usage |
-| Permissions have gaps | Legacy systems can be exploited | First permission bypass |
-| State persists | The ship remembers | Reverting doesn't fix everything |
-| Simulation is possible | (stretch goal) | Finding engineering workstation |
+These are learned through puzzles, never through instruction:
+
+| Milestone | Player Learns | Forced By Puzzle |
+|-----------|---------------|------------------|
+| Terminals are interactive | Walk up, press E | Puzzle 1 - no other option |
+| Code defines the ship | Files control physical objects | Puzzle 1 - door won't open otherwise |
+| Editing causes change | Save → recompile → world updates | Puzzle 1 - first successful edit |
+| Status shows live state | STATUS terminals reflect reality | Puzzle 2 - O2 dropping visible |
+| Config vs structure | Separate files for different concerns | Puzzle 2 - env_config.sl |
+| Tradeoffs exist | Solutions have consequences | Puzzle 2 - cold storage warms up |
+| Systems connect | One thing affects another | Puzzle 3 - heating thaws door |
+| Permissions exist | Some files are restricted | Puzzle 4 - "access denied" |
+| Permissions have gaps | Legacy systems exploitable | Puzzle 4 - fake lighting node |
+| Version control exists | Files have history | Puzzle 2 (best solution) - slvc |
+| Signals chain systems | A→B→C dependencies | Puzzle 5 - sensor→alarm→door |
+| Choices matter | Final decision has weight | Puzzle 6 - moral choice |
 
 ### Documentation as Progression
 
@@ -216,36 +258,45 @@ The player develops expertise organically.
 
 ### Act 1: Survival (10-15 minutes)
 
-**Focus**: Immediate crisis, basic mechanics
+**Puzzles**: 1 (Broken Switch) → 2 (O2 Crisis)
 
-- Fix O2 (learn editing)
-- Get out of galley area (learn doors/seals)
-- Find first engineering credentials
-- Establish stable life support
+**Focus**: Immediate crisis, discovering core mechanics through necessity
 
-**Feeling**: Panic → relief → curiosity
+- Wake up trapped (galley)
+- Discover terminals exist, code is editable (Puzzle 1)
+- Escape to corridor, face O2 emergency (Puzzle 2)
+- Learn status vs config, experience tradeoffs
+
+**Feeling**: Confusion → experimentation → success → new crisis → resolution
+
+**Current Implementation Status**: VS1 complete (Puzzle 1), VS3 planned (Puzzle 2)
 
 ### Act 2: Exploration (15-20 minutes)
 
-**Focus**: Expanding access, learning systems
+**Puzzles**: 3 (Frozen Door) → 4 (Permission Block)
 
-- Open new areas
-- Solve environmental puzzles
-- Find logs and clues
-- Piece together what happened
+**Focus**: Expanding access, discovering system interconnections
 
-**Feeling**: Curiosity → competence → intrigue
+- Access cold storage, discover frozen door
+- Learn systems affect each other (Puzzle 3)
+- Find dead tablet, need to charge it
+- Learn permissions exist and can be bypassed (Puzzle 4)
+- Find first engineering credentials
+
+**Feeling**: Curiosity → competence → "I can hack this ship" confidence
 
 ### Act 3: Investigation (10-15 minutes)
 
-**Focus**: The mystery, moral choices
+**Puzzles**: 5 (Sealed Bridge) → 6 (The Anomaly)
 
-- Access restricted systems
-- Find Okafor's research
-- Discover the anomaly
-- Make endgame choices
+**Focus**: The mystery, complex system chaining, moral choice
 
-**Feeling**: Intrigue → understanding → decision
+- Need bridge access, face real security
+- Chain multiple systems to fake an emergency (Puzzle 5)
+- Discover Okafor's research, find the anomaly
+- Make final choice about the unknown code (Puzzle 6)
+
+**Feeling**: Intrigue → mastery → uncertainty → decision
 
 ---
 

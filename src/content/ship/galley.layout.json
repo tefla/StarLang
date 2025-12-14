@@ -1,0 +1,155 @@
+{
+  "rooms": {
+    "galley": {
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 6,
+        "height": 3,
+        "depth": 6
+      }
+    },
+    "corridor": {
+      "position": {
+        "x": 7,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 8,
+        "height": 3,
+        "depth": 6
+      }
+    },
+    "engineering": {
+      "position": {
+        "x": 15,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 8,
+        "height": 3,
+        "depth": 8
+      }
+    }
+  },
+  "doors": {
+    "galley_exit": {
+      "position": {
+        "x": 3,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 90
+    },
+    "engineering_door": {
+      "position": {
+        "x": 11,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 90
+    }
+  },
+  "terminals": {
+    "galley_status": {
+      "position": {
+        "x": -2.8,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 90
+    },
+    "galley_engineering": {
+      "position": {
+        "x": 1.5,
+        "y": 0,
+        "z": -2
+      },
+      "rotation": 180
+    },
+    "corridor_status": {
+      "position": {
+        "x": 7,
+        "y": 0,
+        "z": 1.5
+      },
+      "rotation": 180
+    }
+  },
+  "switches": {
+    "door_switch": {
+      "position": {
+        "x": 2.85,
+        "y": 0,
+        "z": -1
+      },
+      "rotation": 270,
+      "status": "FAULT"
+    },
+    "light_switch": {
+      "position": {
+        "x": 1,
+        "y": 0,
+        "z": -2.85
+      },
+      "rotation": 0,
+      "status": "OK"
+    },
+    "engineering_switch": {
+      "position": {
+        "x": 10.85,
+        "y": 0,
+        "z": 1
+      },
+      "rotation": 270,
+      "status": "OK"
+    }
+  },
+  "wallLights": {
+    "wall_light_1": {
+      "position": {
+        "x": -2,
+        "y": 1.5,
+        "z": 3
+      },
+      "rotation": 180,
+      "color": "#ffffee",
+      "intensity": 1
+    },
+    "wall_light_2": {
+      "position": {
+        "x": 15,
+        "y": 1.5,
+        "z": -4
+      },
+      "rotation": 0,
+      "color": "#ffffee",
+      "intensity": 1
+    },
+    "wall_light_3": {
+      "position": {
+        "x": 15,
+        "y": 1.5,
+        "z": 4
+      },
+      "rotation": 180,
+      "color": "#ffffee",
+      "intensity": 1
+    },
+    "wall_light_4": {
+      "position": {
+        "x": 19,
+        "y": 1.5,
+        "z": 0
+      },
+      "rotation": 270,
+      "color": "#ffffee",
+      "intensity": 1
+    }
+  }
+}

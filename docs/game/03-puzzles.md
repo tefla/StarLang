@@ -2,11 +2,39 @@
 
 ## Puzzle Philosophy
 
-Every puzzle in StarLang follows three rules:
+Every puzzle in StarLang follows four core rules:
 
 1. **The solution is in the code**: No pixel-hunting, no arbitrary combinations, no "adventure game logic"
 2. **Multiple approaches are valid**: The "intended" solution isn't the only solution
 3. **Failure has consequences, not game-overs**: Wrong answers make things harder, not impossible
+4. **Puzzles ARE the tutorial**: Never provide explicit tutorials, hints, or instruction overlays
+
+### Puzzles as Tutorials
+
+**Critical Design Principle**: The game never explains mechanics through tutorials, hint systems, or instructional text. Instead, each puzzle is designed to force discovery of a specific skill through necessity.
+
+The player learns by:
+- **Failing first**: Trying the obvious approach (e.g., pressing a broken switch) and having it not work
+- **Investigating**: Using STATUS terminals and error messages to understand what's wrong
+- **Experimenting**: Making changes and observing consequences
+- **Succeeding**: Solving the puzzle and internalizing the mechanic
+
+This approach means:
+- No "Press E to interact" tutorials - the player discovers interaction through environmental cues
+- No "Edit code to change the world" explanations - Puzzle 1 forces this discovery
+- No hint buttons or "stuck?" prompts - the ship's own systems provide breadcrumbs
+- No HUD overlays explaining game mechanics - everything is diegetic (in-world)
+
+Each puzzle teaches exactly one or two new concepts. The sequence is carefully designed so skills compound:
+
+| Puzzle | Forces Discovery Of |
+|--------|---------------------|
+| 1 - Broken Switch | Terminals exist, code editing works, changes affect world |
+| 2 - O2 Crisis | STATUS vs config files, node references, tradeoffs |
+| 3 - Frozen Door | Systems affect each other, physical vs software state |
+| 4 - Permission Block | Permission system, credential inheritance, exploits |
+| 5 - Sealed Bridge | Chaining systems, signals, documentation diving |
+| 6 - The Anomaly | Moral choice, synthesizing all skills |
 
 ---
 
@@ -44,64 +72,136 @@ You don't know what to change because you don't understand the system.
 
 **Skills tested**: Documentation navigation, inference, experimentation
 
-### Type 5: Timing Puzzles
+### Type 5: Bypass Puzzles
 
-The solution requires coordinated actions or specific sequences.
+A control mechanism is broken. Find an alternative path.
 
-**Example**: Both ends of a connection must be modified within 30 seconds or the system rejects the change as partial.
+**Example**: The door switch is faulty. You can't fix the switch, but you can change what controls the door.
 
-**Skills tested**: Planning, potentially writing automated relays
+**Skills tested**: Understanding system dependencies, creative problem-solving, code structure
 
 ---
 
 ## Puzzle Catalogue
 
-### Puzzle 1: The Oxygen Crisis (Opening)
+### Puzzle 1: The Broken Switch (Opening)
 
 **Location**: Galley
-**Urgency**: High (O2 meter dropping)
-**Type**: Configuration
+**Urgency**: High (O2 slowly depleting, door is locked)
+**Type**: Bypass (Type 5)
 
-**Setup**: The player wakes up. Alarms. The galley's atmosphere outlet is pointing at `VOID.external`—venting to space. O2 is dropping.
+**Setup**: The player wakes up in the galley. The door to the corridor won't open. The door switch on the wall is marked "FAULT" - pressing it produces sparks but doesn't work.
+
+**Implementation Details** (Current):
+- Door switch has `status: "FAULT"` in layout data
+- Pressing FAULT switch triggers spark particle effect, no door action
+- Engineering terminal in galley mounts `galley.sl`
+- Door definition: `door galley_exit { connects: [galley, corridor], control: door_switch }`
+
+**Investigation**:
+- Player tries the obvious: press the switch. Sparks fly, nothing happens
+- Player notices the engineering terminal across the room
+- Approaching it, they see "Press E to use terminal"
+- Terminal shows the galley.sl file with the ship configuration
+
+**Discovery**: The door is controlled by `door_switch`, which is broken. The player realizes they can edit the code.
+
+**Solution Options**:
+
+1. **Remove switch dependency**: Delete or comment out `control: door_switch`
+   - Door becomes manually operable
+
+2. **Reassign to working switch**: Change `control: light_switch`
+   - Now the light switch opens the door (clever but confusing)
+
+3. **Add direct open**: Add `state: OPEN` or `locked: false` to door definition
+   - Door opens immediately on compile
+
+**Teaching**: This puzzle forces discovery of:
+- Terminals exist and can be interacted with
+- Code is visible and editable
+- Saving code recompiles and changes the world
+- The connection between code and physical objects
+
+**Why This Works as Tutorial**:
+The player's first instinct (press the switch) fails. This creates a problem that demands investigation. The terminal is visible but not explained. When they figure out they can edit code and see the door open, they've learned the core mechanic through experience, not instruction.
+
+---
+
+### Puzzle 2: The Oxygen Crisis
+
+**Location**: Corridor (after escaping galley)
+**Urgency**: High (O2 dropping fast)
+**Type**: Configuration (Type 1)
+
+**Setup**: The player enters the corridor. Victory message briefly appears, but then alarms sound. The corridor STATUS terminal shows O2 at 16% and dropping fast. The galley was fine - what's happening here?
+
+**Implementation Details** (Planned):
+- Corridor has `AtmoOutlet` node with `target: VOID.external` (venting to space)
+- O2 depletion rate calculated from outlet config
+- STATUS terminal shows live O2/temp/pressure from runtime state
+- Engineering terminal in corridor mounts `env_config.sl`
 
 **Investigation**:
 ```
-> status galley.atmosphere
+═══ Corridor Status ═══
 
-ATMOSPHERE: galley
-  o2_level: 16.2% (CRITICAL - dropping)
-  co2_level: 2.1% (elevated)
-  pressure: 0.94 atm
-  flow_in: 0.8 units/min (emergency reserve)
-  flow_out: 2.4 units/min (ERROR: invalid target)
+ENVIRONMENTAL STATUS
+────────────────────
+  O2 Level:    16.2%  ✗ CRITICAL
+  Temperature: 21.0°C ✓
+  Pressure:    0.94atm ⚠ LOW
+
+────────────────────
+System Status: CRITICAL
 ```
 
-**Discovery**: The terminal shows `env_config.sl`. The player sees:
+**Discovery**: Player finds engineering terminal, opens `env_config.sl`:
 
 ```starlang
-node galley_outlet : AtmoOutlet {
-  target: VOID.external    # ERROR: Invalid target
+# Atmosphere routing - Deck 4
+outlet corridor_outlet {
+  location: corridor
+  target: VOID.external    # ERROR - this is wrong!
   flow_rate: 2.4
+}
+
+intake corridor_intake {
+  location: corridor
+  source: life_support.main
+  flow_rate: 1.2
 }
 ```
 
 **Solution Options**:
 
-1. **Basic**: Change target to `galley_intake` (closed loop, recycled air, buys time)
-2. **Better**: Change target to `cold_storage.intake` (valid target you have access to)
-3. **Best**: Find the original value in version control and restore it (requires learning `slvc`)
+1. **Basic - Closed loop**: Change `target: corridor_intake`
+   - Recycles air, stops venting
+   - Side effect: CO2 builds up slowly (becomes a problem later if not properly fixed)
 
-**Complications**: Cold storage solution works but starts warming your food. Closed loop works but CO2 builds up slowly. Both are temporary.
+2. **Better - Redirect**: Change `target: cold_storage.intake`
+   - Valid target, air flows to cold storage
+   - Side effect: Cold storage warms up, food begins to spoil
 
-**Teaching**: This puzzle teaches that StarLang code has real effects, that the terminal shows both status AND definitions, and that solutions have tradeoffs.
+3. **Best - Restore original**: Use `slvc revert env_config.sl`
+   - Requires discovering version control exists
+   - Restores proper routing to life support recycler
+   - No negative side effects
+
+**Teaching**: This puzzle forces discovery of:
+- STATUS terminals show live state that changes
+- Configuration files exist separately from main definitions
+- Node references (outlets have targets that must point somewhere valid)
+- Multiple solutions exist with different tradeoffs
+- Actions have consequences beyond the immediate fix
 
 ---
 
-### Puzzle 2: The Frozen Door
+### Puzzle 3: The Frozen Door
 
-**Location**: Cold Storage → Medical Bay
+**Location**: Cold Storage to Medical Bay
 **Urgency**: Low (you want access, not survival)
-**Type**: Signal
+**Type**: Signal (Type 3)
 
 **Setup**: Through a window, you can see a first aid kit in the medical bay. The door mechanism is frozen—ice in the tracks.
 
@@ -130,11 +230,11 @@ DOOR: door_cold_to_medical
 
 ---
 
-### Puzzle 3: The Permission Escalation
+### Puzzle 4: The Permission Escalation
 
 **Location**: Maintenance Junction Alpha
 **Urgency**: Medium (you need engineering access to proceed)
-**Type**: Permission
+**Type**: Permission (Type 2)
 
 **Setup**: You found an engineering tablet wedged behind a panel. Dead battery. The charging ports require engineering credentials to activate—you're a cook.
 
@@ -180,11 +280,11 @@ Wire the tablet to your "light." It's drawing power, just not for lighting.
 
 ---
 
-### Puzzle 4: The Sealed Bridge
+### Puzzle 5: The Sealed Bridge
 
 **Location**: Deck 1 access
 **Urgency**: Late game
-**Type**: Signal + Permission
+**Type**: Signal + Permission (Type 3 + Type 2)
 
 **Setup**: The bridge is sealed behind blast doors. Captain-level access required. You don't have it and can't fake it—the bridge has actual security.
 
@@ -193,7 +293,7 @@ Wire the tablet to your "light." It's drawing power, just not for lighting.
 ```starlang
 door bridge_blast_door {
   lock: SECURITY_SEAL
-  
+
   unseal_requires: ANY [
     credential(CAPTAIN),
     credential(SECURITY_OVERRIDE),
@@ -221,11 +321,11 @@ door bridge_blast_door {
 
 ---
 
-### Puzzle 5: The Anomaly
+### Puzzle 6: The Anomaly
 
 **Location**: Engineering Core
 **Urgency**: Endgame
-**Type**: Information + Signal
+**Type**: Information + Signal (Type 4 + Type 3)
 
 **Setup**: You've found Okafor's research. There's code in the navigation system that shouldn't exist. It's dormant now but it triggered the cascade that nearly killed everyone.
 
@@ -241,7 +341,7 @@ Delete the anomalous code. But it's deeply integrated. Removing it might break n
 > slvc diff anomaly_code navigation.sl
 
 WARNING: 847 interconnected references
-Removing this code may affect: [nav_primary, nav_backup, 
+Removing this code may affect: [nav_primary, nav_backup,
   course_correction, stellar_reference, ...]
 ```
 
@@ -276,36 +376,48 @@ It's dormant. The crew needs to be woken. This isn't your problem. Let the exper
 
 ## Difficulty Progression
 
-| Phase | Puzzle Complexity | New Concepts |
-|-------|-------------------|--------------|
-| Opening | Single-node edits | Basic syntax, status vs definition |
-| Early | Multi-node awareness | Signal connections, permissions |
-| Mid | Cross-system chains | Version control, legacy exploits |
-| Late | Full system understanding | Testing/simulation, deep investigation |
-| Final | Synthesis + moral choice | Everything |
+| Phase | Puzzle | Complexity | New Concepts |
+|-------|--------|------------|--------------|
+| Opening | 1 - Broken Switch | Single change | Terminals, editing, cause-effect |
+| Early | 2 - O2 Crisis | Multi-node awareness | Status vs config, references, tradeoffs |
+| Early-Mid | 3 - Frozen Door | Cross-system | Physical state, connected systems |
+| Mid | 4 - Permission Block | Permission exploitation | Access control, categorization gaps |
+| Late | 5 - Sealed Bridge | Multi-system chain | Signals, documentation, timing |
+| Final | 6 - Anomaly | Synthesis + choice | Everything combined |
 
 ---
 
-## Hint System
+## Anti-Tutorial Design
 
-The game doesn't have a hint button. Instead:
+The game actively avoids tutorial patterns:
 
-### Level 1: Context Clues
+### What We DON'T Do
 
-The terminal shows related files. Error messages name the problem. The ship is verbose about what's wrong.
+- **No modal tutorials**: Never pause the game to explain mechanics
+- **No hint buttons**: The player either figures it out or explores until they do
+- **No glowing objectives**: Environmental storytelling, not waypoints
+- **No "Press X to Y" overlays**: Interaction prompts are minimal and diegetic
+- **No difficulty modes**: The puzzle sequence is the difficulty curve
+- **No skip options**: Every puzzle teaches something needed later
 
-### Level 2: Documentation
+### What We DO Instead
 
-The ship's manuals explain how systems work—but they're dense and poorly organised. Searching is a skill.
+- **Obvious failure states**: The broken switch sparks. The STATUS terminal shows dropping O2. Problems are visible.
+- **Verbose ship systems**: Error messages, status displays, and logs provide breadcrumbs
+- **Multiple valid solutions**: If the "intended" path isn't found, creative alternatives work
+- **Recoverable mistakes**: Bad edits can be reverted. The ship is resilient.
+- **Environmental cues**: Terminals glow. Broken things look broken. Warnings are visible.
 
-### Level 3: Version Control
+### The Learning Loop
 
-`slvc log` shows what changed. `slvc diff` shows how. Often the solution is "put it back how it was."
+Every puzzle follows this pattern:
 
-### Level 4: Experimentation
+1. **Encounter obstacle** → Player's path is blocked
+2. **Obvious attempt fails** → Pressing the switch sparks, door doesn't open
+3. **Investigate** → Player looks around, finds terminal
+4. **Discover tool** → Code is editable, saving recompiles
+5. **Experiment** → Make a change, see result
+6. **Succeed** → Problem solved, skill internalized
+7. **New obstacle uses skill** → Next puzzle builds on learned mechanic
 
-The simulation feature (if implemented) lets you test changes safely. Otherwise, the game is forgiving enough to recover from mistakes.
-
-### Level 5: Persistence
-
-If truly stuck, exploring other areas might reveal information that unlocks understanding. The game shouldn't have hard gates where progress is impossible.
+The player never needs to be told "you can edit code to change the ship." They discover it because there's no other way forward.

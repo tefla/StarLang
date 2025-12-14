@@ -247,8 +247,9 @@ export class InteractionSystem {
     // Hide editor
     this.hideEditor()
 
-    // Re-enable player
+    // Re-enable player and restore pointer lock for first-person control
     this.player.setEnabled(true)
+    this.player.lock()
 
     // Show crosshair
     if (this.crosshair) this.crosshair.style.display = 'block'

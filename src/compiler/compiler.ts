@@ -8,6 +8,7 @@ import type {
   DoorDefinition,
   TerminalDefinition,
   SwitchDefinition,
+  WallLightDefinition,
   Position3D,
   ShipStructure
 } from '../types/nodes'
@@ -65,7 +66,8 @@ export class Compiler {
       doors: new Map(),
       terminals: new Map(),
       sensors: new Map(),
-      switches: new Map()
+      switches: new Map(),
+      wallLights: new Map()
     }
 
     for (const node of nodes) {
@@ -96,6 +98,23 @@ export class Compiler {
             nodeId: node.name
           })
         }
+      }
+    }
+
+    // Wall lights come directly from layout (no StarLang definition needed)
+    if (this.layout?.wallLights) {
+      for (const [id, lightData] of Object.entries(this.layout.wallLights)) {
+        const wallLight: WallLightDefinition = {
+          id,
+          type: 'WALL_LIGHT',
+          properties: {
+            position: lightData.position,
+            rotation: lightData.rotation,
+            color: lightData.color || '#ffffee',
+            intensity: lightData.intensity ?? 1.0
+          }
+        }
+        structure.wallLights.set(id, wallLight)
       }
     }
 

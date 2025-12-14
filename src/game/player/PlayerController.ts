@@ -119,6 +119,12 @@ export class PlayerController {
     }
   }
 
+  lock() {
+    if (!this.mouseLocked && this.enabled) {
+      document.body.requestPointerLock()
+    }
+  }
+
   update(deltaTime: number) {
     if (!this.enabled) return
 

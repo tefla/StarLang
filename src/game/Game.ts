@@ -6,7 +6,8 @@ import { PlayerController } from './player/PlayerController'
 import { InteractionSystem } from './player/Interaction'
 import { Runtime } from '../runtime/Runtime'
 import { GALLEY_SHIP } from '../content/ship/galley'
-import { GALLEY_LAYOUT } from '../content/ship/galley.layout'
+import GALLEY_LAYOUT from '../content/ship/galley.layout.json'
+import type { ShipLayout } from '../types/layout'
 import { audioSystem } from './audio/AudioSystem'
 
 export class Game {
@@ -58,7 +59,7 @@ export class Game {
 
   async init() {
     // Set layout data (positions, sizes - hidden from player)
-    this.runtime.setLayout(GALLEY_LAYOUT)
+    this.runtime.setLayout(GALLEY_LAYOUT as ShipLayout)
 
     // Load and compile ship definition (StarLang code player can edit)
     const result = await this.runtime.init(GALLEY_SHIP)

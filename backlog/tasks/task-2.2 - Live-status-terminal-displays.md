@@ -1,7 +1,7 @@
 ---
 id: task-2.2
 title: Live status terminal displays
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-12-12 17:59'
 labels: []

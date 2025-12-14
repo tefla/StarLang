@@ -5,6 +5,7 @@ import { RoomMesh } from './RoomMesh'
 import type { DoorOpening } from './RoomMesh'
 import { DoorMesh } from './DoorMesh'
 import { SwitchMesh } from './SwitchMesh'
+import { WallLightMesh } from './WallLightMesh'
 import { TerminalMesh } from '../terminals/TerminalMesh'
 import { Runtime } from '../../runtime/Runtime'
 import type { ShipStructure } from '../../types/nodes'
@@ -16,6 +17,7 @@ export class ShipScene {
   public doorMeshes = new Map<string, DoorMesh>()
   public switchMeshes = new Map<string, SwitchMesh>()
   public terminalMeshes = new Map<string, TerminalMesh>()
+  public wallLightMeshes = new Map<string, WallLightMesh>()
   public sparkEffect: SparkEffect
 
   private runtime: Runtime
@@ -91,6 +93,13 @@ export class ShipScene {
       const switchMesh = new SwitchMesh(switchDef)
       this.switchMeshes.set(id, switchMesh)
       this.scene.add(switchMesh.group)
+    }
+
+    // Build wall lights
+    for (const [id, lightDef] of structure.wallLights) {
+      const lightMesh = new WallLightMesh(lightDef)
+      this.wallLightMeshes.set(id, lightMesh)
+      this.scene.add(lightMesh.group)
     }
 
     // Subscribe to room state changes for lighting
@@ -193,6 +202,12 @@ export class ShipScene {
       terminal.dispose()
     }
     this.terminalMeshes.clear()
+
+    for (const light of this.wallLightMeshes.values()) {
+      this.scene.remove(light.group)
+      light.dispose()
+    }
+    this.wallLightMeshes.clear()
   }
 
   dispose() {

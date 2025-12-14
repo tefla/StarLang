@@ -6,6 +6,7 @@ export type NodeType =
   | 'SENSOR'
   | 'TERMINAL'
   | 'SWITCH'
+  | 'WALL_LIGHT'
   | 'ATMO_OUTLET'
   | 'ATMO_INLET'
   | 'SIGNAL'
@@ -94,6 +95,16 @@ export interface SensorDefinition extends NodeDefinition {
   }
 }
 
+export interface WallLightDefinition extends NodeDefinition {
+  type: 'WALL_LIGHT'
+  properties: {
+    position: Position3D
+    rotation: number
+    color: string
+    intensity: number
+  }
+}
+
 // Runtime state types
 export interface NodeState {
   id: string
@@ -125,4 +136,5 @@ export interface ShipStructure {
   terminals: Map<string, TerminalDefinition>
   sensors: Map<string, SensorDefinition>
   switches: Map<string, SwitchDefinition>
+  wallLights: Map<string, WallLightDefinition>
 }

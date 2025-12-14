@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StarLang Layout Editor</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #toolbar {
+      width: 200px;
+      background: #16213e;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-right: 1px solid #333;
+    }
+
+    #toolbar h2 {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+
+    .tool-btn {
+      padding: 10px 15px;
+      background: #1a1a2e;
+      border: 1px solid #444;
+      color: #eee;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    .tool-btn:hover {
+      background: #2a2a4e;
+      border-color: #666;
+    }
+
+    .tool-btn.active {
+      background: #4a4a8e;
+      border-color: #77dd77;
+    }
+
+    .tool-btn.action {
+      background: #2d4a3e;
+      border-color: #77dd77;
+    }
+
+    .tool-btn.action:hover {
+      background: #3d5a4e;
+    }
+
+    .tool-btn.danger {
+      background: #4a2d2d;
+      border-color: #ff6b6b;
+    }
+
+    .tool-btn.danger:hover {
+      background: #5a3d3d;
+    }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #editor-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #properties {
+      width: 280px;
+      background: #16213e;
+      padding: 15px;
+      border-left: 1px solid #333;
+      overflow-y: auto;
+    }
+
+    #properties h2 {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .prop-group {
+      margin-bottom: 15px;
+    }
+
+    .prop-group label {
+      display: block;
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .prop-group input, .prop-group select {
+      width: 100%;
+      padding: 8px;
+      background: #1a1a2e;
+      border: 1px solid #444;
+      color: #eee;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+    }
+
+    .prop-group input:focus, .prop-group select:focus {
+      outline: none;
+      border-color: #77dd77;
+    }
+
+    .prop-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .prop-row .prop-group {
+      flex: 1;
+    }
+
+    #status {
+      position: fixed;
+      bottom: 10px;
+      left: 220px;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 15px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #888;
+    }
+
+    #json-output {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #16213e;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      max-width: 80%;
+      max-height: 80%;
+      overflow: auto;
+      z-index: 100;
+    }
+
+    #json-output pre {
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    #json-output .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    #overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 99;
+    }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <h2>File</h2>
+    <div class="prop-group" style="margin-bottom: 10px;">
+      <select id="file-select" class="tool-btn" style="width: 100%;">
+        <option value="">-- Select Layout --</option>
+      </select>
+    </div>
+    <button class="tool-btn action" id="load-btn">Load from Game</button>
+    <button class="tool-btn action" id="save-btn">Save to Game</button>
+    <button class="tool-btn" id="new-file-btn">New Layout...</button>
+
+    <h2 style="margin-top: 20px;">Tools</h2>
+    <button class="tool-btn active" data-tool="select">Select / Move</button>
+    <button class="tool-btn" data-tool="room">Draw Room</button>
+    <button class="tool-btn" data-tool="door">Place Door</button>
+    <button class="tool-btn" data-tool="switch">Place Switch</button>
+    <button class="tool-btn" data-tool="terminal">Place Terminal</button>
+    <button class="tool-btn" data-tool="wallLight">Place Wall Light</button>
+
+    <h2 style="margin-top: 20px;">Import/Export</h2>
+    <button class="tool-btn" id="export-btn">Export JSON</button>
+    <button class="tool-btn" id="import-btn">Import JSON File</button>
+    <button class="tool-btn danger" id="clear-btn">Clear All</button>
+
+    <h2 style="margin-top: 20px;">View</h2>
+    <button class="tool-btn" id="zoom-in">Zoom In (+)</button>
+    <button class="tool-btn" id="zoom-out">Zoom Out (-)</button>
+    <button class="tool-btn" id="reset-view">Reset View</button>
+  </div>
+
+  <div id="canvas-container">
+    <canvas id="editor-canvas"></canvas>
+  </div>
+
+  <div id="properties">
+    <h2>Properties</h2>
+    <div id="no-selection" style="color: #666; font-size: 13px;">
+      Select an object to edit its properties
+    </div>
+    <div id="selection-props" style="display: none;">
+      <!-- Filled dynamically -->
+    </div>
+  </div>
+
+  <div id="status">Click and drag to create rooms. Scroll to zoom.</div>
+
+  <div id="overlay"></div>
+  <div id="json-output">
+    <button class="close-btn">&times;</button>
+    <h2 style="margin-bottom: 15px;">Layout JSON</h2>
+    <pre id="json-content"></pre>
+    <button class="tool-btn action" style="margin-top: 15px;" id="copy-json">Copy to Clipboard</button>
+  </div>
+
+  <input type="file" id="file-input" accept=".json" style="display: none;">
+
+  <script type="module" src="./editor.ts"></script>
+</body>
+</html>

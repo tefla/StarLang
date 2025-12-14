@@ -28,10 +28,18 @@ export interface SwitchLayout {
   status: 'OK' | 'FAULT'  // Physical state - broken switches don't respond
 }
 
+export interface WallLightLayout {
+  position: Position3D
+  rotation: number
+  color: string      // Hex color like '#ffffee'
+  intensity: number  // 0-5, default 1
+}
+
 export interface ShipLayout {
   rooms: Record<string, RoomLayout>
   doors: Record<string, DoorLayout>
   terminals: Record<string, TerminalLayout>
   sensors?: Record<string, SensorLayout>
   switches?: Record<string, SwitchLayout>
+  wallLights?: Record<string, WallLightLayout>
 }

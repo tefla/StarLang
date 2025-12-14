@@ -1,7 +1,7 @@
 ---
 id: task-2.4
 title: Corridor room and victory condition
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-12-12 18:00'
 labels: []
