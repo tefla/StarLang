@@ -10,6 +10,11 @@ export type NodeType =
   | 'ATMO_OUTLET'
   | 'ATMO_INLET'
   | 'SIGNAL'
+  // Ambient systems - environmental sound/visual sources
+  | 'PIPE'
+  | 'VENT'
+  | 'CONDUIT'
+  | 'HULL_SECTION'
 
 export type Role =
   | 'CAPTAIN'
@@ -105,6 +110,57 @@ export interface WallLightDefinition extends NodeDefinition {
   }
 }
 
+// Ambient system definitions - sources of environmental sound/visuals
+export type PipeMaterial = 'STEEL' | 'COPPER' | 'COMPOSITE'
+export type PipeContents = 'AIR' | 'WATER' | 'COOLANT' | 'FUEL'
+
+export interface PipeDefinition extends NodeDefinition {
+  type: 'PIPE'
+  properties: {
+    display_name: string
+    location: string
+    position: Position3D
+    material: PipeMaterial
+    contents: PipeContents
+    diameter: number  // in inches
+    // Pipes respond to pressure changes, temperature, flow rate
+  }
+}
+
+export interface VentDefinition extends NodeDefinition {
+  type: 'VENT'
+  properties: {
+    display_name: string
+    location: string
+    position: Position3D
+    rotation: number
+    size: 'SMALL' | 'MEDIUM' | 'LARGE'
+    // Vents respond to atmo system state, airflow
+  }
+}
+
+export interface ConduitDefinition extends NodeDefinition {
+  type: 'CONDUIT'
+  properties: {
+    display_name: string
+    location: string
+    position: Position3D
+    voltage: 'LOW' | 'MEDIUM' | 'HIGH'
+    // Conduits respond to power draw, failures
+  }
+}
+
+export interface HullSectionDefinition extends NodeDefinition {
+  type: 'HULL_SECTION'
+  properties: {
+    display_name: string
+    location: string
+    position: Position3D
+    structural_integrity: number  // 0.0 - 1.0, from layout
+    // Hull sections respond to pressure, stress, external conditions
+  }
+}
+
 // Runtime state types
 export interface NodeState {
   id: string
@@ -137,4 +193,9 @@ export interface ShipStructure {
   sensors: Map<string, SensorDefinition>
   switches: Map<string, SwitchDefinition>
   wallLights: Map<string, WallLightDefinition>
+  // Ambient systems
+  pipes: Map<string, PipeDefinition>
+  vents: Map<string, VentDefinition>
+  conduits: Map<string, ConduitDefinition>
+  hullSections: Map<string, HullSectionDefinition>
 }

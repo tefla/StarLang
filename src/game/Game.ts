@@ -9,6 +9,7 @@ import { GALLEY_SHIP } from '../content/ship/galley'
 import GALLEY_LAYOUT from '../content/ship/galley.layout.json'
 import type { ShipLayout } from '../types/layout'
 import { audioSystem } from './audio/AudioSystem'
+import { AmbientSoundManager } from './audio/AmbientSoundManager'
 
 export class Game {
   private container: HTMLElement
@@ -17,6 +18,7 @@ export class Game {
   private player: PlayerController
   private interaction: InteractionSystem
   private runtime: Runtime
+  private ambientSound: AmbientSoundManager | null = null
 
   private clock = new THREE.Clock()
   private running = false
@@ -73,6 +75,10 @@ export class Game {
     const structure = this.runtime.getStructure()
     if (structure) {
       this.scene.buildFromStructure(structure)
+
+      // Initialize ambient sound system
+      this.ambientSound = new AmbientSoundManager(this.runtime, audioSystem)
+      this.ambientSound.init(structure)
     }
 
     // Load ship files for editing
@@ -358,6 +364,7 @@ export class Game {
 
   dispose() {
     this.running = false
+    this.ambientSound?.dispose()
     this.scene.dispose()
     this.player.dispose()
     this.interaction.dispose()

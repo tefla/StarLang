@@ -151,5 +151,62 @@
       "color": "#ffffee",
       "intensity": 1
     }
+  },
+  "pipes": {
+    "galley_water_main": {
+      "position": { "x": -2, "y": 2.5, "z": -2 }
+    },
+    "galley_atmo_duct": {
+      "position": { "x": 0, "y": 2.8, "z": 0 }
+    },
+    "corridor_coolant": {
+      "position": { "x": 9, "y": 2.5, "z": 2 }
+    },
+    "engineering_main": {
+      "position": { "x": 17, "y": 2.5, "z": 0 }
+    }
+  },
+  "vents": {
+    "galley_intake": {
+      "position": { "x": 1, "y": 2.9, "z": 1 },
+      "rotation": 0
+    },
+    "galley_exhaust": {
+      "position": { "x": -1, "y": 2.9, "z": -1 },
+      "rotation": 0
+    },
+    "corridor_main_vent": {
+      "position": { "x": 10, "y": 2.9, "z": 0 },
+      "rotation": 0
+    },
+    "engineering_vent": {
+      "position": { "x": 18, "y": 2.9, "z": 2 },
+      "rotation": 0
+    }
+  },
+  "conduits": {
+    "galley_power": {
+      "position": { "x": 2, "y": 2.2, "z": -2.5 }
+    },
+    "corridor_lighting": {
+      "position": { "x": 8, "y": 2.2, "z": -2.5 }
+    },
+    "engineering_main_power": {
+      "position": { "x": 16, "y": 1.5, "z": -3 }
+    }
+  },
+  "hullSections": {
+    "galley_bulkhead": {
+      "position": { "x": -2.5, "y": 1.5, "z": 0 },
+      "structural_integrity": 1.0
+    },
+    "corridor_hull": {
+      "position": { "x": 10, "y": 1.5, "z": -2.5 },
+      "structural_integrity": 0.95
+    },
+    "engineering_frame": {
+      "position": { "x": 19, "y": 1.5, "z": 2 },
+      "structural_integrity": 0.9
+    }
   }
 }

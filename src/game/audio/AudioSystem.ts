@@ -392,6 +392,350 @@ export class AudioSystem {
     }
   }
 
+  // ============================================
+  // Ambient System Sounds
+  // ============================================
+
+  // Pipe sounds - metallic clangs, water hammer, flow
+  playPipeSound(position: THREE.Vector3, intensity: number = 0.5) {
+    const ctx = this.ensureContext()
+    if (!this.masterGain) return
+
+    const spatialVolume = this.calculateSpatialVolume(position, 12)
+    if (spatialVolume < 0.05) return
+
+    const now = ctx.currentTime
+    const volume = this.sfxVolume * spatialVolume * 0.4 * intensity
+
+    // Randomly choose pipe sound type
+    const soundType = Math.random()
+
+    if (soundType < 0.4) {
+      // Metallic clang/ping
+      const freq = 200 + Math.random() * 400
+      const osc = ctx.createOscillator()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(freq, now)
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.5, now + 0.3)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(volume, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3)
+
+      // Add metallic resonance
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'bandpass'
+      filter.frequency.value = freq * 2
+      filter.Q.value = 10
+
+      osc.connect(filter)
+      filter.connect(gain)
+      gain.connect(this.masterGain)
+      osc.start(now)
+      osc.stop(now + 0.35)
+
+    } else if (soundType < 0.7) {
+      // Water hammer / thunk
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(80 + Math.random() * 40, now)
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.15)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(volume * 1.2, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2)
+
+      osc.connect(gain)
+      gain.connect(this.masterGain)
+      osc.start(now)
+      osc.stop(now + 0.25)
+
+    } else {
+      // Flow/gurgle - filtered noise
+      const duration = 0.3 + Math.random() * 0.3
+      const bufferSize = Math.floor(ctx.sampleRate * duration)
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+      const data = buffer.getChannelData(0)
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize * 0.5)
+      }
+
+      const source = ctx.createBufferSource()
+      source.buffer = buffer
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'lowpass'
+      filter.frequency.setValueAtTime(300, now)
+      filter.frequency.linearRampToValueAtTime(150, now + duration)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, now)
+      gain.gain.linearRampToValueAtTime(volume * 0.5, now + 0.05)
+      gain.gain.linearRampToValueAtTime(0, now + duration)
+
+      source.connect(filter)
+      filter.connect(gain)
+      gain.connect(this.masterGain)
+      source.start(now)
+    }
+  }
+
+  // Vent sounds - air whoosh, rattle, hum
+  playVentSound(position: THREE.Vector3, intensity: number = 0.5) {
+    const ctx = this.ensureContext()
+    if (!this.masterGain) return
+
+    const spatialVolume = this.calculateSpatialVolume(position, 10)
+    if (spatialVolume < 0.05) return
+
+    const now = ctx.currentTime
+    const volume = this.sfxVolume * spatialVolume * 0.35 * intensity
+
+    const soundType = Math.random()
+
+    if (soundType < 0.5) {
+      // Air whoosh
+      const duration = 0.4 + Math.random() * 0.4
+      const bufferSize = Math.floor(ctx.sampleRate * duration)
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+      const data = buffer.getChannelData(0)
+      for (let i = 0; i < bufferSize; i++) {
+        const t = i / bufferSize
+        const env = Math.sin(t * Math.PI)
+        data[i] = (Math.random() * 2 - 1) * env
+      }
+
+      const source = ctx.createBufferSource()
+      source.buffer = buffer
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'bandpass'
+      filter.frequency.value = 800 + Math.random() * 400
+      filter.Q.value = 1
+
+      const gain = ctx.createGain()
+      gain.gain.value = volume * 0.6
+
+      source.connect(filter)
+      filter.connect(gain)
+      gain.connect(this.masterGain)
+      source.start(now)
+
+    } else if (soundType < 0.8) {
+      // Rattle/flutter
+      const numRattles = 3 + Math.floor(Math.random() * 5)
+      for (let i = 0; i < numRattles; i++) {
+        const delay = i * (0.02 + Math.random() * 0.03)
+
+        const osc = ctx.createOscillator()
+        osc.type = 'square'
+        osc.frequency.value = 100 + Math.random() * 50
+
+        const rattleGain = ctx.createGain()
+        rattleGain.gain.setValueAtTime(volume * 0.3, now + delay)
+        rattleGain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.03)
+
+        osc.connect(rattleGain)
+        rattleGain.connect(this.masterGain)
+        osc.start(now + delay)
+        osc.stop(now + delay + 0.04)
+      }
+
+    } else {
+      // Low hum variation
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      const baseFreq = 50 + Math.random() * 30
+      osc.frequency.setValueAtTime(baseFreq, now)
+      osc.frequency.linearRampToValueAtTime(baseFreq * (0.9 + Math.random() * 0.2), now + 0.5)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, now)
+      gain.gain.linearRampToValueAtTime(volume * 0.4, now + 0.1)
+      gain.gain.linearRampToValueAtTime(0, now + 0.5)
+
+      osc.connect(gain)
+      gain.connect(this.masterGain)
+      osc.start(now)
+      osc.stop(now + 0.55)
+    }
+  }
+
+  // Conduit sounds - electrical hum, buzz, crackle
+  playConduitSound(position: THREE.Vector3, intensity: number = 0.5) {
+    const ctx = this.ensureContext()
+    if (!this.masterGain) return
+
+    const spatialVolume = this.calculateSpatialVolume(position, 8)
+    if (spatialVolume < 0.05) return
+
+    const now = ctx.currentTime
+    const volume = this.sfxVolume * spatialVolume * 0.3 * intensity
+
+    const soundType = Math.random()
+
+    if (soundType < 0.4) {
+      // Electrical buzz
+      const duration = 0.2 + Math.random() * 0.3
+      const osc1 = ctx.createOscillator()
+      const osc2 = ctx.createOscillator()
+      osc1.type = 'sawtooth'
+      osc2.type = 'sawtooth'
+      osc1.frequency.value = 60
+      osc2.frequency.value = 62 // Slight detune for buzz
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, now)
+      gain.gain.linearRampToValueAtTime(volume * 0.4, now + 0.02)
+      gain.gain.setValueAtTime(volume * 0.4, now + duration - 0.02)
+      gain.gain.linearRampToValueAtTime(0, now + duration)
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'lowpass'
+      filter.frequency.value = 400
+
+      osc1.connect(filter)
+      osc2.connect(filter)
+      filter.connect(gain)
+      gain.connect(this.masterGain)
+      osc1.start(now)
+      osc2.start(now)
+      osc1.stop(now + duration + 0.05)
+      osc2.stop(now + duration + 0.05)
+
+    } else if (soundType < 0.7) {
+      // Quick crackle
+      const numCrackles = 2 + Math.floor(Math.random() * 3)
+      for (let i = 0; i < numCrackles; i++) {
+        const delay = i * (0.02 + Math.random() * 0.04)
+        const bufferSize = Math.floor(ctx.sampleRate * 0.015)
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+        const data = buffer.getChannelData(0)
+        for (let j = 0; j < bufferSize; j++) {
+          data[j] = (Math.random() * 2 - 1) * (1 - j / bufferSize)
+        }
+
+        const source = ctx.createBufferSource()
+        source.buffer = buffer
+
+        const filter = ctx.createBiquadFilter()
+        filter.type = 'highpass'
+        filter.frequency.value = 3000 + Math.random() * 2000
+
+        const crackleGain = ctx.createGain()
+        crackleGain.gain.value = volume * 0.5
+
+        source.connect(filter)
+        filter.connect(crackleGain)
+        crackleGain.connect(this.masterGain)
+        source.start(now + delay)
+      }
+
+    } else {
+      // Power fluctuation tone
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(120, now)
+      osc.frequency.linearRampToValueAtTime(115, now + 0.1)
+      osc.frequency.linearRampToValueAtTime(120, now + 0.2)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(volume * 0.5, now)
+      gain.gain.linearRampToValueAtTime(volume * 0.3, now + 0.1)
+      gain.gain.linearRampToValueAtTime(0, now + 0.25)
+
+      osc.connect(gain)
+      gain.connect(this.masterGain)
+      osc.start(now)
+      osc.stop(now + 0.3)
+    }
+  }
+
+  // Hull sounds - groans, creaks, pops, stress
+  playHullSound(position: THREE.Vector3, intensity: number = 0.5) {
+    const ctx = this.ensureContext()
+    if (!this.masterGain) return
+
+    const spatialVolume = this.calculateSpatialVolume(position, 15)
+    if (spatialVolume < 0.05) return
+
+    const now = ctx.currentTime
+    const volume = this.sfxVolume * spatialVolume * 0.5 * intensity
+
+    const soundType = Math.random()
+
+    if (soundType < 0.4) {
+      // Deep groan
+      const duration = 0.5 + Math.random() * 0.5
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      const startFreq = 30 + Math.random() * 20
+      osc.frequency.setValueAtTime(startFreq, now)
+      osc.frequency.linearRampToValueAtTime(startFreq * 0.8, now + duration)
+
+      // Add some wobble
+      const lfo = ctx.createOscillator()
+      lfo.type = 'sine'
+      lfo.frequency.value = 2 + Math.random() * 3
+      const lfoGain = ctx.createGain()
+      lfoGain.gain.value = 5
+      lfo.connect(lfoGain)
+      lfoGain.connect(osc.frequency)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, now)
+      gain.gain.linearRampToValueAtTime(volume, now + 0.1)
+      gain.gain.linearRampToValueAtTime(0, now + duration)
+
+      osc.connect(gain)
+      gain.connect(this.masterGain)
+      osc.start(now)
+      lfo.start(now)
+      osc.stop(now + duration + 0.1)
+      lfo.stop(now + duration + 0.1)
+
+    } else if (soundType < 0.7) {
+      // Metallic creak
+      const duration = 0.15 + Math.random() * 0.15
+      const osc = ctx.createOscillator()
+      osc.type = 'sawtooth'
+      const freq = 150 + Math.random() * 100
+      osc.frequency.setValueAtTime(freq, now)
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + duration)
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'bandpass'
+      filter.frequency.value = freq
+      filter.Q.value = 5
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(volume * 0.6, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration)
+
+      osc.connect(filter)
+      filter.connect(gain)
+      gain.connect(this.masterGain)
+      osc.start(now)
+      osc.stop(now + duration + 0.05)
+
+    } else {
+      // Thermal pop/tick
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(800 + Math.random() * 400, now)
+      osc.frequency.exponentialRampToValueAtTime(200, now + 0.05)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(volume * 0.4, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08)
+
+      osc.connect(gain)
+      gain.connect(this.masterGain)
+      osc.start(now)
+      osc.stop(now + 0.1)
+    }
+  }
+
   dispose() {
     this.stopAmbient()
     if (this.audioContext) {
