@@ -49,8 +49,8 @@ export class VoxelRenderer {
       vertexColors: true,
       roughness: config.roughness ?? 0.8,
       metalness: config.metalness ?? 0.2,
-      flatShading: config.flatShading ?? false,
-      side: THREE.DoubleSide
+      flatShading: config.flatShading ?? true,  // Flat shading for blocky look
+      side: THREE.FrontSide  // Single-sided to avoid z-fighting
     })
 
     // Subscribe to chunk modifications
@@ -70,7 +70,7 @@ export class VoxelRenderer {
   /**
    * Create or update mesh for a chunk.
    */
-  private updateChunkMesh(chunk: VoxelChunk): void {
+  private updateChunkMesh(chunk: VoxelChunk, debug = false): void {
     const key = this.getChunkKey(chunk)
     let mesh = this.chunkMeshes.get(key)
 
@@ -86,7 +86,7 @@ export class VoxelRenderer {
     }
 
     // Generate new geometry
-    const geometry = this.mesher.mesh(chunk)
+    const geometry = this.mesher.mesh(chunk, debug)
 
     if (mesh) {
       // Update existing mesh
@@ -132,15 +132,17 @@ export class VoxelRenderer {
   /**
    * Force rebuild all chunk meshes.
    */
-  rebuildAll(): void {
+  rebuildAll(debug = false): void {
     // Mark all chunks dirty
     for (const chunk of this.world.getAllChunks()) {
       chunk.dirty = true
     }
 
     // Process all at once
+    let first = true
     for (const chunk of this.world.getAllChunks()) {
-      this.updateChunkMesh(chunk)
+      this.updateChunkMesh(chunk, debug && first)
+      first = false
     }
   }
 

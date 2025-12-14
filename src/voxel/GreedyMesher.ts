@@ -41,20 +41,20 @@ interface Quad {
 }
 
 /**
- * Color palette for voxel types.
+ * Color palette for voxel types - bright distinct colors for testing.
  */
 const VOXEL_COLORS: Record<number, number> = {
   [VoxelType.AIR]: 0x000000,
-  [VoxelType.HULL]: 0x2a2a2a,
-  [VoxelType.WALL]: 0x3a3a3a,
-  [VoxelType.FLOOR]: 0x4a4a4a,
-  [VoxelType.CEILING]: 0x3a3a3a,
-  [VoxelType.GLASS]: 0x88ccff,
-  [VoxelType.METAL_GRATE]: 0x555555,
-  [VoxelType.PANEL]: 0x444455,
-  [VoxelType.CONDUIT]: 0x333344,
-  [VoxelType.TRIM]: 0x666666,
-  [VoxelType.LIGHT_FIXTURE]: 0xffffcc,
+  [VoxelType.HULL]: 0x8888aa,      // Light blue-gray
+  [VoxelType.WALL]: 0x4488ff,      // Bright blue
+  [VoxelType.FLOOR]: 0x44aa44,     // Bright green
+  [VoxelType.CEILING]: 0xcccccc,   // Light gray
+  [VoxelType.GLASS]: 0x88ddff,     // Cyan
+  [VoxelType.METAL_GRATE]: 0xaaaaaa,
+  [VoxelType.PANEL]: 0x8899cc,     // Blue-ish
+  [VoxelType.CONDUIT]: 0x999999,
+  [VoxelType.TRIM]: 0xbbbbbb,
+  [VoxelType.LIGHT_FIXTURE]: 0xffffaa,
 }
 
 /**
@@ -85,7 +85,7 @@ export class GreedyMesher {
   /**
    * Generate mesh for a chunk.
    */
-  mesh(chunk: VoxelChunk): THREE.BufferGeometry {
+  mesh(chunk: VoxelChunk, debug = false): THREE.BufferGeometry {
     const quads: Quad[] = []
 
     // Process each of the 3 axes
@@ -93,6 +93,14 @@ export class GreedyMesher {
       // Process each direction along the axis
       for (let dir = -1; dir <= 1; dir += 2) {
         this.processAxis(chunk, axis, dir, quads)
+      }
+    }
+
+    if (debug) {
+      const axisNames = ['X', 'Y', 'Z']
+      console.log(`Chunk ${chunk.cx},${chunk.cy},${chunk.cz}: ${quads.length} quads`)
+      for (const q of quads) {
+        console.log(`  ${axisNames[q.axis]}${q.dir > 0 ? '+' : '-'} at (${q.x},${q.y},${q.z}) size ${q.w}x${q.h} type=${q.voxelType}`)
       }
     }
 
@@ -327,41 +335,34 @@ export class GreedyMesher {
 
   /**
    * Calculate the 4 corners of a quad.
+   * x,y,z are the voxel coordinates of the quad origin
+   * w,h are the width and height in voxels along u,v axes
+   * axis is the face normal direction (0=X, 1=Y, 2=Z)
+   * u,v are the two axes perpendicular to the face
    */
   private getQuadCorners(
     x: number, y: number, z: number,
     w: number, h: number,
     axis: number, u: number, v: number
   ): [number, number, number][] {
-    // Base position in voxel space
-    const base = [x, y, z]
-
     const corners: [number, number, number][] = []
 
     // Generate 4 corners in order: (0,0), (1,0), (1,1), (0,1)
-    const offsets = [[0, 0], [1, 0], [1, 1], [0, 1]]
+    const offsets: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]]
 
     for (const [du, dv] of offsets) {
-      const corner: [number, number, number] = [0, 0, 0]
+      // Start with the base position
+      const corner: [number, number, number] = [
+        x * VOXEL_SIZE,
+        y * VOXEL_SIZE,
+        z * VOXEL_SIZE
+      ]
 
-      // Set position on the main axis (the face plane)
-      if (axis === 0) corner[0] = (base[0] ?? 0) * VOXEL_SIZE
-      else if (axis === 1) corner[1] = (base[1] ?? 0) * VOXEL_SIZE
-      else corner[2] = (base[2] ?? 0) * VOXEL_SIZE
+      // Add offset along u axis (width direction)
+      corner[u] += du * w * VOXEL_SIZE
 
-      // Set position on u axis
-      const uBase = axis === 0 ? base[1] : (axis === 1 ? base[2] : base[0])
-      const uValue = ((uBase ?? 0) + (du ?? 0) * w) * VOXEL_SIZE
-      if (u === 0) corner[0] = uValue
-      else if (u === 1) corner[1] = uValue
-      else corner[2] = uValue
-
-      // Set position on v axis
-      const vBase = axis === 0 ? base[2] : (axis === 1 ? base[0] : base[1])
-      const vValue = ((vBase ?? 0) + (dv ?? 0) * h) * VOXEL_SIZE
-      if (v === 0) corner[0] = vValue
-      else if (v === 1) corner[1] = vValue
-      else corner[2] = vValue
+      // Add offset along v axis (height direction)
+      corner[v] += dv * h * VOXEL_SIZE
 
       corners.push(corner)
     }

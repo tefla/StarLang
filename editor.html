@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StarLang - Voxel Editor Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1a1a2e;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      color: #e0e0e0;
+    }
+
+    #container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #toolbar {
+      height: 48px;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+    }
+
+    #toolbar h1 {
+      font-size: 14px;
+      color: #4a90d9;
+      margin-right: 24px;
+    }
+
+    .tool-group {
+      display: flex;
+      gap: 4px;
+      padding: 0 8px;
+      border-right: 1px solid #0f3460;
+    }
+
+    .tool-btn {
+      padding: 6px 12px;
+      background: #1a1a2e;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      color: #a0a0a0;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+
+    .tool-btn:hover {
+      background: #0f3460;
+      color: #e0e0e0;
+    }
+
+    .tool-btn.active {
+      background: #4a90d9;
+      color: #fff;
+      border-color: #4a90d9;
+    }
+
+    #stats {
+      margin-left: auto;
+      font-size: 11px;
+      color: #666;
+    }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #help {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(22, 33, 62, 0.9);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.6;
+      border: 1px solid #0f3460;
+    }
+
+    #help kbd {
+      display: inline-block;
+      padding: 1px 6px;
+      background: #0f3460;
+      border-radius: 3px;
+      margin: 0 2px;
+    }
+
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    #crosshair::before,
+    #crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(74, 144, 217, 0.8);
+    }
+
+    #crosshair::before {
+      width: 2px;
+      height: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    #crosshair::after {
+      width: 100%;
+      height: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    #info-panel {
+      position: fixed;
+      top: 64px;
+      right: 16px;
+      background: rgba(22, 33, 62, 0.9);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 11px;
+      border: 1px solid #0f3460;
+      min-width: 200px;
+    }
+
+    #info-panel h3 {
+      font-size: 12px;
+      color: #4a90d9;
+      margin-bottom: 8px;
+    }
+
+    #info-panel .row {
+      display: flex;
+      justify-content: space-between;
+      margin: 4px 0;
+    }
+
+    #info-panel .label {
+      color: #888;
+    }
+
+    #info-panel .value {
+      color: #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="toolbar">
+      <h1>VOXEL EDITOR</h1>
+
+      <div class="tool-group">
+        <button class="tool-btn active" data-type="2">Wall</button>
+        <button class="tool-btn" data-type="3">Floor</button>
+        <button class="tool-btn" data-type="4">Ceiling</button>
+        <button class="tool-btn" data-type="1">Hull</button>
+        <button class="tool-btn" data-type="5">Glass</button>
+      </div>
+
+      <div class="tool-group">
+        <button class="tool-btn active" data-mode="single">Single</button>
+        <button class="tool-btn" data-mode="line">Line</button>
+        <button class="tool-btn" data-mode="box">Box</button>
+      </div>
+
+      <div id="stats">Loading...</div>
+    </div>
+
+    <div id="canvas-container">
+      <canvas id="canvas"></canvas>
+    </div>
+  </div>
+
+  <div id="crosshair"></div>
+
+  <div id="help">
+    <strong>Controls:</strong><br>
+    <kbd>Left Click</kbd> Place voxel<br>
+    <kbd>Shift + Click</kbd> Remove voxel<br>
+    <kbd>Right Drag</kbd> Orbit camera<br>
+    <kbd>Middle Drag</kbd> Pan camera<br>
+    <kbd>Scroll</kbd> Zoom<br>
+    <kbd>1-5</kbd> Select voxel type<br>
+    <kbd>Ctrl+Z</kbd> Undo<br>
+    <kbd>Ctrl+Y</kbd> Redo<br>
+    <kbd>G</kbd> Toggle grid
+  </div>
+
+  <div id="info-panel">
+    <h3>Editor Info</h3>
+    <div class="row">
+      <span class="label">Mode:</span>
+      <span class="value" id="info-mode">Voxel</span>
+    </div>
+    <div class="row">
+      <span class="label">Brush:</span>
+      <span class="value" id="info-brush">Single</span>
+    </div>
+    <div class="row">
+      <span class="label">Voxel Type:</span>
+      <span class="value" id="info-voxel">Wall</span>
+    </div>
+    <div class="row">
+      <span class="label">Chunks:</span>
+      <span class="value" id="info-chunks">0</span>
+    </div>
+    <div class="row">
+      <span class="label">Voxels:</span>
+      <span class="value" id="info-voxels">0</span>
+    </div>
+  </div>
+
+  <script type="module" src="./src/editor-test.ts"></script>
+</body>
+</html>

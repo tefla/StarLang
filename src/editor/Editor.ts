@@ -378,44 +378,18 @@ export class Editor {
    * Create a test world with a simple room.
    */
   createTestWorld(): void {
-    // Create a 6m x 3m x 6m room (60x30x60 voxels at 0.1m)
-    const roomWidth = 60
-    const roomHeight = 30
-    const roomDepth = 60
-
-    // Floor
-    for (let x = 0; x < roomWidth; x++) {
-      for (let z = 0; z < roomDepth; z++) {
+    // Simple test: just a flat 20x20 floor
+    const size = 20
+    for (let x = 0; x < size; x++) {
+      for (let z = 0; z < size; z++) {
         this.world.setVoxel(x, 0, z, 3) // FLOOR
       }
     }
 
-    // Ceiling
-    for (let x = 0; x < roomWidth; x++) {
-      for (let z = 0; z < roomDepth; z++) {
-        this.world.setVoxel(x, roomHeight - 1, z, 4) // CEILING
-      }
-    }
-
-    // Walls
-    for (let y = 0; y < roomHeight; y++) {
-      for (let x = 0; x < roomWidth; x++) {
-        this.world.setVoxel(x, y, 0, 2) // WALL
-        this.world.setVoxel(x, y, roomDepth - 1, 2) // WALL
-      }
-      for (let z = 0; z < roomDepth; z++) {
+    // Add a small wall to test vertical merging
+    for (let y = 0; y < 10; y++) {
+      for (let z = 0; z < size; z++) {
         this.world.setVoxel(0, y, z, 2) // WALL
-        this.world.setVoxel(roomWidth - 1, y, z, 2) // WALL
-      }
-    }
-
-    // Door opening (remove some wall voxels)
-    const doorX = roomWidth / 2
-    const doorHeight = 24 // 2.4m
-    const doorWidth = 12  // 1.2m
-    for (let y = 1; y < doorHeight; y++) {
-      for (let dx = -doorWidth/2; dx < doorWidth/2; dx++) {
-        this.world.setVoxel(Math.floor(doorX + dx), y, 0, 0) // AIR
       }
     }
 
