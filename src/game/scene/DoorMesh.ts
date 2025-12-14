@@ -18,7 +18,7 @@ export class DoorMesh {
 
   private doorWidth = 1.2
   private doorHeight = 2.4
-  private panelThickness = 0.1
+  private panelThickness = 0.3  // Thick enough to block light from adjacent rooms
   private openAmount = 0
   private targetOpenAmount = 0
   private animationSpeed = 3
@@ -51,11 +51,13 @@ export class DoorMesh {
     this.leftPanel = new THREE.Mesh(panelGeometry, panelMaterial)
     this.leftPanel.position.set(-this.doorWidth / 4, this.doorHeight / 2, 0)
     this.leftPanel.castShadow = true
+    this.leftPanel.receiveShadow = true
     this.group.add(this.leftPanel)
 
     this.rightPanel = new THREE.Mesh(panelGeometry, panelMaterial)
     this.rightPanel.position.set(this.doorWidth / 4, this.doorHeight / 2, 0)
     this.rightPanel.castShadow = true
+    this.rightPanel.receiveShadow = true
     this.group.add(this.rightPanel)
 
     // Status light strip
@@ -79,29 +81,36 @@ export class DoorMesh {
     })
 
     const frameThickness = 0.15
+    const frameDepth = this.panelThickness + 0.05  // Slightly larger than panel
 
     // Top frame
     const topFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(this.doorWidth + frameThickness * 2, frameThickness, this.panelThickness + 0.1),
+      new THREE.BoxGeometry(this.doorWidth + frameThickness * 2, frameThickness, frameDepth),
       frameMaterial
     )
     topFrame.position.set(0, this.doorHeight + frameThickness / 2, 0)
+    topFrame.castShadow = true
+    topFrame.receiveShadow = true
     frame.add(topFrame)
 
     // Left frame
     const leftFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(frameThickness, this.doorHeight, this.panelThickness + 0.1),
+      new THREE.BoxGeometry(frameThickness, this.doorHeight, frameDepth),
       frameMaterial
     )
     leftFrame.position.set(-this.doorWidth / 2 - frameThickness / 2, this.doorHeight / 2, 0)
+    leftFrame.castShadow = true
+    leftFrame.receiveShadow = true
     frame.add(leftFrame)
 
     // Right frame
     const rightFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(frameThickness, this.doorHeight, this.panelThickness + 0.1),
+      new THREE.BoxGeometry(frameThickness, this.doorHeight, frameDepth),
       frameMaterial
     )
     rightFrame.position.set(this.doorWidth / 2 + frameThickness / 2, this.doorHeight / 2, 0)
+    rightFrame.castShadow = true
+    rightFrame.receiveShadow = true
     frame.add(rightFrame)
 
     return frame
