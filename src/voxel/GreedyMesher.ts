@@ -359,10 +359,12 @@ export class GreedyMesher {
       ]
 
       // Add offset along u axis (width direction)
-      corner[u] += du * w * VOXEL_SIZE
+      // u is always 0, 1, or 2 - safe to access
+      corner[u] = (corner[u] ?? 0) + du * w * VOXEL_SIZE
 
       // Add offset along v axis (height direction)
-      corner[v] += dv * h * VOXEL_SIZE
+      // v is always 0, 1, or 2 - safe to access
+      corner[v] = (corner[v] ?? 0) + dv * h * VOXEL_SIZE
 
       corners.push(corner)
     }

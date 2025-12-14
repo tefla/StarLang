@@ -80,6 +80,16 @@ export class VoxelWorld {
   }
 
   /**
+   * Set a chunk directly (for loading from serialized data).
+   */
+  setChunk(chunk: VoxelChunk): void {
+    const key = this.chunkKey(chunk.cx, chunk.cy, chunk.cz)
+    this.chunks.set(key, chunk)
+    chunk.dirty = true
+    this.notifyChunkModified(chunk)
+  }
+
+  /**
    * Get voxel at world voxel coordinates.
    * Returns AIR if no chunk exists at that position.
    */
