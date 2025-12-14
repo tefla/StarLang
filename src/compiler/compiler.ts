@@ -12,7 +12,14 @@ import type {
   Position3D,
   ShipStructure
 } from '../types/nodes'
-import type { ShipLayout } from '../types/layout'
+import type {
+  ShipLayout,
+  VoxelLayoutV2,
+  RoomVolume,
+  EntityPlacement,
+  DoorPlacement
+} from '../types/layout'
+import { VOXEL_SIZE } from '../voxel/VoxelTypes'
 
 export interface CompileResult {
   success: boolean
@@ -29,10 +36,101 @@ export interface CompileError {
 export class Compiler {
   private errors: CompileError[] = []
   private layout: ShipLayout | null = null
+  private voxelLayout: VoxelLayoutV2 | null = null
 
-  // Set layout data to merge with StarLang definitions
+  // Set layout data to merge with StarLang definitions (V1 format)
   setLayout(layout: ShipLayout) {
     this.layout = layout
+  }
+
+  // Set voxel layout data (V2 format)
+  setVoxelLayout(layout: VoxelLayoutV2) {
+    this.voxelLayout = layout
+    // Also convert to V1 format for backward compatibility
+    this.layout = this.convertVoxelLayoutToV1(layout)
+  }
+
+  // Convert VoxelLayoutV2 to V1 ShipLayout for compatibility
+  private convertVoxelLayoutToV1(voxelLayout: VoxelLayoutV2): ShipLayout {
+    const v1Layout: ShipLayout = {
+      rooms: {},
+      doors: {},
+      terminals: {},
+      sensors: {},
+      switches: {},
+      wallLights: {}
+    }
+
+    // Convert room volumes to V1 room layouts
+    for (const [id, room] of Object.entries(voxelLayout.rooms)) {
+      v1Layout.rooms[id] = {
+        position: this.voxelToWorldPosition(room.minVoxel),
+        size: {
+          width: (room.maxVoxel.x - room.minVoxel.x + 1) * VOXEL_SIZE,
+          height: (room.maxVoxel.y - room.minVoxel.y + 1) * VOXEL_SIZE,
+          depth: (room.maxVoxel.z - room.minVoxel.z + 1) * VOXEL_SIZE
+        }
+      }
+    }
+
+    // Convert entity placements
+    for (const [id, entity] of Object.entries(voxelLayout.entities)) {
+      const worldPos = this.voxelToWorldPosition(entity.voxelPos)
+
+      switch (entity.type) {
+        case 'door':
+          const door = entity as DoorPlacement
+          v1Layout.doors[id] = {
+            position: worldPos,
+            rotation: entity.rotation
+          }
+          break
+        case 'terminal':
+          v1Layout.terminals[id] = {
+            position: worldPos,
+            rotation: entity.rotation
+          }
+          break
+        case 'switch':
+          if (!v1Layout.switches) v1Layout.switches = {}
+          v1Layout.switches[id] = {
+            position: worldPos,
+            rotation: entity.rotation,
+            status: (entity.status as 'OK' | 'FAULT') ?? 'OK'
+          }
+          break
+        case 'light':
+          if (!v1Layout.wallLights) v1Layout.wallLights = {}
+          v1Layout.wallLights[id] = {
+            position: worldPos,
+            rotation: entity.rotation,
+            color: '#ffffee',
+            intensity: 1
+          }
+          break
+      }
+    }
+
+    return v1Layout
+  }
+
+  // Convert voxel coordinates to world position
+  private voxelToWorldPosition(voxel: { x: number; y: number; z: number }): Position3D {
+    return {
+      x: voxel.x * VOXEL_SIZE,
+      y: voxel.y * VOXEL_SIZE,
+      z: voxel.z * VOXEL_SIZE
+    }
+  }
+
+  // Get room definitions from voxel layout
+  getRoomVolumes(): Record<string, RoomVolume> {
+    return this.voxelLayout?.rooms ?? {}
+  }
+
+  // Get entity placements from voxel layout
+  getEntityPlacements(): Record<string, EntityPlacement | DoorPlacement> {
+    return this.voxelLayout?.entities ?? {}
   }
 
   compile(source: string): CompileResult {
