@@ -64,6 +64,9 @@ const VOXEL_COLORS: Record<number, number> = {
   [VoxelType.SCREEN]: 0x1a2744,     // Dark blue screen background
   [VoxelType.DESK]: 0x2a3a4a,       // Dark metallic desk surface
   [VoxelType.KEYBOARD]: 0x1a2a3a,   // Dark keyboard surface
+  [VoxelType.DUCT]: 0x5a5a5a,       // Gray duct metal
+  [VoxelType.FAN_HUB]: 0x3a3a3a,    // Dark hub center
+  [VoxelType.FAN_BLADE]: 0x7a7a7a,  // Light gray blade
 }
 
 /**

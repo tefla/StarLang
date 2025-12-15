@@ -41,12 +41,20 @@ interface WallLightData {
   intensity: number
 }
 
+interface AssetInstanceData {
+  id: string
+  asset: string
+  position: Position3D
+  rotation: number
+}
+
 interface LayoutData {
   rooms: RoomData[]
   doors: DoorData[]
   switches: SwitchData[]
   terminals: TerminalData[]
   wallLights: WallLightData[]
+  assetInstances: AssetInstanceData[]
 }
 
 type SelectedObject =
@@ -55,6 +63,7 @@ type SelectedObject =
   | { type: 'switch'; data: SwitchData }
   | { type: 'terminal'; data: TerminalData }
   | { type: 'wallLight'; data: WallLightData }
+  | { type: 'assetInstance'; data: AssetInstanceData }
   | null
 
 // Asset footprint for top-down visualization
@@ -91,6 +100,9 @@ const VOXEL_COLORS: Record<string, string> = {
   'GLASS': '#aaddff44',
   'METAL_GRATE': '#777777',
   'HULL': '#222233',
+  'DUCT': '#556666',
+  'FAN_HUB': '#3a3a3a',
+  'FAN_BLADE': '#7a7a7a',
 }
 
 class LayoutEditor {
@@ -99,7 +111,7 @@ class LayoutEditor {
   private container: HTMLElement
 
   private tool: Tool = 'select'
-  private layout: LayoutData = { rooms: [], doors: [], switches: [], terminals: [], wallLights: [] }
+  private layout: LayoutData = { rooms: [], doors: [], switches: [], terminals: [], wallLights: [], assetInstances: [] }
   private selected: SelectedObject = null
 
   // View state
@@ -552,6 +564,13 @@ class LayoutEditor {
       }
     }
 
+    // Check asset instances
+    for (const instance of this.layout.assetInstances) {
+      if (this.pointInRect(worldX, worldZ, instance.position.x - 0.3, instance.position.z - 0.3, 0.6, 0.6)) {
+        return { type: 'assetInstance', data: instance }
+      }
+    }
+
     // Check rooms
     for (const room of this.layout.rooms) {
       const halfW = room.size.width / 2
@@ -642,6 +661,9 @@ class LayoutEditor {
       case 'wallLight':
         this.layout.wallLights = this.layout.wallLights.filter(l => l !== this.selected!.data)
         break
+      case 'assetInstance':
+        this.layout.assetInstances = this.layout.assetInstances.filter(a => a !== this.selected!.data)
+        break
     }
 
     this.selected = null
@@ -685,6 +707,11 @@ class LayoutEditor {
     // Draw wall lights
     for (const light of this.layout.wallLights) {
       this.drawWallLight(light, this.selected?.type === 'wallLight' && this.selected.data === light)
+    }
+
+    // Draw asset instances
+    for (const instance of this.layout.assetInstances) {
+      this.drawAssetInstance(instance, this.selected?.type === 'assetInstance' && this.selected.data === instance)
     }
 
     // Draw room being created
@@ -1033,6 +1060,44 @@ class LayoutEditor {
     }
   }
 
+  private drawAssetInstance(instance: AssetInstanceData, selected: boolean) {
+    const ctx = this.ctx
+    const pos = this.worldToScreen(instance.position.x, instance.position.z)
+
+    // Try to draw using asset footprint
+    const footprint = this.assetFootprints.get(instance.asset)
+    if (footprint) {
+      // Draw voxel footprint
+      this.drawAssetFootprint(footprint, instance.position.x, instance.position.z, instance.rotation, selected)
+
+      // Label
+      ctx.fillStyle = '#fff'
+      ctx.font = '10px monospace'
+      ctx.textAlign = 'center'
+      ctx.fillText(instance.id, pos.x, pos.y - 20)
+      return
+    }
+
+    // Fallback: load footprint and use placeholder rectangle
+    this.loadAssetFootprint(instance.asset).then(() => this.render())
+
+    // Simple placeholder rectangle
+    const size = 0.4 * this.zoom
+    ctx.save()
+    ctx.translate(pos.x, pos.y)
+    ctx.rotate((-instance.rotation * Math.PI) / 180)
+
+    ctx.fillStyle = selected ? '#77dd77' : '#556666'
+    ctx.fillRect(-size / 2, -size / 2, size, size)
+
+    ctx.restore()
+
+    ctx.fillStyle = '#fff'
+    ctx.font = '10px monospace'
+    ctx.textAlign = 'center'
+    ctx.fillText(instance.id, pos.x, pos.y - size / 2 - 5)
+  }
+
   private updatePropertiesPanel() {
     const noSelection = document.getElementById('no-selection')!
     const selectionProps = document.getElementById('selection-props')!
@@ -1207,6 +1272,41 @@ class LayoutEditor {
           <input type="number" id="prop-intensity" value="${light.intensity}" step="0.1" min="0" max="5">
         </div>
       `
+    } else if (this.selected.type === 'assetInstance') {
+      const instance = this.selected.data
+      html = `
+        <div class="prop-group">
+          <label>ID</label>
+          <input type="text" id="prop-id" value="${instance.id}">
+        </div>
+        <div class="prop-group">
+          <label>Asset</label>
+          <input type="text" id="prop-asset" value="${instance.asset}" readonly style="background: #333;">
+        </div>
+        <div class="prop-row">
+          <div class="prop-group">
+            <label>Pos X</label>
+            <input type="number" id="prop-x" value="${instance.position.x}" step="0.5">
+          </div>
+          <div class="prop-group">
+            <label>Pos Z</label>
+            <input type="number" id="prop-z" value="${instance.position.z}" step="0.5">
+          </div>
+        </div>
+        <div class="prop-group">
+          <label>Height (Y)</label>
+          <input type="number" id="prop-y" value="${instance.position.y}" step="0.25" min="0">
+        </div>
+        <div class="prop-group">
+          <label>Rotation</label>
+          <select id="prop-rotation">
+            <option value="0" ${instance.rotation === 0 ? 'selected' : ''}>0°</option>
+            <option value="90" ${instance.rotation === 90 ? 'selected' : ''}>90°</option>
+            <option value="180" ${instance.rotation === 180 ? 'selected' : ''}>180°</option>
+            <option value="270" ${instance.rotation === 270 ? 'selected' : ''}>270°</option>
+          </select>
+        </div>
+      `
     }
 
     html += `<button class="tool-btn danger" style="margin-top: 15px; width: 100%;" id="delete-btn">Delete</button>`
@@ -1290,6 +1390,14 @@ class LayoutEditor {
       })
     }
 
+    if (this.selected.type === 'assetInstance') {
+      document.getElementById('prop-y')?.addEventListener('change', (e) => {
+        (this.selected!.data as AssetInstanceData).position.y = parseFloat((e.target as HTMLInputElement).value)
+        this.markUnsaved()
+        this.render()
+      })
+    }
+
     document.getElementById('delete-btn')?.addEventListener('click', () => this.deleteSelected())
   }
 
@@ -1358,6 +1466,17 @@ class LayoutEditor {
       }
     }
 
+    if (this.layout.assetInstances.length > 0) {
+      output.assetInstances = {}
+      for (const instance of this.layout.assetInstances) {
+        output.assetInstances[instance.id] = {
+          asset: instance.asset,
+          position: toFilePos(instance.position),
+          rotation: instance.rotation
+        }
+      }
+    }
+
     return output
   }
 
@@ -1401,7 +1520,7 @@ class LayoutEditor {
   }
 
   private loadLayout(data: any) {
-    this.layout = { rooms: [], doors: [], switches: [], terminals: [], wallLights: [] }
+    this.layout = { rooms: [], doors: [], switches: [], terminals: [], wallLights: [], assetInstances: [] }
 
     // Detect voxel mode from version or coordinateSystem
     this.isVoxelMode = data.version === 2 || data.coordinateSystem === 'voxel'
@@ -1479,20 +1598,16 @@ class LayoutEditor {
       }
     }
 
-    // Load assetInstances as appropriate entity types
+    // Load assetInstances
     if (data.assetInstances) {
       for (const [id, instance] of Object.entries(data.assetInstances as Record<string, any>)) {
         const pos = toEditorPos(instance.position)
-        if (instance.asset === 'wall-light') {
-          this.layout.wallLights.push({
-            id,
-            position: pos,
-            rotation: instance.rotation,
-            color: '#ffffee',
-            intensity: 1.0
-          })
-        }
-        // Can add other asset types here as needed
+        this.layout.assetInstances.push({
+          id,
+          asset: instance.asset,
+          position: pos,
+          rotation: instance.rotation ?? 0
+        })
       }
     }
 
@@ -1514,7 +1629,7 @@ class LayoutEditor {
     if (askConfirm && !confirm('Clear all objects?')) {
       return
     }
-    this.layout = { rooms: [], doors: [], switches: [], terminals: [], wallLights: [] }
+    this.layout = { rooms: [], doors: [], switches: [], terminals: [], wallLights: [], assetInstances: [] }
     this.selected = null
     this.roomCounter = 1
     this.doorCounter = 1

@@ -13,10 +13,37 @@ import {
   type Rotation90,
   type AssetChild,
   type VoxelBox,
+  type ChildAnimation,
   rotateOffset,
   combineRotations,
   evaluateCondition
 } from './VoxelAsset'
+
+/**
+ * Info about an animated child asset.
+ */
+export interface AnimatedChildInfo {
+  /** Asset ID */
+  assetId: string
+  /** World position in voxel coordinates */
+  position: { x: number; y: number; z: number }
+  /** Combined rotation */
+  rotation: Rotation90
+  /** Animation definition */
+  animate: ChildAnimation
+  /** Resolved voxels for this child (for creating mesh) */
+  voxels: ResolvedVoxel[]
+}
+
+/**
+ * Result of resolving an asset with animations.
+ */
+export interface ResolveResult {
+  /** Static voxels to place in world */
+  voxels: ResolvedVoxel[]
+  /** Animated children to render separately */
+  animatedChildren: AnimatedChildInfo[]
+}
 
 /**
  * Loads and resolves voxel assets from definitions.
@@ -78,10 +105,26 @@ export class VoxelAssetLoader {
     params: Record<string, string | number | boolean> = {},
     heightOffset: number = 0
   ): ResolvedVoxel[] {
+    const result = this.resolveWithAnimations(id, position, rotation, params, heightOffset)
+    return result.voxels
+  }
+
+  /**
+   * Resolve an asset, separating static voxels from animated children.
+   * Animated children are returned separately so they can be rendered
+   * as dynamic meshes (e.g., spinning fan blades).
+   */
+  resolveWithAnimations(
+    id: string,
+    position: { x: number; y: number; z: number },
+    rotation: Rotation90 = 0,
+    params: Record<string, string | number | boolean> = {},
+    heightOffset: number = 0
+  ): ResolveResult {
     const asset = this.assets.get(id)
     if (!asset) {
       console.warn(`VoxelAssetLoader: Unknown asset "${id}"`)
-      return []
+      return { voxels: [], animatedChildren: [] }
     }
 
     // Position is already in voxel coordinates
@@ -99,18 +142,24 @@ export class VoxelAssetLoader {
       }
     }
 
-    return this.resolveRecursive(
+    const animatedChildren: AnimatedChildInfo[] = []
+
+    const voxels = this.resolveRecursive(
       asset,
       baseX,
       baseY,
       baseZ,
       rotation,
-      resolvedParams
+      resolvedParams,
+      animatedChildren
     )
+
+    return { voxels, animatedChildren }
   }
 
   /**
    * Recursively resolve an asset and its children.
+   * Animated children are added to animatedChildren array instead of static voxels.
    */
   private resolveRecursive(
     asset: VoxelAssetDef,
@@ -118,7 +167,8 @@ export class VoxelAssetLoader {
     baseY: number,
     baseZ: number,
     rotation: Rotation90,
-    params: Record<string, string | number | boolean>
+    params: Record<string, string | number | boolean>,
+    animatedChildren: AnimatedChildInfo[] = []
   ): ResolvedVoxel[] {
     const result: ResolvedVoxel[] = []
 
@@ -130,7 +180,7 @@ export class VoxelAssetLoader {
     ]
 
     // Resolve direct voxel placements
-    for (const placement of asset.voxels) {
+    for (const placement of asset.voxels ?? []) {
       // Apply anchor offset to placement offset
       const adjusted: [number, number, number] = [
         placement.offset[0] + anchorOffset[0],
@@ -219,17 +269,44 @@ export class VoxelAssetLoader {
         // Combine rotations
         const childRotation = combineRotations(rotation, child.rotation ?? 0)
 
-        // Recursively resolve child
-        const childVoxels = this.resolveRecursive(
-          childAsset,
-          baseX + rotatedOffset[0],
-          baseY + rotatedOffset[1],
-          baseZ + rotatedOffset[2],
-          childRotation,
-          params
-        )
+        const childX = baseX + rotatedOffset[0]
+        const childY = baseY + rotatedOffset[1]
+        const childZ = baseZ + rotatedOffset[2]
 
-        result.push(...childVoxels)
+        // If child has animation, resolve separately
+        if (child.animate) {
+          // Resolve child voxels (without passing animatedChildren to avoid nesting)
+          const childVoxels = this.resolveRecursive(
+            childAsset,
+            childX,
+            childY,
+            childZ,
+            childRotation,
+            params,
+            [] // Don't collect nested animated children for now
+          )
+
+          animatedChildren.push({
+            assetId: child.asset,
+            position: { x: childX, y: childY, z: childZ },
+            rotation: childRotation,
+            animate: child.animate,
+            voxels: childVoxels
+          })
+        } else {
+          // Recursively resolve child into static voxels
+          const childVoxels = this.resolveRecursive(
+            childAsset,
+            childX,
+            childY,
+            childZ,
+            childRotation,
+            params,
+            animatedChildren
+          )
+
+          result.push(...childVoxels)
+        }
       }
     }
 

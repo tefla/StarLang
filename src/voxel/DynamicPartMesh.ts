@@ -34,6 +34,9 @@ const VOXEL_COLORS: Record<number, number> = {
   [VoxelType.SCREEN]: 0x1a2744,
   [VoxelType.DESK]: 0x2a3a4a,
   [VoxelType.KEYBOARD]: 0x1a2a3a,
+  [VoxelType.DUCT]: 0x5a5a5a,
+  [VoxelType.FAN_HUB]: 0x3a3a3a,
+  [VoxelType.FAN_BLADE]: 0x7a7a7a,
 }
 
 export interface DynamicPartMeshOptions {

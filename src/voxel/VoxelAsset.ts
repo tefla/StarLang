@@ -36,6 +36,18 @@ export interface VoxelBox {
 }
 
 /**
+ * Continuous animation definition for asset children.
+ */
+export interface ChildAnimation {
+  /** Animation type */
+  type: 'spin'
+  /** Axis to rotate around: x, y, or z */
+  axis: 'x' | 'y' | 'z'
+  /** Speed in radians per second (default: 2π = 1 rotation/sec) */
+  speed?: number
+}
+
+/**
  * A child asset embedded within a parent asset.
  */
 export interface AssetChild {
@@ -47,6 +59,8 @@ export interface AssetChild {
   rotation?: Rotation90
   /** Conditional expression, e.g., "status=FAULT" */
   condition?: string
+  /** Continuous animation for this child (renders separately from static voxels) */
+  animate?: ChildAnimation
 }
 
 /**

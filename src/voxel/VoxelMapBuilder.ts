@@ -7,7 +7,7 @@
 
 import { VoxelWorld } from './VoxelWorld'
 import { VoxelType, VOXEL_SIZE, type VoxelCoord } from './VoxelTypes'
-import { assetLoader, loadBuiltinAssets } from './VoxelAssetLoader'
+import { assetLoader, loadBuiltinAssets, type AnimatedChildInfo } from './VoxelAssetLoader'
 import type { Rotation90 } from './VoxelAsset'
 import type { ShipLayout, RoomLayout, DoorLayout, AssetInstance } from '../types/layout'
 import type { RoomVolume, EntityPlacement, DoorPlacement, VoxelLayoutV2 } from '../types/layout'
@@ -44,6 +44,8 @@ export interface BuildResult {
   world: VoxelWorld
   rooms: Record<string, RoomVolume>
   entities: Record<string, EntityPlacement | DoorPlacement>
+  /** Animated asset children (e.g., spinning fan blades) */
+  animatedChildren: AnimatedChildInfo[]
 }
 
 /**
@@ -54,6 +56,7 @@ export class VoxelMapBuilder {
   private config: Required<RoomBuildConfig>
   private rooms: Record<string, RoomVolume> = {}
   private entities: Record<string, EntityPlacement | DoorPlacement> = {}
+  private animatedChildren: AnimatedChildInfo[] = []
 
   constructor(config: RoomBuildConfig = {}) {
     ensureAssetsLoaded()
@@ -120,12 +123,13 @@ export class VoxelMapBuilder {
     // End bulk mode - marks all chunks dirty
     this.world.endBulk()
 
-    console.log(`[VoxelMapBuilder] Build complete: ${this.world.getAllChunks().length} chunks`)
+    console.log(`[VoxelMapBuilder] Build complete: ${this.world.getAllChunks().length} chunks, ${this.animatedChildren.length} animated children`)
 
     return {
       world: this.world,
       rooms: this.rooms,
-      entities: this.entities
+      entities: this.entities,
+      animatedChildren: this.animatedChildren
     }
   }
 
@@ -469,7 +473,7 @@ export class VoxelMapBuilder {
    * Uses rotation directly (no layout-to-asset conversion).
    */
   private placeAssetInstance(id: string, instance: AssetInstance): void {
-    const voxels = assetLoader.resolve(
+    const result = assetLoader.resolveWithAnimations(
       instance.asset,
       instance.position,
       instance.rotation as Rotation90,
@@ -477,7 +481,7 @@ export class VoxelMapBuilder {
       instance.heightOffset ?? 0
     )
 
-    console.log(`[placeAssetInstance] ${id}: ${instance.asset} at (${instance.position.x},${instance.position.y},${instance.position.z}) rot=${instance.rotation} => ${voxels.length} voxels`)
+    console.log(`[placeAssetInstance] ${id}: ${instance.asset} at (${instance.position.x},${instance.position.y},${instance.position.z}) rot=${instance.rotation} => ${result.voxels.length} voxels, ${result.animatedChildren.length} animated`)
 
     // Create entity metadata for wall-lights
     if (instance.asset === 'wall-light') {
@@ -485,9 +489,13 @@ export class VoxelMapBuilder {
       this.placeEntity(entityId, 'light', instance.position, instance.rotation)
     }
 
-    for (const v of voxels) {
+    // Place static voxels
+    for (const v of result.voxels) {
       this.world.setVoxel(v.x, v.y, v.z, v.type)
     }
+
+    // Collect animated children for separate rendering
+    this.animatedChildren.push(...result.animatedChildren)
   }
 
   /**

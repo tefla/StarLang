@@ -38,6 +38,9 @@ export enum VoxelType {
   SCREEN = 17,       // Terminal/status screen surface (emissive)
   DESK = 18,         // Desk/table surface
   KEYBOARD = 19,     // Keyboard surface
+  DUCT = 20,         // Ventilation duct housing
+  FAN_HUB = 21,      // Fan center hub (static)
+  FAN_BLADE = 22,    // Fan blade (animated, not in pre-built mesh)
 }
 
 /**
@@ -80,14 +83,15 @@ export function isSolid(voxel: Voxel): boolean {
 
 /**
  * Check if a voxel type is transparent (allows light through).
- * SCREEN voxels are treated as transparent for meshing (rendered dynamically).
+ * SCREEN and FAN_BLADE voxels are treated as transparent for meshing (rendered dynamically).
  */
 export function isTransparent(voxel: Voxel): boolean {
   const type = getVoxelType(voxel)
   return type === VoxelType.AIR ||
          type === VoxelType.GLASS ||
          type === VoxelType.METAL_GRATE ||
-         type === VoxelType.SCREEN
+         type === VoxelType.SCREEN ||
+         type === VoxelType.FAN_BLADE
 }
 
 /**

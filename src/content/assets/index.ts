@@ -27,6 +27,10 @@ import wallTerminal from './terminals/wall-terminal.asset.json'
 // Import door assets
 import doorFrame from './doors/door-frame.asset.json'
 
+// Import mechanical assets
+import fanBlades from './mechanical/fan-blades.asset.json'
+import wallFan from './mechanical/wall-fan.asset.json'
+
 // Import animated JSON assets
 import switchAnimated from './controls/switch-animated.asset.json'
 import warningLight from './lights/warning-light.asset.json'
@@ -55,7 +59,10 @@ export const builtinAssets: VoxelAssetDef[] = [
   // Terminals
   wallTerminal as unknown as VoxelAssetDef,
   // Doors
-  doorFrame as unknown as VoxelAssetDef
+  doorFrame as unknown as VoxelAssetDef,
+  // Mechanical
+  fanBlades as unknown as VoxelAssetDef,
+  wallFan as unknown as VoxelAssetDef
 ]
 
 /**

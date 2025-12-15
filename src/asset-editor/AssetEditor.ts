@@ -28,6 +28,9 @@ const VOXEL_COLORS: Record<number, number> = {
   [VoxelType.DOOR_FRAME]: 0x3a4a5a,
   [VoxelType.DOOR_PANEL]: 0x5a6a7a,
   [VoxelType.LIGHT_FIXTURE]: 0xffffaa,
+  [VoxelType.DUCT]: 0x5a5a5a,
+  [VoxelType.FAN_HUB]: 0x3a3a3a,
+  [VoxelType.FAN_BLADE]: 0x7a7a7a,
 }
 
 // Asset voxel definition

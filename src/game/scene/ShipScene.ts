@@ -13,6 +13,8 @@ import { loadVoxelMesh } from '../../voxel/VoxelMeshLoader'
 import type { ShipLayout } from '../../types/layout'
 import { animatedAssetLoader, loadAnimatedAssets } from '../../voxel/AnimatedAssetLoader'
 import type { AnimatedAssetInstance } from '../../voxel/AnimatedAssetInstance'
+import { FanMesh } from '../mechanical/FanMesh'
+import type { AnimatedChildInfo } from '../../voxel/VoxelAssetLoader'
 
 export class ShipScene {
   public scene: THREE.Scene
@@ -25,6 +27,9 @@ export class ShipScene {
 
   // Animated assets (doors, switches, warning lights, etc.)
   public animatedAssets = new Map<string, AnimatedAssetInstance>()
+
+  // Spinning fans
+  public fans: FanMesh[] = []
 
   // Voxel rendering
   public voxelWorld: VoxelWorld | null = null
@@ -109,6 +114,9 @@ export class ShipScene {
     console.timeEnd('buildVoxelWorldOnly')
     console.log('Voxel world chunks:', this.voxelWorld.getAllChunks().length)
     // Don't create renderer - we're using pre-built mesh
+
+    // Create animated children (e.g., spinning fans)
+    this.createAnimatedChildren(result.animatedChildren)
   }
 
   /**
@@ -133,6 +141,23 @@ export class ShipScene {
     console.time('voxelRenderer.rebuildAll')
     this.voxelRenderer.rebuildAll()
     console.timeEnd('voxelRenderer.rebuildAll')
+
+    // Create animated children (e.g., spinning fans)
+    this.createAnimatedChildren(result.animatedChildren)
+  }
+
+  /**
+   * Create animated child meshes (e.g., spinning fan blades).
+   */
+  private createAnimatedChildren(animatedChildren: AnimatedChildInfo[]) {
+    for (const info of animatedChildren) {
+      if (info.animate.type === 'spin') {
+        const fan = new FanMesh(info)
+        this.fans.push(fan)
+        this.scene.add(fan.group)
+        console.log(`[ShipScene] Created fan from ${info.assetId} with ${info.voxels.length} voxels`)
+      }
+    }
   }
 
   /**
@@ -285,6 +310,11 @@ export class ShipScene {
     // Update animated assets (doors, switches, warning lights, etc.)
     for (const instance of this.animatedAssets.values()) {
       instance.update(deltaTime)
+    }
+
+    // Update spinning fans
+    for (const fan of this.fans) {
+      fan.update(deltaTime)
     }
 
     // Update particle effects
