@@ -80,12 +80,14 @@ export function isSolid(voxel: Voxel): boolean {
 
 /**
  * Check if a voxel type is transparent (allows light through).
+ * SCREEN voxels are treated as transparent for meshing (rendered dynamically).
  */
 export function isTransparent(voxel: Voxel): boolean {
   const type = getVoxelType(voxel)
   return type === VoxelType.AIR ||
          type === VoxelType.GLASS ||
-         type === VoxelType.METAL_GRATE
+         type === VoxelType.METAL_GRATE ||
+         type === VoxelType.SCREEN
 }
 
 /**

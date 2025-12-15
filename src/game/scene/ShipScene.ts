@@ -211,7 +211,7 @@ export class ShipScene {
 
     // Build terminals
     for (const [id, terminalDef] of structure.terminals) {
-      const terminalMesh = new TerminalMesh(terminalDef, this.runtime)
+      const terminalMesh = new TerminalMesh(terminalDef, this.runtime, this.voxelWorld)
       this.terminalMeshes.set(id, terminalMesh)
       this.scene.add(terminalMesh.group)
     }

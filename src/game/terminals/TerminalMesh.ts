@@ -3,7 +3,24 @@
 import * as THREE from 'three'
 import type { TerminalDefinition, TerminalType } from '../../types/nodes'
 import { Runtime } from '../../runtime/Runtime'
-import { VOXEL_SIZE } from '../../voxel/VoxelTypes'
+import { VOXEL_SIZE, VoxelType, getVoxelType } from '../../voxel/VoxelTypes'
+import type { VoxelWorld } from '../../voxel/VoxelWorld'
+
+/**
+ * Bounds of detected SCREEN voxels.
+ */
+interface ScreenBounds {
+  minX: number
+  minY: number
+  minZ: number
+  maxX: number
+  maxY: number
+  maxZ: number
+  // Which face of the screen voxels faces the player
+  // Based on rotation: 0=+Z, 90=+X, 180=-Z, 270=-X
+  normalAxis: 'x' | 'z'
+  normalDir: 1 | -1
+}
 
 // Engineering terminal startup message
 const ENGINEERING_MESSAGE = [
@@ -23,12 +40,13 @@ export class TerminalMesh {
   public isInteractable = true
   public isFocused = false
 
-  private screenMesh: THREE.Mesh
+  private screenMesh!: THREE.Mesh
   private screenCanvas: HTMLCanvasElement
   private screenTexture: THREE.CanvasTexture
   private screenContext: CanvasRenderingContext2D
 
   private runtime: Runtime
+  private voxelWorld: VoxelWorld | null
   private screenWidth = 512
   private screenHeight = 384
 
@@ -42,9 +60,10 @@ export class TerminalMesh {
   private updateTimer = 0
   private updateInterval = 1.0 // seconds
 
-  constructor(definition: TerminalDefinition, runtime: Runtime) {
+  constructor(definition: TerminalDefinition, runtime: Runtime, voxelWorld: VoxelWorld | null = null) {
     this.definition = definition
     this.runtime = runtime
+    this.voxelWorld = voxelWorld
     this.group = new THREE.Group()
     this.group.name = `terminal_${definition.id}`
     this.group.userData = { type: 'terminal', id: definition.id, interactable: true }
@@ -63,34 +82,7 @@ export class TerminalMesh {
     // Build terminal geometry based on type
     this.buildGeometry(definition.properties.terminal_type)
 
-    // Create screen mesh
-    const screenGeometry = new THREE.PlaneGeometry(0.8, 0.6)
-    const screenMaterial = new THREE.MeshStandardMaterial({
-      map: this.screenTexture,
-      emissive: new THREE.Color(0x1a2744),
-      emissiveIntensity: 0.5,
-      emissiveMap: this.screenTexture,
-      side: THREE.DoubleSide, // Visible from both sides during debugging
-    })
-    this.screenMesh = new THREE.Mesh(screenGeometry, screenMaterial)
-
-    // Position screen based on terminal type
-    // PlaneGeometry faces +Z by default, but we need it to face toward the player
-    // The terminal group is rotated, so we position in local coordinates
-    if (definition.properties.terminal_type === 'ENGINEERING') {
-      // Voxel workstation monitor is at:
-      // - Y: 48-76 voxels, center at 62 voxels = 1.55m
-      // - Z: offsetZ=8, front face at ~6 voxels = 0.15m from terminal center
-      // Screen should face -Z (toward player after terminal rotation is applied)
-      this.screenMesh.position.set(0, 1.55, 0.16)
-      this.screenMesh.rotation.y = Math.PI // Face -Z (toward player)
-    } else {
-      // Wall panel - screen faces outward from wall
-      this.screenMesh.position.set(0, 1.2, 0.051)
-    }
-    this.group.add(this.screenMesh)
-
-    // Position terminal (convert voxel coords to world coords)
+    // Position terminal group (convert voxel coords to world coords)
     const { position, rotation } = definition.properties
     this.group.position.set(
       position.x * VOXEL_SIZE,
@@ -99,9 +91,162 @@ export class TerminalMesh {
     )
     this.group.rotation.y = (rotation * Math.PI) / 180
 
+    // Create screen mesh - try to find SCREEN voxels first
+    this.createScreenMesh(definition, position, rotation)
+
     // Initialize screen content
     this.initializeContent()
     this.renderScreen()
+  }
+
+  /**
+   * Create the screen mesh, using SCREEN voxels if available.
+   */
+  private createScreenMesh(
+    definition: TerminalDefinition,
+    position: { x: number; y: number; z: number },
+    rotation: number
+  ): void {
+    const screenMaterial = new THREE.MeshStandardMaterial({
+      map: this.screenTexture,
+      emissive: new THREE.Color(0x1a2744),
+      emissiveIntensity: 0.5,
+      emissiveMap: this.screenTexture,
+      side: THREE.DoubleSide,
+    })
+
+    // Try to find SCREEN voxels for ENGINEERING terminals
+    if (definition.properties.terminal_type === 'ENGINEERING' && this.voxelWorld) {
+      const bounds = this.findScreenVoxels(position, rotation)
+      if (bounds) {
+        // Create screen mesh sized to match voxel bounds
+        const width = (bounds.maxX - bounds.minX + 1) * VOXEL_SIZE
+        const height = (bounds.maxY - bounds.minY + 1) * VOXEL_SIZE
+        const screenGeometry = new THREE.PlaneGeometry(width, height)
+        this.screenMesh = new THREE.Mesh(screenGeometry, screenMaterial)
+
+        // Position at center X/Y of screen voxels
+        const centerX = (bounds.minX + bounds.maxX + 1) / 2 * VOXEL_SIZE
+        const centerY = (bounds.minY + bounds.maxY + 1) / 2 * VOXEL_SIZE
+        const centerZ = (bounds.minZ + bounds.maxZ + 1) / 2 * VOXEL_SIZE
+
+        // Convert to local coordinates (relative to terminal group)
+        // Note: The terminal group has rotation applied, so local coords are in rotated space
+        let localX = centerX - position.x * VOXEL_SIZE
+        let localY = centerY - position.y * VOXEL_SIZE
+        let localZ = centerZ - position.z * VOXEL_SIZE
+
+        // The group is already rotated, so we need to UN-rotate to get proper local coords
+        // For rotation 180: world offset (dx, dz) = local (-dx, -dz)
+        // So to get local from world offset: local = (-world_dx, -world_dz)
+        if (rotation === 180) {
+          localX = -localX
+          localZ = -localZ
+        } else if (rotation === 90) {
+          const tmp = localX
+          localX = localZ
+          localZ = -tmp
+        } else if (rotation === 270) {
+          const tmp = localX
+          localX = -localZ
+          localZ = tmp
+        }
+
+        // Small offset in front of screen (toward player)
+        const screenOffset = 0.001
+        if (bounds.normalAxis === 'z') {
+          this.screenMesh.position.set(localX, localY, localZ - screenOffset)
+          // Rotate screen mesh 180° so texture isn't mirrored
+          this.screenMesh.rotation.y = Math.PI
+        } else {
+          this.screenMesh.position.set(localX - screenOffset, localY, localZ)
+          this.screenMesh.rotation.y = Math.PI / 2
+        }
+
+        this.group.add(this.screenMesh)
+        return
+      }
+    }
+
+    // Fallback: use hardcoded positions
+    const screenGeometry = new THREE.PlaneGeometry(0.8, 0.6)
+    this.screenMesh = new THREE.Mesh(screenGeometry, screenMaterial)
+
+    if (definition.properties.terminal_type === 'ENGINEERING') {
+      this.screenMesh.position.set(0, 1.55, 0.16)
+      this.screenMesh.rotation.y = Math.PI
+    } else {
+      this.screenMesh.position.set(0, 1.2, 0.051)
+    }
+    this.group.add(this.screenMesh)
+  }
+
+  /**
+   * Find SCREEN voxels near the terminal position.
+   * Searches in a radius around the terminal to find all SCREEN voxels.
+   */
+  private findScreenVoxels(
+    position: { x: number; y: number; z: number },
+    rotation: number
+  ): ScreenBounds | null {
+    if (!this.voxelWorld) return null
+
+    // Search radius in voxels (terminals can be offset from screen)
+    const searchRadius = 30
+
+    let minX = Infinity, minY = Infinity, minZ = Infinity
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+    let found = false
+
+    // Search around terminal position
+    for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+      for (let dy = 0; dy <= 80; dy++) { // Only search upward (screens are above floor)
+        for (let dz = -searchRadius; dz <= searchRadius; dz++) {
+          const x = position.x + dx
+          const y = position.y + dy
+          const z = position.z + dz
+
+          const voxel = this.voxelWorld.getVoxel(x, y, z)
+          if (getVoxelType(voxel) === VoxelType.SCREEN) {
+            found = true
+            minX = Math.min(minX, x)
+            minY = Math.min(minY, y)
+            minZ = Math.min(minZ, z)
+            maxX = Math.max(maxX, x)
+            maxY = Math.max(maxY, y)
+            maxZ = Math.max(maxZ, z)
+          }
+        }
+      }
+    }
+
+    if (!found) return null
+
+    // Determine normal direction based on terminal rotation
+    // Rotation 0 = facing +Z, 90 = facing +X, 180 = facing -Z, 270 = facing -X
+    let normalAxis: 'x' | 'z' = 'z'
+    let normalDir: 1 | -1 = -1
+
+    switch (rotation) {
+      case 0:
+        normalAxis = 'z'
+        normalDir = 1
+        break
+      case 90:
+        normalAxis = 'x'
+        normalDir = 1
+        break
+      case 180:
+        normalAxis = 'z'
+        normalDir = -1
+        break
+      case 270:
+        normalAxis = 'x'
+        normalDir = -1
+        break
+    }
+
+    return { minX, minY, minZ, maxX, maxY, maxZ, normalAxis, normalDir }
   }
 
   private buildGeometry(terminalType: TerminalType) {

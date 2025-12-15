@@ -188,6 +188,12 @@ export class GreedyMesher {
         // Determine if we need a face here
         let faceType: VoxelType | null = null
 
+        // Skip SCREEN voxels - they're rendered dynamically by TerminalMesh
+        if (type === VoxelType.SCREEN) {
+          row.push(null)
+          continue
+        }
+
         // Face is needed if current voxel is solid and neighbor is transparent
         if (!isTransparent(voxel) && isTransparent(neighbor)) {
           faceType = type

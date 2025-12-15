@@ -605,7 +605,6 @@ export class VoxelMapBuilder {
     placeBox(0, standY, standOffsetZ, standWidth, standHeight, standDepth, VoxelType.DESK)
 
     // Place monitor frame (on top of stand, at back)
-    // Leave center hollow for screen (screen is rendered dynamically)
     const monitorOffsetZ = standOffsetZ
     // Place frame as 4 sides (top, bottom, left, right)
     const frameThickness = 2
@@ -622,6 +621,19 @@ export class VoxelMapBuilder {
     // Right frame
     placeBox(Math.floor(monitorWidth / 2) - Math.floor(frameThickness / 2), monitorY, monitorOffsetZ,
       frameThickness, monitorHeight, monitorDepth, VoxelType.DESK)
+    // Back panel (so screen can't be seen from behind)
+    const backOffsetZ = monitorOffsetZ + Math.floor(monitorDepth / 2) - 1
+    placeBox(0, monitorY, backOffsetZ,
+      monitorWidth, monitorHeight, 1, VoxelType.DESK)
+
+    // Fill monitor interior with SCREEN voxels (rendered dynamically by TerminalMesh)
+    const screenWidth = monitorWidth - 2 * frameThickness   // 32 voxels
+    const screenHeight = monitorHeight - 2 * frameThickness // 24 voxels
+    const screenY = monitorY + frameThickness
+    // Screen inside the monitor frame
+    // monitorOffsetZ=8 is monitor center, monitor depth=4
+    const screenOffsetZ = 6
+    placeBox(0, screenY, screenOffsetZ, screenWidth, screenHeight, 1, VoxelType.SCREEN)
 
     // Place keyboard (at front of desk)
     const keyboardOffsetZ = -Math.floor(deskDepth / 2) + Math.floor(keyboardDepth / 2) + 2
