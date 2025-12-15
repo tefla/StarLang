@@ -80,12 +80,14 @@ export class Compiler {
       switch (entity.type) {
         case 'door':
           const door = entity as DoorPlacement
+          if (!v1Layout.doors) v1Layout.doors = {}
           v1Layout.doors[id] = {
             position: worldPos,
             rotation: entity.rotation
           }
           break
         case 'terminal':
+          if (!v1Layout.terminals) v1Layout.terminals = {}
           v1Layout.terminals[id] = {
             position: worldPos,
             rotation: entity.rotation
@@ -240,7 +242,7 @@ export class Compiler {
 
   private compileDoor(node: ASTNode): DoorDefinition {
     const props = node.properties
-    const layoutData = this.layout?.doors[node.name]
+    const layoutData = this.layout?.doors?.[node.name]
 
     const connects = this.getStringArray(props['connects'])
     if (!connects || connects.length !== 2) {
@@ -282,7 +284,7 @@ export class Compiler {
 
   private compileTerminal(node: ASTNode): TerminalDefinition {
     const props = node.properties
-    const layoutData = this.layout?.terminals[node.name]
+    const layoutData = this.layout?.terminals?.[node.name]
 
     return {
       id: node.name,

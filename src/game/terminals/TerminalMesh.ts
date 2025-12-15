@@ -89,7 +89,8 @@ export class TerminalMesh {
       position.y * VOXEL_SIZE,
       position.z * VOXEL_SIZE
     )
-    this.group.rotation.y = (rotation * Math.PI) / 180
+    // Add 180° offset - terminal faces opposite direction from layout rotation
+    this.group.rotation.y = ((rotation + 180) * Math.PI) / 180
 
     // Create screen mesh - try to find SCREEN voxels first
     this.createScreenMesh(definition, position, rotation)
@@ -131,22 +132,22 @@ export class TerminalMesh {
         const centerZ = (bounds.minZ + bounds.maxZ + 1) / 2 * VOXEL_SIZE
 
         // Convert to local coordinates (relative to terminal group)
-        // Note: The terminal group has rotation applied, so local coords are in rotated space
+        // Note: The terminal group has +180° offset applied, so use effective rotation
         let localX = centerX - position.x * VOXEL_SIZE
         let localY = centerY - position.y * VOXEL_SIZE
         let localZ = centerZ - position.z * VOXEL_SIZE
 
         // The group is already rotated, so we need to UN-rotate to get proper local coords
-        // For rotation 180: world offset (dx, dz) = local (-dx, -dz)
-        // So to get local from world offset: local = (-world_dx, -world_dz)
-        if (rotation === 180) {
+        // Use effective rotation (layout rotation + 180° offset)
+        const effectiveRotation = (rotation + 180) % 360
+        if (effectiveRotation === 180) {
           localX = -localX
           localZ = -localZ
-        } else if (rotation === 90) {
+        } else if (effectiveRotation === 90) {
           const tmp = localX
           localX = localZ
           localZ = -tmp
-        } else if (rotation === 270) {
+        } else if (effectiveRotation === 270) {
           const tmp = localX
           localX = -localZ
           localZ = tmp
@@ -169,14 +170,16 @@ export class TerminalMesh {
     }
 
     // Fallback: use hardcoded positions
+    // Note: group has +180° offset, so Z positions are negated
     const screenGeometry = new THREE.PlaneGeometry(0.8, 0.6)
     this.screenMesh = new THREE.Mesh(screenGeometry, screenMaterial)
 
     if (definition.properties.terminal_type === 'ENGINEERING') {
-      this.screenMesh.position.set(0, 1.55, 0.16)
+      this.screenMesh.position.set(0, 1.55, -0.16)
       this.screenMesh.rotation.y = Math.PI
     } else {
-      this.screenMesh.position.set(0, 1.2, 0.051)
+      this.screenMesh.position.set(0, 1.2, -0.051)
+      this.screenMesh.rotation.y = Math.PI
     }
     this.group.add(this.screenMesh)
   }

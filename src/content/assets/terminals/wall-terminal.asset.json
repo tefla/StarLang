@@ -1,0 +1,21 @@
+{
+  "id": "wall-terminal",
+  "name": "Wall Terminal",
+  "description": "Wall-mounted status terminal. Anchor at back-left corner (min-x, min-z). Panel at z=0, screen at z=1.",
+  "anchor": { "x": 0, "y": 0, "z": 0 },
+  "voxels": [],
+  "boxes": [
+    {
+      "min": [0, 0, 0],
+      "max": [20, 16, 1],
+      "type": "PANEL",
+      "comment": "Panel at wall surface (20x16 voxels)"
+    },
+    {
+      "min": [2, 2, 1],
+      "max": [18, 14, 2],
+      "type": "SCREEN",
+      "comment": "Screen extends into room (16x12 voxels)"
+    }
+  ]
+}

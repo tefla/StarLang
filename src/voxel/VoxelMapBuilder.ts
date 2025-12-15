@@ -9,7 +9,7 @@ import { VoxelWorld } from './VoxelWorld'
 import { VoxelType, VOXEL_SIZE, type VoxelCoord } from './VoxelTypes'
 import { assetLoader, loadBuiltinAssets } from './VoxelAssetLoader'
 import type { Rotation90 } from './VoxelAsset'
-import type { ShipLayout, RoomLayout, DoorLayout } from '../types/layout'
+import type { ShipLayout, RoomLayout, DoorLayout, AssetInstance } from '../types/layout'
 import type { RoomVolume, EntityPlacement, DoorPlacement, VoxelLayoutV2 } from '../types/layout'
 
 // Ensure assets are loaded
@@ -82,17 +82,16 @@ export class VoxelMapBuilder {
     console.timeEnd('buildRooms')
 
     // Cut doorways
-    for (const [id, door] of Object.entries(layout.doors)) {
-      this.cutDoorway(id, door, layout.rooms)
+    if (layout.doors) {
+      for (const [id, door] of Object.entries(layout.doors)) {
+        this.cutDoorway(id, door, layout.rooms)
+      }
     }
 
-    // Place terminals
-    for (const [id, terminal] of Object.entries(layout.terminals)) {
-      this.placeEntity(id, 'terminal', terminal.position, terminal.rotation)
-
-      // Place workstation voxels for engineering terminals
-      if (id.includes('engineering')) {
-        this.placeWorkstation(terminal.position, terminal.rotation)
+    // Place terminals (voxels handled by asset instances, this just creates entity metadata)
+    if (layout.terminals) {
+      for (const [id, terminal] of Object.entries(layout.terminals)) {
+        this.placeEntity(id, 'terminal', terminal.position, terminal.rotation)
       }
     }
 
@@ -103,11 +102,18 @@ export class VoxelMapBuilder {
       }
     }
 
-    // Place wall lights (using asset system)
+    // Place wall lights (using asset system) - legacy format
     if (layout.wallLights) {
       for (const [id, light] of Object.entries(layout.wallLights)) {
         this.placeEntity(id, 'light', light.position, light.rotation)
         this.placeWallLight(light.position, light.rotation)
+      }
+    }
+
+    // Process asset instances (new data-driven format)
+    if (layout.assetInstances) {
+      for (const [id, instance] of Object.entries(layout.assetInstances)) {
+        this.placeAssetInstance(id, instance)
       }
     }
 
@@ -441,228 +447,57 @@ export class VoxelMapBuilder {
   }
 
   /**
-   * Place a voxel asset at a world position.
-   *
-   * The asset is loaded from the asset library and placed with the given
-   * rotation and parameters. Height offset puts the switch at 1.2m height.
-   */
-  private placeAsset(
-    assetId: string,
-    position: { x: number; y: number; z: number },
-    layoutRotation: number,
-    params: Record<string, string | number | boolean> = {}
-  ): void {
-    // Map layout rotation to asset rotation
-    // Layout rotation indicates which direction the switch faces:
-    // - 90/270: X-facing (panel perpendicular to X axis)
-    // - 0/180: Z-facing (panel perpendicular to Z axis)
-    //
-    // The switch asset is defined with voxels on X=0 plane (X-facing).
-    // So we need to rotate 90° to make it Z-facing.
-    const assetRotation = this.layoutToAssetRotation(layoutRotation)
-
-    // Resolve the asset to voxels
-    const voxels = assetLoader.resolve(
-      assetId,
-      position,
-      assetRotation,
-      params,
-      48  // Height offset: 1.2m = 48 voxels at 2.5cm
-    )
-
-    console.log(`[placeAsset] ${assetId} at (${position.x},${position.y},${position.z}) rot=${layoutRotation}->${assetRotation} => ${voxels.length} voxels`)
-    if (voxels.length > 0) {
-      const v = voxels[0]!
-      console.log(`  First voxel: (${v.x}, ${v.y}, ${v.z}) type=${v.type}`)
-    }
-
-    // Place all resolved voxels
-    for (const v of voxels) {
-      this.world.setVoxel(v.x, v.y, v.z, v.type)
-    }
-  }
-
-  /**
-   * Place a wall light at a world position.
-   * Wall lights are positioned on the wall surface and face outward.
+   * Place a wall light at a world position (legacy format support).
+   * For new layouts, use assetInstances instead.
    */
   private placeWallLight(
     position: { x: number; y: number; z: number },
     layoutRotation: number
   ): void {
-    // Map layout rotation to asset rotation
-    // Wall light asset is defined facing +X direction (bulb extends in +X)
     const assetRotation = this.layoutToAssetRotation(layoutRotation)
+    const voxels = assetLoader.resolve('wall-light', position, assetRotation, {}, 0)
 
-    // Resolve the asset to voxels
-    // No height offset needed - wall lights use their Y position directly
-    const voxels = assetLoader.resolve(
-      'wall-light',
-      position,
-      assetRotation,
-      {},
-      0
-    )
+    console.log(`[placeWallLight] at (${position.x},${position.y},${position.z}) rot=${assetRotation} => ${voxels.length} voxels`)
 
-    console.log(`[placeWallLight] at (${position.x},${position.y},${position.z}) rot=${layoutRotation}->${assetRotation} => ${voxels.length} voxels`)
-
-    // Place all resolved voxels
     for (const v of voxels) {
       this.world.setVoxel(v.x, v.y, v.z, v.type)
     }
   }
 
   /**
-   * Place a workstation (engineering terminal) with desk, monitor, and keyboard.
-   * Screen is NOT placed - it's rendered dynamically by TerminalMesh.
+   * Place an asset instance from the layout file.
+   * Uses rotation directly (no layout-to-asset conversion).
    */
-  private placeWorkstation(
-    position: { x: number; y: number; z: number },
-    rotation: number
-  ): void {
-    const baseX = position.x
-    const baseY = position.y
-    const baseZ = position.z
+  private placeAssetInstance(id: string, instance: AssetInstance): void {
+    const voxels = assetLoader.resolve(
+      instance.asset,
+      instance.position,
+      instance.rotation as Rotation90,
+      instance.params ?? {},
+      instance.heightOffset ?? 0
+    )
 
-    // Workstation dimensions in voxels (at 2.5cm per voxel)
-    // Desk: 48×2×24 at y=30 (0.75m height)
-    const deskWidth = 48   // 1.2m
-    const deskHeight = 2   // 0.05m
-    const deskDepth = 24   // 0.6m
-    const deskY = 30       // 0.75m
+    console.log(`[placeAssetInstance] ${id}: ${instance.asset} at (${instance.position.x},${instance.position.y},${instance.position.z}) rot=${instance.rotation} => ${voxels.length} voxels`)
 
-    // Desk legs: 2×30×2
-    const legSize = 2
-    const legHeight = 30
-
-    // Monitor stand: 4×16×4
-    const standWidth = 4
-    const standHeight = 16
-    const standDepth = 4
-    const standY = deskY + deskHeight  // On top of desk
-
-    // Monitor frame: 36×28×4
-    const monitorWidth = 36  // 0.9m
-    const monitorHeight = 28 // 0.7m
-    const monitorDepth = 4   // 0.1m
-    const monitorY = standY + standHeight  // On top of stand
-
-    // Keyboard: 20×1×6 at y=31 (on desk surface toward front)
-    const keyboardWidth = 20
-    const keyboardHeight = 1
-    const keyboardDepth = 6
-    const keyboardY = deskY + deskHeight
-
-    // Helper to rotate offset based on layout rotation
-    const rotateOffset = (dx: number, dz: number): [number, number] => {
-      switch (rotation) {
-        case 0:   return [dx, dz]           // Facing +Z
-        case 90:  return [dz, -dx]          // Facing +X
-        case 180: return [-dx, -dz]         // Facing -Z
-        case 270: return [-dz, dx]          // Facing -X
-        default:  return [dx, dz]
-      }
+    // Create entity metadata for wall-lights
+    if (instance.asset === 'wall-light') {
+      const entityId = id.replace(/-/g, '_')
+      this.placeEntity(entityId, 'light', instance.position, instance.rotation)
     }
 
-    // Helper to place a box of voxels
-    const placeBox = (
-      offsetX: number, offsetY: number, offsetZ: number,
-      w: number, h: number, d: number,
-      voxelType: VoxelType
-    ) => {
-      // Box is centered on X, positioned at offsetY, centered on Z
-      for (let dy = 0; dy < h; dy++) {
-        for (let localZ = 0; localZ < d; localZ++) {
-          for (let localX = 0; localX < w; localX++) {
-            // Offset from center
-            const dx = localX - Math.floor(w / 2)
-            const dz = localZ - Math.floor(d / 2)
-            const [rotX, rotZ] = rotateOffset(dx + offsetX, dz + offsetZ)
-            this.world.setVoxel(
-              baseX + rotX,
-              baseY + offsetY + dy,
-              baseZ + rotZ,
-              voxelType
-            )
-          }
-        }
-      }
+    for (const v of voxels) {
+      this.world.setVoxel(v.x, v.y, v.z, v.type)
     }
-
-    // Place desk surface
-    placeBox(0, deskY, 0, deskWidth, deskHeight, deskDepth, VoxelType.DESK)
-
-    // Place desk legs (at corners)
-    const legOffsetX = Math.floor(deskWidth / 2) - legSize
-    const legOffsetZ = Math.floor(deskDepth / 2) - legSize
-    placeBox(-legOffsetX, 0, -legOffsetZ, legSize, legHeight, legSize, VoxelType.DESK) // Front-left
-    placeBox(legOffsetX, 0, -legOffsetZ, legSize, legHeight, legSize, VoxelType.DESK)  // Front-right
-    placeBox(-legOffsetX, 0, legOffsetZ, legSize, legHeight, legSize, VoxelType.DESK)  // Back-left
-    placeBox(legOffsetX, 0, legOffsetZ, legSize, legHeight, legSize, VoxelType.DESK)   // Back-right
-
-    // Place monitor stand (at back of desk)
-    const standOffsetZ = Math.floor(deskDepth / 2) - standDepth
-    placeBox(0, standY, standOffsetZ, standWidth, standHeight, standDepth, VoxelType.DESK)
-
-    // Place monitor frame (on top of stand, at back)
-    const monitorOffsetZ = standOffsetZ
-    // Place frame as 4 sides (top, bottom, left, right)
-    const frameThickness = 2
-
-    // Top frame
-    placeBox(0, monitorY + monitorHeight - frameThickness, monitorOffsetZ,
-      monitorWidth, frameThickness, monitorDepth, VoxelType.DESK)
-    // Bottom frame
-    placeBox(0, monitorY, monitorOffsetZ,
-      monitorWidth, frameThickness, monitorDepth, VoxelType.DESK)
-    // Left frame
-    placeBox(-Math.floor(monitorWidth / 2) + Math.floor(frameThickness / 2), monitorY, monitorOffsetZ,
-      frameThickness, monitorHeight, monitorDepth, VoxelType.DESK)
-    // Right frame
-    placeBox(Math.floor(monitorWidth / 2) - Math.floor(frameThickness / 2), monitorY, monitorOffsetZ,
-      frameThickness, monitorHeight, monitorDepth, VoxelType.DESK)
-    // Back panel (so screen can't be seen from behind)
-    const backOffsetZ = monitorOffsetZ + Math.floor(monitorDepth / 2) - 1
-    placeBox(0, monitorY, backOffsetZ,
-      monitorWidth, monitorHeight, 1, VoxelType.DESK)
-
-    // Fill monitor interior with SCREEN voxels (rendered dynamically by TerminalMesh)
-    const screenWidth = monitorWidth - 2 * frameThickness   // 32 voxels
-    const screenHeight = monitorHeight - 2 * frameThickness // 24 voxels
-    const screenY = monitorY + frameThickness
-    // Screen inside the monitor frame
-    // monitorOffsetZ=8 is monitor center, monitor depth=4
-    const screenOffsetZ = 6
-    placeBox(0, screenY, screenOffsetZ, screenWidth, screenHeight, 1, VoxelType.SCREEN)
-
-    // Place keyboard (at front of desk)
-    const keyboardOffsetZ = -Math.floor(deskDepth / 2) + Math.floor(keyboardDepth / 2) + 2
-    placeBox(0, keyboardY, keyboardOffsetZ, keyboardWidth, keyboardHeight, keyboardDepth, VoxelType.KEYBOARD)
-
-    console.log(`[placeWorkstation] at (${baseX},${baseY},${baseZ}) rot=${rotation}`)
   }
 
   /**
-   * Convert layout rotation to asset rotation.
-   * Layout rotation describes wall orientation (which axis the panel is perpendicular to).
-   * Asset rotation describes the rotation of the asset itself.
+   * Cast layout rotation to Rotation90 type. Defaults to 0 for invalid values.
    */
   private layoutToAssetRotation(layoutRotation: number): Rotation90 {
-    // The switch asset is defined on X=0 plane (perpendicular to X axis).
-    // Layout rotation 90/270 means X-facing → no rotation needed
-    // Layout rotation 0/180 means Z-facing → rotate 90°
-    switch (layoutRotation) {
-      case 90:
-        return 0    // X-facing, +X direction
-      case 270:
-        return 180  // X-facing, -X direction
-      case 0:
-        return 90   // Z-facing, +Z direction
-      case 180:
-        return 270  // Z-facing, -Z direction
-      default:
-        return 0
+    if (layoutRotation === 0 || layoutRotation === 90 || layoutRotation === 180 || layoutRotation === 270) {
+      return layoutRotation
     }
+    return 0
   }
 
   /**

@@ -1,0 +1,25 @@
+{
+  "id": "workstation",
+  "name": "Engineering Workstation",
+  "description": "Complete workstation with desk, monitor, and keyboard.",
+  "anchor": { "x": 0, "y": 0, "z": 0 },
+  "voxels": [],
+  "children": [
+    {
+      "asset": "desk",
+      "offset": [0, 0, 0]
+    },
+    {
+      "asset": "monitor-stand",
+      "offset": [0, 32, 8]
+    },
+    {
+      "asset": "monitor-frame",
+      "offset": [0, 48, 8]
+    },
+    {
+      "asset": "keyboard",
+      "offset": [0, 32, -7]
+    }
+  ]
+}

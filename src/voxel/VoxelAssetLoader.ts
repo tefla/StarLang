@@ -12,6 +12,7 @@ import {
   type ResolvedVoxel,
   type Rotation90,
   type AssetChild,
+  type VoxelBox,
   rotateOffset,
   combineRotations,
   evaluateCondition
@@ -153,6 +154,41 @@ export class VoxelAssetLoader {
         z: baseZ + rotated[2],
         type: voxelType
       })
+    }
+
+    // Resolve box regions (expanded to individual voxels)
+    if (asset.boxes) {
+      for (const box of asset.boxes) {
+        const voxelType = VoxelType[box.type]
+        if (voxelType === undefined) {
+          console.warn(`VoxelAssetLoader: Unknown voxel type "${box.type}" in box`)
+          continue
+        }
+
+        // Iterate over all voxels in the box
+        for (let x = box.min[0]; x <= box.max[0]; x++) {
+          for (let y = box.min[1]; y <= box.max[1]; y++) {
+            for (let z = box.min[2]; z <= box.max[2]; z++) {
+              // Apply anchor offset
+              const adjusted: [number, number, number] = [
+                x + anchorOffset[0],
+                y + anchorOffset[1],
+                z + anchorOffset[2]
+              ]
+
+              // Rotate the offset
+              const rotated = rotateOffset(adjusted, rotation)
+
+              result.push({
+                x: baseX + rotated[0],
+                y: baseY + rotated[1],
+                z: baseZ + rotated[2],
+                type: voxelType
+              })
+            }
+          }
+        }
+      }
     }
 
     // Resolve child assets

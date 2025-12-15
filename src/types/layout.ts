@@ -142,11 +142,36 @@ export interface WallLightLayout {
   intensity: number  // 0-5, default 1
 }
 
+/**
+ * Generic asset instance placement.
+ * Used for furniture, fixtures, and other data-driven objects.
+ */
+export interface AssetInstance {
+  /** Asset ID to place (must be registered in asset loader) */
+  asset: string
+  /** Position in voxel coordinates */
+  position: Position3D
+  /** Rotation in degrees (0, 90, 180, 270) */
+  rotation: 0 | 90 | 180 | 270
+  /** Optional parameters for conditional children */
+  params?: Record<string, string | number | boolean>
+  /** Height offset in voxels (for wall-mounted items) */
+  heightOffset?: number
+}
+
 export interface ShipLayout {
+  /** Layout version (defaults to 1 for backward compatibility) */
+  version?: 1 | 2
   rooms: Record<string, RoomLayout>
-  doors: Record<string, DoorLayout>
-  terminals: Record<string, TerminalLayout>
+  /** Doors - optional, can be inferred from door-frame assetInstances */
+  doors?: Record<string, DoorLayout>
+  /** Terminals - optional, can be inferred from wall-terminal/workstation assetInstances */
+  terminals?: Record<string, TerminalLayout>
   sensors?: Record<string, SensorLayout>
+  /** Switches - optional, can be inferred from switch assetInstances */
   switches?: Record<string, SwitchLayout>
+  /** Wall lights - optional, can be inferred from wall-light assetInstances */
   wallLights?: Record<string, WallLightLayout>
+  /** Asset instances - primary way to place objects in V2 layouts */
+  assetInstances?: Record<string, AssetInstance>
 }

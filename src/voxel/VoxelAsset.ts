@@ -23,6 +23,19 @@ export interface VoxelPlacement {
 }
 
 /**
+ * A box region that generates multiple voxels.
+ * More compact than listing individual voxels for large solid regions.
+ */
+export interface VoxelBox {
+  /** Min corner [x, y, z] relative to anchor (inclusive) */
+  min: [number, number, number]
+  /** Max corner [x, y, z] relative to anchor (inclusive) */
+  max: [number, number, number]
+  /** Voxel type name */
+  type: keyof typeof VoxelType
+}
+
+/**
  * A child asset embedded within a parent asset.
  */
 export interface AssetChild {
@@ -55,10 +68,14 @@ export interface VoxelAssetDef {
   id: string
   /** Human-readable name */
   name: string
+  /** Optional description */
+  description?: string
   /** Anchor point (voxel offsets are relative to this) */
   anchor: { x: number; y: number; z: number }
   /** Direct voxel placements */
   voxels: VoxelPlacement[]
+  /** Box regions (expanded to voxels during loading) - more compact for large solid regions */
+  boxes?: VoxelBox[]
   /** Child assets to embed */
   children?: AssetChild[]
   /** Configurable parameters */

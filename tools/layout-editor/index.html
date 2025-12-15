@@ -28,6 +28,7 @@
       flex-direction: column;
       gap: 10px;
       border-right: 1px solid #333;
+      overflow-y: auto;
     }
 
     #toolbar h2 {
@@ -225,6 +226,47 @@
     <button class="tool-btn" id="zoom-in">Zoom In (+)</button>
     <button class="tool-btn" id="zoom-out">Zoom Out (-)</button>
     <button class="tool-btn" id="reset-view">Reset View</button>
+
+    <h2 style="margin-top: 20px;">Grid Snap</h2>
+    <div class="prop-group">
+      <label>Grid Size: <span id="grid-size-display">20cm</span></label>
+      <input type="range" id="grid-size-slider" min="0" max="6" step="1" value="3" style="width: 100%;">
+    </div>
+    <div style="font-size: 11px; color: #666; margin-top: 5px;">
+      1vox ← → 2m (wall=8vox=20cm)
+    </div>
+
+    <h2 style="margin-top: 20px;">Voxel Legend</h2>
+    <div style="font-size: 11px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="display: inline-block; width: 12px; height: 12px; background: #2a2a3e;"></span>
+        <span style="color: #888;">Wall</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="display: inline-block; width: 12px; height: 12px; background: #666677;"></span>
+        <span style="color: #888;">Panel</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="display: inline-block; width: 12px; height: 12px; background: #ffee88;"></span>
+        <span style="color: #888;">Light Fixture</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="display: inline-block; width: 12px; height: 12px; background: #557755;"></span>
+        <span style="color: #888;">Switch</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="display: inline-block; width: 12px; height: 12px; background: #88ccff;"></span>
+        <span style="color: #888;">Screen</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="display: inline-block; width: 12px; height: 12px; background: #44ff44;"></span>
+        <span style="color: #888;">LED (OK)</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="display: inline-block; width: 12px; height: 12px; background: #ff4444;"></span>
+        <span style="color: #888;">LED (Fault)</span>
+      </div>
+    </div>
   </div>
 
   <div id="canvas-container">

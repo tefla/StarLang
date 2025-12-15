@@ -9,6 +9,7 @@ import { GALLEY_SHIP } from '../content/ship/galley'
 import GALLEY_LAYOUT from '../content/ship/galley.layout.json'
 import type { ShipLayout } from '../types/layout'
 import { audioSystem } from './audio/AudioSystem'
+import { VOXEL_SIZE } from '../voxel/VoxelTypes'
 
 export class Game {
   private container: HTMLElement
@@ -337,17 +338,21 @@ export class Game {
     const playerPos = this.player.camera.position
 
     // Check which room the player is in
+    // Layout coordinates are in voxels, convert to world units
     for (const [roomId, room] of structure.rooms) {
       const { position, size } = room.properties
-      const halfWidth = size.width / 2
-      const halfDepth = size.depth / 2
+      // Convert voxel coordinates to world coordinates
+      const centerX = position.x * VOXEL_SIZE
+      const centerZ = position.z * VOXEL_SIZE
+      const halfWidth = (size.width / 2) * VOXEL_SIZE
+      const halfDepth = (size.depth / 2) * VOXEL_SIZE
 
       // Check if player is within room bounds
       if (
-        playerPos.x >= position.x - halfWidth &&
-        playerPos.x <= position.x + halfWidth &&
-        playerPos.z >= position.z - halfDepth &&
-        playerPos.z <= position.z + halfDepth
+        playerPos.x >= centerX - halfWidth &&
+        playerPos.x <= centerX + halfWidth &&
+        playerPos.z >= centerZ - halfDepth &&
+        playerPos.z <= centerZ + halfDepth
       ) {
         const previousRoom = this.runtime.getPlayerRoom()
         if (previousRoom !== roomId) {

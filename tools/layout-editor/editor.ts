@@ -57,6 +57,42 @@ type SelectedObject =
   | { type: 'wallLight'; data: WallLightData }
   | null
 
+// Asset footprint for top-down visualization
+interface FootprintVoxel {
+  x: number  // Relative to anchor
+  z: number  // Relative to anchor
+  type: string
+}
+
+interface AssetFootprint {
+  id: string
+  voxels: FootprintVoxel[]
+  bounds: { minX: number; maxX: number; minZ: number; maxZ: number }
+}
+
+// Voxel type to color mapping
+const VOXEL_COLORS: Record<string, string> = {
+  'PANEL': '#666677',
+  'WALL': '#333344',
+  'FLOOR': '#222233',
+  'CEILING': '#444455',
+  'LIGHT_FIXTURE': '#ffee88',
+  'SWITCH': '#557755',
+  'SWITCH_BUTTON': '#77dd77',
+  'LED_GREEN': '#44ff44',
+  'LED_RED': '#ff4444',
+  'SCREEN': '#88ccff',
+  'DOOR_FRAME': '#aa8866',
+  'DOOR_PANEL': '#886644',
+  'DESK': '#664422',
+  'KEYBOARD': '#333333',
+  'CONDUIT': '#555566',
+  'TRIM': '#777788',
+  'GLASS': '#aaddff44',
+  'METAL_GRATE': '#777777',
+  'HULL': '#222233',
+}
+
 class LayoutEditor {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
@@ -71,6 +107,13 @@ class LayoutEditor {
   private offsetY = 0
   private zoom = 30 // pixels per unit
   private gridSize = 1
+  private isVoxelMode = false // True when using voxel coordinates (40x scale)
+  private readonly VOXEL_SCALE = 40 // Voxels per meter
+  private readonly WALL_THICKNESS_VOXELS = 8 // Wall thickness in voxels (0.2m)
+
+  // Asset footprint cache
+  private assetFootprints: Map<string, AssetFootprint> = new Map()
+  private footprintLoadingPromises: Map<string, Promise<AssetFootprint | null>> = new Map()
 
   // Interaction state
   private isDragging = false
@@ -248,6 +291,14 @@ class LayoutEditor {
     document.getElementById('zoom-out')?.addEventListener('click', () => { this.zoom /= 1.2; this.render() })
     document.getElementById('reset-view')?.addEventListener('click', () => this.resetView())
 
+    // Grid size slider
+    const gridSlider = document.getElementById('grid-size-slider') as HTMLInputElement
+    gridSlider?.addEventListener('input', () => {
+      this.updateGridSize(parseInt(gridSlider.value))
+    })
+    // Initialize grid size from slider
+    this.updateGridSize(parseInt(gridSlider?.value ?? '2'))
+
     // JSON modal
     document.getElementById('overlay')?.addEventListener('click', () => this.closeModal())
     document.querySelector('#json-output .close-btn')?.addEventListener('click', () => this.closeModal())
@@ -260,7 +311,7 @@ class LayoutEditor {
     this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e))
     this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e))
     this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e))
-    this.canvas.addEventListener('wheel', (e) => this.onWheel(e))
+    this.canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false })
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault())
 
     // Keyboard
@@ -283,6 +334,29 @@ class LayoutEditor {
 
   private snapToGrid(value: number): number {
     return Math.round(value / this.gridSize) * this.gridSize
+  }
+
+  private updateGridSize(sliderValue: number): void {
+    // Map slider values to grid sizes in meters (voxel-aligned)
+    // 1 voxel = 0.025m, wall thickness = 8 voxels = 0.2m
+    const gridSizes = [0.025, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0]
+    this.gridSize = gridSizes[sliderValue] ?? 0.2
+
+    // Update display
+    const display = document.getElementById('grid-size-display')
+    if (display) {
+      const voxels = Math.round(this.gridSize * 40)
+      const cm = this.gridSize * 100
+      if (this.gridSize < 0.1) {
+        display.textContent = `${voxels}vox (${cm % 1 === 0 ? cm : cm.toFixed(1)}cm)`
+      } else if (this.gridSize < 1) {
+        display.textContent = `${cm % 1 === 0 ? cm : cm.toFixed(1)}cm`
+      } else {
+        display.textContent = `${this.gridSize}m`
+      }
+    }
+
+    this.render()
   }
 
   private onMouseDown(e: MouseEvent) {
@@ -412,7 +486,7 @@ class LayoutEditor {
 
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
     this.zoom *= zoomFactor
-    this.zoom = Math.max(10, Math.min(100, this.zoom))
+    this.zoom = Math.max(5, Math.min(500, this.zoom))
 
     const worldAfter = this.screenToWorld(mouseX, mouseY)
 
@@ -674,18 +748,49 @@ class LayoutEditor {
     const ctx = this.ctx
     const halfW = room.size.width / 2
     const halfD = room.size.depth / 2
-    const topLeft = this.worldToScreen(room.position.x - halfW, room.position.z - halfD)
-    const w = room.size.width * this.zoom
-    const d = room.size.depth * this.zoom
 
-    // Fill
-    ctx.fillStyle = selected ? 'rgba(119, 221, 119, 0.2)' : 'rgba(100, 100, 150, 0.3)'
-    ctx.fillRect(topLeft.x, topLeft.y, w, d)
+    // Wall thickness in editor units (meters)
+    const wallThickness = this.WALL_THICKNESS_VOXELS / this.VOXEL_SCALE
 
-    // Border
+    // Inner room (floor) coordinates
+    const innerTopLeft = this.worldToScreen(room.position.x - halfW, room.position.z - halfD)
+    const innerW = room.size.width * this.zoom
+    const innerD = room.size.depth * this.zoom
+
+    // Outer boundary (includes walls) - walls extend OUTSIDE the room
+    const outerTopLeft = this.worldToScreen(
+      room.position.x - halfW - wallThickness,
+      room.position.z - halfD - wallThickness
+    )
+    const outerW = (room.size.width + wallThickness * 2) * this.zoom
+    const outerD = (room.size.depth + wallThickness * 2) * this.zoom
+
+    // Draw wall band (outer rectangle with inner cutout)
+    ctx.fillStyle = selected ? '#3a3a4e' : '#2a2a3e'
+    ctx.beginPath()
+    // Outer rectangle (clockwise)
+    ctx.rect(outerTopLeft.x, outerTopLeft.y, outerW, outerD)
+    // Inner rectangle (counter-clockwise to create hole)
+    ctx.moveTo(innerTopLeft.x, innerTopLeft.y)
+    ctx.lineTo(innerTopLeft.x, innerTopLeft.y + innerD)
+    ctx.lineTo(innerTopLeft.x + innerW, innerTopLeft.y + innerD)
+    ctx.lineTo(innerTopLeft.x + innerW, innerTopLeft.y)
+    ctx.closePath()
+    ctx.fill('evenodd')
+
+    // Fill inner floor area
+    ctx.fillStyle = selected ? 'rgba(119, 221, 119, 0.15)' : 'rgba(100, 100, 150, 0.2)'
+    ctx.fillRect(innerTopLeft.x, innerTopLeft.y, innerW, innerD)
+
+    // Outer border (wall exterior)
+    ctx.strokeStyle = '#444'
+    ctx.lineWidth = 1
+    ctx.strokeRect(outerTopLeft.x, outerTopLeft.y, outerW, outerD)
+
+    // Inner border (floor edge / wall interior)
     ctx.strokeStyle = selected ? '#77dd77' : '#666'
     ctx.lineWidth = selected ? 2 : 1
-    ctx.strokeRect(topLeft.x, topLeft.y, w, d)
+    ctx.strokeRect(innerTopLeft.x, innerTopLeft.y, innerW, innerD)
 
     // Label
     ctx.fillStyle = '#aaa'
@@ -698,18 +803,39 @@ class LayoutEditor {
   private drawDoor(door: DoorData, selected: boolean) {
     const ctx = this.ctx
     const pos = this.worldToScreen(door.position.x, door.position.z)
-    const size = 0.6 * this.zoom
+
+    // Try to draw using asset footprint
+    const footprint = this.assetFootprints.get('door-frame')
+    if (footprint) {
+      // Draw voxel footprint
+      this.drawAssetFootprint(footprint, door.position.x, door.position.z, door.rotation, selected)
+
+      // Label
+      if (selected) {
+        ctx.fillStyle = '#fff'
+        ctx.font = '10px monospace'
+        ctx.textAlign = 'center'
+        ctx.fillText(door.id, pos.x, pos.y - 20)
+      }
+      return
+    }
+
+    // Fallback: load footprint and use simple rectangle
+    this.loadAssetFootprint('door-frame').then(() => this.render())
+
+    // Simple fallback rectangle
+    const doorWidth = 1.2 * this.zoom
+    const doorDepth = (this.WALL_THICKNESS_VOXELS * 2 / this.VOXEL_SCALE) * this.zoom
 
     ctx.save()
     ctx.translate(pos.x, pos.y)
     ctx.rotate((door.rotation * Math.PI) / 180)
 
-    ctx.fillStyle = selected ? '#77dd77' : '#ffaa44'
-    ctx.fillRect(-size, -size / 4, size * 2, size / 2)
+    ctx.fillStyle = selected ? '#77dd77' : '#aa8866'
+    ctx.fillRect(-doorWidth / 2, -doorDepth / 2, doorWidth, doorDepth)
 
     ctx.restore()
 
-    // Label
     if (selected) {
       ctx.fillStyle = '#fff'
       ctx.font = '10px monospace'
@@ -721,6 +847,37 @@ class LayoutEditor {
   private drawSwitch(sw: SwitchData, selected: boolean) {
     const ctx = this.ctx
     const pos = this.worldToScreen(sw.position.x, sw.position.z)
+
+    // Try to draw using asset footprint
+    const footprint = this.assetFootprints.get('switch')
+    if (footprint) {
+      // Draw status indicator glow
+      const glowSize = 0.15 * this.zoom
+      const statusColor = sw.status === 'OK' ? '#44ff44' : '#ff4444'
+      const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glowSize * 2)
+      gradient.addColorStop(0, statusColor + '44')
+      gradient.addColorStop(1, statusColor + '00')
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      ctx.arc(pos.x, pos.y, glowSize * 2, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Draw voxel footprint
+      this.drawAssetFootprint(footprint, sw.position.x, sw.position.z, sw.rotation, selected)
+
+      // Label
+      if (selected) {
+        ctx.fillStyle = '#fff'
+        ctx.font = '10px monospace'
+        ctx.textAlign = 'center'
+        ctx.fillText(sw.id, pos.x, pos.y - 15)
+      }
+      return
+    }
+
+    // Fallback: load footprint and use old icon method
+    this.loadAssetFootprint('switch').then(() => this.render())
+
     const size = 0.2 * this.zoom
 
     ctx.fillStyle = sw.status === 'OK' ? (selected ? '#77dd77' : '#44aa44') : (selected ? '#ff8888' : '#aa4444')
@@ -728,8 +885,7 @@ class LayoutEditor {
     ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2)
     ctx.fill()
 
-    // Direction indicator (arrow showing which way it faces)
-    // Use (180 - rotation) to account for Three.js CCW vs Canvas CW rotation
+    // Direction indicator (arrow showing which way it faces - fallback)
     ctx.save()
     ctx.translate(pos.x, pos.y)
     ctx.rotate(((180 - sw.rotation) * Math.PI) / 180)
@@ -745,12 +901,6 @@ class LayoutEditor {
     ctx.restore()
 
     if (selected) {
-      ctx.strokeStyle = '#fff'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2)
-      ctx.stroke()
-
       ctx.fillStyle = '#fff'
       ctx.font = '10px monospace'
       ctx.textAlign = 'center'
@@ -761,35 +911,53 @@ class LayoutEditor {
   private drawTerminal(terminal: TerminalData, selected: boolean) {
     const ctx = this.ctx
     const pos = this.worldToScreen(terminal.position.x, terminal.position.z)
+
+    // Try to draw using asset footprint
+    const footprint = this.assetFootprints.get('wall-terminal')
+    if (footprint) {
+      // Draw voxel footprint
+      this.drawAssetFootprint(footprint, terminal.position.x, terminal.position.z, terminal.rotation, selected)
+
+      // Label
+      if (selected) {
+        ctx.fillStyle = '#fff'
+        ctx.font = '10px monospace'
+        ctx.textAlign = 'center'
+        ctx.fillText(terminal.id, pos.x, pos.y - 15)
+      }
+      return
+    }
+
+    // Fallback: load footprint and use old icon method
+    this.loadAssetFootprint('wall-terminal').then(() => this.render())
+
     const size = 0.3 * this.zoom
 
-    // Use (180 - rotation) to account for Three.js CCW vs Canvas CW rotation
     ctx.save()
     ctx.translate(pos.x, pos.y)
-    ctx.rotate(((180 - terminal.rotation) * Math.PI) / 180)
+    ctx.rotate((-terminal.rotation * Math.PI) / 180)
 
     ctx.fillStyle = selected ? '#88ccff' : '#4488aa'
     ctx.fillRect(-size / 2, -size / 2, size, size)
 
-    // Direction indicator (line showing front)
-    ctx.strokeStyle = selected ? '#fff' : '#226688'
-    ctx.lineWidth = 3
+    // Screen area (lighter rectangle inside)
+    ctx.fillStyle = selected ? '#aaddff' : '#66aacc'
+    ctx.fillRect(-size / 3, -size / 3, size * 2 / 3, size * 2 / 3)
+
+    // Direction arrow (pointing where screen faces - fallback)
+    ctx.strokeStyle = selected ? '#fff' : '#222'
+    ctx.lineWidth = 2
     ctx.beginPath()
-    ctx.moveTo(-size / 3, -size / 2)
-    ctx.lineTo(size / 3, -size / 2)
+    ctx.moveTo(0, 0)
+    ctx.lineTo(0, -size * 1.2)
+    ctx.moveTo(-size * 0.3, -size * 0.8)
+    ctx.lineTo(0, -size * 1.2)
+    ctx.lineTo(size * 0.3, -size * 0.8)
     ctx.stroke()
 
     ctx.restore()
 
     if (selected) {
-      ctx.strokeStyle = '#fff'
-      ctx.lineWidth = 2
-      ctx.save()
-      ctx.translate(pos.x, pos.y)
-      ctx.rotate(((180 - terminal.rotation) * Math.PI) / 180)
-      ctx.strokeRect(-size / 2, -size / 2, size, size)
-      ctx.restore()
-
       ctx.fillStyle = '#fff'
       ctx.font = '10px monospace'
       ctx.textAlign = 'center'
@@ -800,6 +968,36 @@ class LayoutEditor {
   private drawWallLight(light: WallLightData, selected: boolean) {
     const ctx = this.ctx
     const pos = this.worldToScreen(light.position.x, light.position.z)
+
+    // Try to draw using asset footprint
+    const footprint = this.assetFootprints.get('wall-light')
+    if (footprint) {
+      // Draw light glow effect first
+      const glowSize = 0.3 * this.zoom
+      const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glowSize * 2)
+      gradient.addColorStop(0, light.color + '44')
+      gradient.addColorStop(1, light.color + '00')
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      ctx.arc(pos.x, pos.y, glowSize * 2, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Draw voxel footprint
+      this.drawAssetFootprint(footprint, light.position.x, light.position.z, light.rotation, selected)
+
+      // Label
+      if (selected) {
+        ctx.fillStyle = '#fff'
+        ctx.font = '10px monospace'
+        ctx.textAlign = 'center'
+        ctx.fillText(light.id, pos.x, pos.y - 15)
+      }
+      return
+    }
+
+    // Fallback: load footprint and use old icon method
+    this.loadAssetFootprint('wall-light').then(() => this.render())
+
     const size = 0.25 * this.zoom
 
     // Draw light glow effect
@@ -811,8 +1009,7 @@ class LayoutEditor {
     ctx.arc(pos.x, pos.y, size * 2, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw light fixture (diamond shape)
-    // Use (180 - rotation) to account for Three.js CCW vs Canvas CW rotation
+    // Draw light fixture (diamond shape - fallback)
     ctx.save()
     ctx.translate(pos.x, pos.y)
     ctx.rotate(((180 - light.rotation) * Math.PI) / 180)
@@ -826,23 +1023,9 @@ class LayoutEditor {
     ctx.closePath()
     ctx.fill()
 
-    // Direction indicator (small arrow)
-    ctx.strokeStyle = '#333'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(0, 0)
-    ctx.lineTo(0, -size * 1.2)
-    ctx.stroke()
-
     ctx.restore()
 
     if (selected) {
-      ctx.strokeStyle = '#fff'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.arc(pos.x, pos.y, size * 1.2, 0, Math.PI * 2)
-      ctx.stroke()
-
       ctx.fillStyle = '#fff'
       ctx.font = '10px monospace'
       ctx.textAlign = 'center'
@@ -1111,7 +1294,25 @@ class LayoutEditor {
   }
 
   private exportToObject(): any {
+    const scale = this.isVoxelMode ? this.VOXEL_SCALE : 1
+
+    // Helper to convert position from editor coords (meters) to file coords
+    const toFilePos = (pos: Position3D): Position3D => ({
+      x: Math.round(pos.x * scale),
+      y: Math.round(pos.y * scale),
+      z: Math.round(pos.z * scale)
+    })
+
+    // Helper to convert size from editor coords (meters) to file coords
+    const toFileSize = (size: { width: number; height: number; depth: number }) => ({
+      width: Math.round(size.width * scale),
+      height: Math.round(size.height * scale),
+      depth: Math.round(size.depth * scale)
+    })
+
     const output: any = {
+      version: this.isVoxelMode ? 2 : undefined,
+      coordinateSystem: this.isVoxelMode ? 'voxel' : undefined,
       rooms: {},
       doors: {},
       terminals: {},
@@ -1121,28 +1322,28 @@ class LayoutEditor {
 
     for (const room of this.layout.rooms) {
       output.rooms[room.id] = {
-        position: room.position,
-        size: room.size
+        position: toFilePos(room.position),
+        size: toFileSize(room.size)
       }
     }
 
     for (const door of this.layout.doors) {
       output.doors[door.id] = {
-        position: door.position,
+        position: toFilePos(door.position),
         rotation: door.rotation
       }
     }
 
     for (const terminal of this.layout.terminals) {
       output.terminals[terminal.id] = {
-        position: terminal.position,
+        position: toFilePos(terminal.position),
         rotation: terminal.rotation
       }
     }
 
     for (const sw of this.layout.switches) {
       output.switches[sw.id] = {
-        position: sw.position,
+        position: toFilePos(sw.position),
         rotation: sw.rotation,
         status: sw.status
       }
@@ -1150,7 +1351,7 @@ class LayoutEditor {
 
     for (const light of this.layout.wallLights) {
       output.wallLights[light.id] = {
-        position: light.position,
+        position: toFilePos(light.position),
         rotation: light.rotation,
         color: light.color,
         intensity: light.intensity
@@ -1202,12 +1403,30 @@ class LayoutEditor {
   private loadLayout(data: any) {
     this.layout = { rooms: [], doors: [], switches: [], terminals: [], wallLights: [] }
 
+    // Detect voxel mode from version or coordinateSystem
+    this.isVoxelMode = data.version === 2 || data.coordinateSystem === 'voxel'
+    const scale = this.isVoxelMode ? this.VOXEL_SCALE : 1
+
+    // Helper to convert position from file coords to editor coords (meters)
+    const toEditorPos = (pos: Position3D): Position3D => ({
+      x: pos.x / scale,
+      y: pos.y / scale,
+      z: pos.z / scale
+    })
+
+    // Helper to convert size from file coords to editor coords (meters)
+    const toEditorSize = (size: { width: number; height: number; depth: number }) => ({
+      width: size.width / scale,
+      height: size.height / scale,
+      depth: size.depth / scale
+    })
+
     if (data.rooms) {
       for (const [id, room] of Object.entries(data.rooms as Record<string, any>)) {
         this.layout.rooms.push({
           id,
-          position: room.position,
-          size: room.size
+          position: toEditorPos(room.position),
+          size: toEditorSize(room.size)
         })
         this.roomCounter = Math.max(this.roomCounter, this.extractCounter(id, 'room_') + 1)
       }
@@ -1217,7 +1436,7 @@ class LayoutEditor {
       for (const [id, door] of Object.entries(data.doors as Record<string, any>)) {
         this.layout.doors.push({
           id,
-          position: door.position,
+          position: toEditorPos(door.position),
           rotation: door.rotation
         })
         this.doorCounter = Math.max(this.doorCounter, this.extractCounter(id, 'door_') + 1)
@@ -1228,7 +1447,7 @@ class LayoutEditor {
       for (const [id, sw] of Object.entries(data.switches as Record<string, any>)) {
         this.layout.switches.push({
           id,
-          position: sw.position,
+          position: toEditorPos(sw.position),
           rotation: sw.rotation,
           status: sw.status || 'OK'
         })
@@ -1240,7 +1459,7 @@ class LayoutEditor {
       for (const [id, terminal] of Object.entries(data.terminals as Record<string, any>)) {
         this.layout.terminals.push({
           id,
-          position: terminal.position,
+          position: toEditorPos(terminal.position),
           rotation: terminal.rotation
         })
         this.terminalCounter = Math.max(this.terminalCounter, this.extractCounter(id, 'terminal_') + 1)
@@ -1251,7 +1470,7 @@ class LayoutEditor {
       for (const [id, light] of Object.entries(data.wallLights as Record<string, any>)) {
         this.layout.wallLights.push({
           id,
-          position: light.position,
+          position: toEditorPos(light.position),
           rotation: light.rotation,
           color: light.color || '#ffffee',
           intensity: light.intensity ?? 1.0
@@ -1260,9 +1479,27 @@ class LayoutEditor {
       }
     }
 
+    // Load assetInstances as appropriate entity types
+    if (data.assetInstances) {
+      for (const [id, instance] of Object.entries(data.assetInstances as Record<string, any>)) {
+        const pos = toEditorPos(instance.position)
+        if (instance.asset === 'wall-light') {
+          this.layout.wallLights.push({
+            id,
+            position: pos,
+            rotation: instance.rotation,
+            color: '#ffffee',
+            intensity: 1.0
+          })
+        }
+        // Can add other asset types here as needed
+      }
+    }
+
     this.selected = null
     this.updatePropertiesPanel()
     this.resetView()
+    this.updateStatus(this.isVoxelMode ? 'Loaded (voxel mode)' : 'Loaded (meter mode)')
   }
 
   private extractCounter(id: string, prefix: string): number {
@@ -1293,6 +1530,152 @@ class LayoutEditor {
     this.offsetX = this.canvas.width / 2
     this.offsetY = this.canvas.height / 2
     this.render()
+  }
+
+  // Load asset footprint from server
+  private async loadAssetFootprint(assetId: string): Promise<AssetFootprint | null> {
+    // Return cached footprint if available
+    if (this.assetFootprints.has(assetId)) {
+      return this.assetFootprints.get(assetId)!
+    }
+
+    // Return existing promise if already loading
+    if (this.footprintLoadingPromises.has(assetId)) {
+      return this.footprintLoadingPromises.get(assetId)!
+    }
+
+    // Start loading
+    const loadPromise = (async () => {
+      try {
+        const res = await fetch(`/api/assets/${assetId}`)
+        if (!res.ok) return null
+        const asset = await res.json()
+
+        // Project voxels to top-down (X-Z plane)
+        const seen = new Set<string>()
+        const voxels: FootprintVoxel[] = []
+        let minX = Infinity, maxX = -Infinity
+        let minZ = Infinity, maxZ = -Infinity
+
+        // Apply anchor offset to voxels
+        const anchorX = asset.anchor?.x ?? 0
+        const anchorZ = asset.anchor?.z ?? 0
+
+        for (const voxel of (asset.voxels || [])) {
+          const [ox, , oz] = voxel.offset
+          const x = ox - anchorX
+          const z = oz - anchorZ
+          const key = `${x},${z}`
+          if (!seen.has(key)) {
+            seen.add(key)
+            voxels.push({ x, z, type: voxel.type })
+            minX = Math.min(minX, x)
+            maxX = Math.max(maxX, x)
+            minZ = Math.min(minZ, z)
+            maxZ = Math.max(maxZ, z)
+          }
+        }
+
+        // Also process boxes if present
+        for (const box of (asset.boxes || [])) {
+          const [bMinX, , bMinZ] = box.min
+          const [bMaxX, , bMaxZ] = box.max
+          for (let bx = bMinX; bx <= bMaxX; bx++) {
+            for (let bz = bMinZ; bz <= bMaxZ; bz++) {
+              const x = bx - anchorX
+              const z = bz - anchorZ
+              const key = `${x},${z}`
+              if (!seen.has(key)) {
+                seen.add(key)
+                voxels.push({ x, z, type: box.type })
+                minX = Math.min(minX, x)
+                maxX = Math.max(maxX, x)
+                minZ = Math.min(minZ, z)
+                maxZ = Math.max(maxZ, z)
+              }
+            }
+          }
+        }
+
+        const footprint: AssetFootprint = {
+          id: assetId,
+          voxels,
+          bounds: { minX, maxX, minZ, maxZ }
+        }
+
+        this.assetFootprints.set(assetId, footprint)
+        return footprint
+      } catch (err) {
+        console.error(`Failed to load asset footprint: ${assetId}`, err)
+        return null
+      }
+    })()
+
+    this.footprintLoadingPromises.set(assetId, loadPromise)
+    return loadPromise
+  }
+
+  // Draw asset footprint at position with rotation
+  private drawAssetFootprint(
+    footprint: AssetFootprint,
+    worldX: number,
+    worldZ: number,
+    rotation: number,
+    selected: boolean
+  ) {
+    const ctx = this.ctx
+    const screenPos = this.worldToScreen(worldX, worldZ)
+
+    ctx.save()
+    ctx.translate(screenPos.x, screenPos.y)
+    ctx.rotate((-rotation * Math.PI) / 180)
+
+    // Size of one voxel on screen (voxels are 0.025m each, we're in meter coords)
+    const voxelSizeMeters = 1 / this.VOXEL_SCALE
+    const voxelSizeScreen = voxelSizeMeters * this.zoom
+
+    // Draw each voxel
+    for (const v of footprint.voxels) {
+      const color = VOXEL_COLORS[v.type] || '#666666'
+      ctx.fillStyle = selected ? this.lightenColor(color) : color
+      ctx.fillRect(
+        v.x * voxelSizeScreen - voxelSizeScreen / 2,
+        v.z * voxelSizeScreen - voxelSizeScreen / 2,
+        voxelSizeScreen,
+        voxelSizeScreen
+      )
+    }
+
+    // Draw outline for selection
+    if (selected) {
+      const w = (footprint.bounds.maxX - footprint.bounds.minX + 1) * voxelSizeScreen
+      const h = (footprint.bounds.maxZ - footprint.bounds.minZ + 1) * voxelSizeScreen
+      const ox = footprint.bounds.minX * voxelSizeScreen - voxelSizeScreen / 2
+      const oz = footprint.bounds.minZ * voxelSizeScreen - voxelSizeScreen / 2
+      ctx.strokeStyle = '#77dd77'
+      ctx.lineWidth = 2
+      ctx.strokeRect(ox, oz, w, h)
+    }
+
+    ctx.restore()
+  }
+
+  // Lighten a hex color for selection highlight
+  private lightenColor(hex: string): string {
+    // Handle rgba format
+    if (hex.length === 9) hex = hex.slice(0, 7)
+
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+
+    const lighten = (c: number) => Math.min(255, c + 60)
+    return `#${lighten(r).toString(16).padStart(2, '0')}${lighten(g).toString(16).padStart(2, '0')}${lighten(b).toString(16).padStart(2, '0')}`
+  }
+
+  // Get voxel color for a type
+  private getVoxelColor(type: string): string {
+    return VOXEL_COLORS[type] || '#666666'
   }
 
   private updateStatus(extra = '') {
