@@ -49,7 +49,7 @@ export class VoxelRenderer {
       vertexColors: true,
       roughness: config.roughness ?? 0.8,
       metalness: config.metalness ?? 0.2,
-      flatShading: config.flatShading ?? true,  // Flat shading for blocky look
+      flatShading: config.flatShading ?? false,  // Smooth shading to avoid visible triangle edges
       side: THREE.FrontSide  // Single-sided to avoid z-fighting
     })
 

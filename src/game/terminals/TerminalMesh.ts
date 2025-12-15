@@ -3,6 +3,7 @@
 import * as THREE from 'three'
 import type { TerminalDefinition, TerminalType } from '../../types/nodes'
 import { Runtime } from '../../runtime/Runtime'
+import { VOXEL_SIZE } from '../../voxel/VoxelTypes'
 
 // Engineering terminal startup message
 const ENGINEERING_MESSAGE = [
@@ -69,24 +70,33 @@ export class TerminalMesh {
       emissive: new THREE.Color(0x1a2744),
       emissiveIntensity: 0.5,
       emissiveMap: this.screenTexture,
+      side: THREE.DoubleSide, // Visible from both sides during debugging
     })
     this.screenMesh = new THREE.Mesh(screenGeometry, screenMaterial)
 
-    // Position screen based on terminal type - flush with the frame surface
-    // PlaneGeometry faces +Z by default
+    // Position screen based on terminal type
+    // PlaneGeometry faces +Z by default, but we need it to face toward the player
+    // The terminal group is rotated, so we position in local coordinates
     if (definition.properties.terminal_type === 'ENGINEERING') {
-      // Monitor frame center at z=-0.11, depth 0.08, so front face at z=-0.07
-      // Place screen just in front of frame, no rotation needed (faces +Z toward player)
-      this.screenMesh.position.set(0, 1.2, -0.068)
+      // Voxel workstation monitor is at:
+      // - Y: 48-76 voxels, center at 62 voxels = 1.55m
+      // - Z: offsetZ=8, front face at ~6 voxels = 0.15m from terminal center
+      // Screen should face -Z (toward player after terminal rotation is applied)
+      this.screenMesh.position.set(0, 1.55, 0.16)
+      this.screenMesh.rotation.y = Math.PI // Face -Z (toward player)
     } else {
-      // Wall panel backing is at z=0, depth 0.1, so front face at z=0.05
+      // Wall panel - screen faces outward from wall
       this.screenMesh.position.set(0, 1.2, 0.051)
     }
     this.group.add(this.screenMesh)
 
-    // Position terminal
+    // Position terminal (convert voxel coords to world coords)
     const { position, rotation } = definition.properties
-    this.group.position.set(position.x, position.y, position.z)
+    this.group.position.set(
+      position.x * VOXEL_SIZE,
+      position.y * VOXEL_SIZE,
+      position.z * VOXEL_SIZE
+    )
     this.group.rotation.y = (rotation * Math.PI) / 180
 
     // Initialize screen content
@@ -110,48 +120,10 @@ export class TerminalMesh {
     }
   }
 
-  private buildWorkstation(material: THREE.Material) {
-    // Desk
-    const deskGeometry = new THREE.BoxGeometry(1.2, 0.05, 0.6)
-    const desk = new THREE.Mesh(deskGeometry, material)
-    desk.position.set(0, 0.75, 0)
-    this.group.add(desk)
-
-    // Desk legs
-    const legGeometry = new THREE.BoxGeometry(0.05, 0.75, 0.05)
-    const positions = [
-      [-0.55, 0.375, 0.25],
-      [0.55, 0.375, 0.25],
-      [-0.55, 0.375, -0.25],
-      [0.55, 0.375, -0.25],
-    ]
-    for (const [x, y, z] of positions) {
-      const leg = new THREE.Mesh(legGeometry, material)
-      leg.position.set(x!, y!, z!)
-      this.group.add(leg)
-    }
-
-    // Monitor stand - at back of desk (-Z side)
-    const standGeometry = new THREE.BoxGeometry(0.1, 0.4, 0.1)
-    const stand = new THREE.Mesh(standGeometry, material)
-    stand.position.set(0, 0.97, -0.15)
-    this.group.add(stand)
-
-    // Monitor frame - screen faces +Z (toward keyboard/player)
-    const frameGeometry = new THREE.BoxGeometry(0.9, 0.7, 0.08)
-    const frame = new THREE.Mesh(frameGeometry, material)
-    frame.position.set(0, 1.2, -0.11)
-    this.group.add(frame)
-
-    // Keyboard - at front of desk (+Z side, toward player)
-    const keyboardGeometry = new THREE.BoxGeometry(0.5, 0.02, 0.15)
-    const keyboardMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1a2a3a,
-      roughness: 0.8,
-    })
-    const keyboard = new THREE.Mesh(keyboardGeometry, keyboardMaterial)
-    keyboard.position.set(0, 0.78, 0.15)
-    this.group.add(keyboard)
+  private buildWorkstation(_material: THREE.Material) {
+    // Desk, legs, stand, frame, and keyboard are now voxels in the pre-built mesh.
+    // Only the dynamic screen (canvas texture) is created here.
+    // This method is kept for compatibility but no longer creates geometry.
   }
 
   private buildWallPanel(material: THREE.Material) {

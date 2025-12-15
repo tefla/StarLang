@@ -1,6 +1,10 @@
 // First-Person Player Controller with WASD + Mouse Look
+console.log('PlayerController module loaded - v2')
 
 import * as THREE from 'three'
+import type { VoxelWorld } from '../../voxel/VoxelWorld'
+import { VoxelRaycast } from '../../voxel/VoxelRaycast'
+import { VoxelType, getVoxelType, worldToVoxel } from '../../voxel/VoxelTypes'
 
 export interface PlayerState {
   position: THREE.Vector3
@@ -31,6 +35,10 @@ export class PlayerController {
   private raycaster = new THREE.Raycaster()
   private collisionObjects: THREE.Object3D[] = []
 
+  // Voxel collision
+  private voxelWorld: VoxelWorld | null = null
+  private voxelRaycast: VoxelRaycast | null = null
+
   constructor() {
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
 
@@ -50,6 +58,11 @@ export class PlayerController {
     // Keyboard
     document.addEventListener('keydown', (e) => {
       this.keys.set(e.code, true)
+
+      // Debug: press P to print collision state
+      if (e.code === 'KeyP') {
+        this.debugCollision('KEY_P')
+      }
     })
 
     document.addEventListener('keyup', (e) => {
@@ -72,7 +85,9 @@ export class PlayerController {
     // Pointer lock
     document.addEventListener('click', () => {
       if (!this.mouseLocked && this.enabled) {
-        document.body.requestPointerLock()
+        document.body.requestPointerLock().catch(() => {
+          // Ignore pointer lock errors - can happen if user clicked during transition
+        })
       }
     })
 
@@ -93,9 +108,21 @@ export class PlayerController {
     this.collisionObjects = objects
   }
 
+  setVoxelWorld(world: VoxelWorld | null) {
+    this.voxelWorld = world
+    this.voxelRaycast = world ? new VoxelRaycast(world) : null
+    console.log('Player voxel world set:', world ? 'yes' : 'no')
+  }
+
   setPosition(x: number, y: number, z: number) {
     this.state.position.set(x, y + this.playerHeight, z)
     this.camera.position.copy(this.state.position)
+
+    // Debug: check if spawn position is valid
+    if (this.voxelWorld) {
+      const collision = this.checkVoxelCollision(this.state.position)
+      console.log(`Player spawn at (${x}, ${y}, ${z}) -> eye at (${this.state.position.x.toFixed(2)}, ${this.state.position.y.toFixed(2)}, ${this.state.position.z.toFixed(2)}), collision: ${collision}`)
+    }
   }
 
   setEnabled(enabled: boolean) {
@@ -121,7 +148,14 @@ export class PlayerController {
 
   lock() {
     if (!this.mouseLocked && this.enabled) {
-      document.body.requestPointerLock()
+      // Small delay to let browser finish any pending unlock
+      setTimeout(() => {
+        if (!this.mouseLocked && this.enabled) {
+          document.body.requestPointerLock().catch(() => {
+            // Ignore pointer lock errors - user may have clicked elsewhere
+          })
+        }
+      }, 100)
     }
   }
 
@@ -180,7 +214,15 @@ export class PlayerController {
   }
 
   private checkCollision(position: THREE.Vector3): boolean {
-    // Simple sphere collision check
+    // Check voxel collision first
+    if (this.voxelWorld) {
+      const voxelCollision = this.checkVoxelCollision(position)
+      if (voxelCollision) {
+        return true
+      }
+    }
+
+    // Fall back to object collision (doors, etc.)
     const playerSphere = new THREE.Sphere(position, this.playerRadius)
 
     for (const obj of this.collisionObjects) {
@@ -191,6 +233,90 @@ export class PlayerController {
     }
 
     return false
+  }
+
+  /**
+   * Check if player position collides with solid voxels.
+   * Checks a cylinder approximation around the player.
+   */
+  private checkVoxelCollision(position: THREE.Vector3): boolean {
+    if (!this.voxelWorld) {
+      return false
+    }
+
+    // Player's feet position (position is at eye level)
+    const feetY = position.y - this.playerHeight + 0.1  // Small margin above floor
+
+    // Check points around the player cylinder at different heights
+    const checkHeights = [
+      feetY,                           // Feet
+      feetY + 0.5,                     // Lower body
+      feetY + 1.0,                     // Mid body
+      position.y - 0.2                  // Head level (slightly below eye)
+    ]
+
+    // Check points around the player radius
+    const checkAngles = [0, Math.PI / 2, Math.PI, Math.PI * 3 / 2]  // 4 directions
+
+    for (const y of checkHeights) {
+      // Check center
+      if (this.isVoxelSolid(position.x, y, position.z)) {
+        return true
+      }
+
+      // Check around perimeter
+      for (const angle of checkAngles) {
+        const checkX = position.x + Math.cos(angle) * this.playerRadius
+        const checkZ = position.z + Math.sin(angle) * this.playerRadius
+
+        if (this.isVoxelSolid(checkX, y, checkZ)) {
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * Check if a world position contains a solid voxel.
+   */
+  private isVoxelSolid(worldX: number, worldY: number, worldZ: number): boolean {
+    if (!this.voxelWorld) return false
+
+    const voxelCoord = worldToVoxel(worldX, worldY, worldZ)
+    const voxel = this.voxelWorld.getVoxel(voxelCoord.x, voxelCoord.y, voxelCoord.z)
+    const voxelType = getVoxelType(voxel)
+
+    // AIR, GLASS, and METAL_GRATE are passable
+    const isSolid = voxelType !== VoxelType.AIR &&
+           voxelType !== VoxelType.GLASS &&
+           voxelType !== VoxelType.METAL_GRATE
+
+    return isSolid
+  }
+
+  /**
+   * Debug: log collision state once at spawn
+   */
+  debugCollision(label: string) {
+    if (!this.voxelWorld) {
+      console.log(`[${label}] No voxel world`)
+      return
+    }
+
+    const pos = this.state.position
+    const feetY = pos.y - this.playerHeight + 0.1
+    const voxelAtFeet = worldToVoxel(pos.x, feetY, pos.z)
+    const voxelAtEye = worldToVoxel(pos.x, pos.y, pos.z)
+
+    const feetVoxel = this.voxelWorld.getVoxel(voxelAtFeet.x, voxelAtFeet.y, voxelAtFeet.z)
+    const eyeVoxel = this.voxelWorld.getVoxel(voxelAtEye.x, voxelAtEye.y, voxelAtEye.z)
+
+    console.log(`[${label}] Position: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`)
+    console.log(`[${label}] Feet voxel at (${voxelAtFeet.x}, ${voxelAtFeet.y}, ${voxelAtFeet.z}) = type ${getVoxelType(feetVoxel)}`)
+    console.log(`[${label}] Eye voxel at (${voxelAtEye.x}, ${voxelAtEye.y}, ${voxelAtEye.z}) = type ${getVoxelType(eyeVoxel)}`)
+    console.log(`[${label}] Collision check: ${this.checkVoxelCollision(pos)}`)
   }
 
   // Get the direction the player is looking

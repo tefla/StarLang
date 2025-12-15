@@ -4,9 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --hot ./index.html",
-    "start": "bun ./index.html",
+    "dev": "bun --hot ./index.ts",
+    "start": "bun ./index.ts",
     "build": "bun build ./index.html --outdir ./dist",
+    "build:mesh": "bun tools/build-voxel-mesh.ts",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"

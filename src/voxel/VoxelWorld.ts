@@ -51,6 +51,9 @@ export class VoxelWorld {
   /** Listeners for chunk modifications */
   private listeners: Array<(event: ChunkModifiedEvent) => void> = []
 
+  /** Whether to skip notifications (for bulk operations) */
+  private bulkMode = false
+
   /**
    * Create a chunk key from chunk coordinates.
    */
@@ -107,17 +110,44 @@ export class VoxelWorld {
    * Creates chunk if it doesn't exist.
    */
   setVoxel(vx: number, vy: number, vz: number, voxel: Voxel): void {
-    const { x: cx, y: cy, z: cz } = voxelToChunk(vx, vy, vz)
+    // Inline chunk coordinate calculation (avoid object allocation)
+    const cx = Math.floor(vx / CHUNK_SIZE)
+    const cy = Math.floor(vy / CHUNK_SIZE)
+    const cz = Math.floor(vz / CHUNK_SIZE)
     const chunk = this.getOrCreateChunk(cx, cy, cz)
 
-    const { x: lx, y: ly, z: lz } = voxelToLocal(vx, vy, vz)
+    // Inline local coordinate calculation (avoid object allocation)
+    const lx = ((vx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    const ly = ((vy % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    const lz = ((vz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
     chunk.set(lx, ly, lz, voxel)
+
+    // Skip notifications in bulk mode
+    if (this.bulkMode) return
 
     // Notify listeners
     this.notifyChunkModified(chunk)
 
     // Mark neighboring chunks as dirty if we're on the edge
     this.markNeighborsDirtyIfEdge(lx, ly, lz, cx, cy, cz)
+  }
+
+  /**
+   * Start bulk operation mode - skip per-voxel notifications.
+   */
+  beginBulk(): void {
+    this.bulkMode = true
+  }
+
+  /**
+   * End bulk operation mode and mark all chunks dirty.
+   */
+  endBulk(): void {
+    this.bulkMode = false
+    // Mark all chunks as dirty for remeshing
+    for (const chunk of this.chunks.values()) {
+      chunk.dirty = true
+    }
   }
 
   /**

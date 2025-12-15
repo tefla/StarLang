@@ -1,0 +1,30 @@
+{
+  "id": "wall-light",
+  "name": "Wall Light",
+  "anchor": { "x": 0, "y": 0, "z": 0 },
+  "voxels": [
+    { "offset": [0, -1, -2], "type": "PANEL" },
+    { "offset": [0, -1, -1], "type": "PANEL" },
+    { "offset": [0, -1, 0], "type": "PANEL" },
+    { "offset": [0, -1, 1], "type": "PANEL" },
+    { "offset": [0, -1, 2], "type": "PANEL" },
+    { "offset": [0, 0, -2], "type": "PANEL" },
+    { "offset": [0, 0, 2], "type": "PANEL" },
+    { "offset": [0, 1, -2], "type": "PANEL" },
+    { "offset": [0, 1, -1], "type": "PANEL" },
+    { "offset": [0, 1, 0], "type": "PANEL" },
+    { "offset": [0, 1, 1], "type": "PANEL" },
+    { "offset": [0, 1, 2], "type": "PANEL" },
+
+    { "offset": [1, -1, -1], "type": "LIGHT_FIXTURE" },
+    { "offset": [1, -1, 0], "type": "LIGHT_FIXTURE" },
+    { "offset": [1, -1, 1], "type": "LIGHT_FIXTURE" },
+    { "offset": [1, 0, -1], "type": "LIGHT_FIXTURE" },
+    { "offset": [1, 0, 0], "type": "LIGHT_FIXTURE" },
+    { "offset": [1, 0, 1], "type": "LIGHT_FIXTURE" },
+    { "offset": [1, 1, -1], "type": "LIGHT_FIXTURE" },
+    { "offset": [1, 1, 0], "type": "LIGHT_FIXTURE" },
+    { "offset": [1, 1, 1], "type": "LIGHT_FIXTURE" }
+  ],
+  "parameters": {}
+}

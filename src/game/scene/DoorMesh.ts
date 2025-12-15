@@ -1,10 +1,19 @@
 // 3D Door Geometry with animation
+// Frame is now handled by voxels in the pre-built mesh.
+// Only the animated panels and status light are created here.
 
 import * as THREE from 'three'
 import type { DoorDefinition } from '../../types/nodes'
 import { audioSystem } from '../audio/AudioSystem'
+import { VOXEL_SIZE } from '../../voxel/VoxelTypes'
+import { createVoxelPanelMesh } from '../../voxel/VoxelPanelMesh'
 
 export type DoorStateType = 'OPEN' | 'CLOSED' | 'LOCKED' | 'SEALED'
+
+// Door dimensions in voxels (at 2.5cm per voxel)
+const DOOR_WIDTH_VOXELS = 48      // 1.2m
+const DOOR_HEIGHT_VOXELS = 86     // 2.15m (slightly shorter than opening to prevent Z-fighting with frame)
+const PANEL_DEPTH_VOXELS = 10     // 0.25m panel thickness (thinner than frame depth to prevent overlap)
 
 export class DoorMesh {
   public group: THREE.Group
@@ -13,12 +22,12 @@ export class DoorMesh {
 
   private leftPanel: THREE.Mesh
   private rightPanel: THREE.Mesh
-  private frame: THREE.Group
   private statusLight: THREE.Mesh
 
-  private doorWidth = 1.2
-  private doorHeight = 2.4
-  private panelThickness = 0.3  // Thick enough to block light from adjacent rooms
+  // Dimensions in world units (meters)
+  private doorWidth = DOOR_WIDTH_VOXELS * VOXEL_SIZE
+  private doorHeight = DOOR_HEIGHT_VOXELS * VOXEL_SIZE
+  private panelDepth = PANEL_DEPTH_VOXELS * VOXEL_SIZE
   private openAmount = 0
   private targetOpenAmount = 0
   private animationSpeed = 3
@@ -31,89 +40,46 @@ export class DoorMesh {
     this.group.name = `door_${definition.id}`
     this.group.userData = { type: 'door', id: definition.id, interactable: true }
 
-    // Door frame
-    this.frame = this.createFrame()
-    this.group.add(this.frame)
+    // Door panels using voxel mesh (slide up into ceiling)
+    // Voxel mesh origin is at corner (0,0,0), extends to (width, height, depth)
+    const halfWidthVoxels = Math.floor(DOOR_WIDTH_VOXELS / 2)
 
-    // Door panels (slide into walls)
-    const panelMaterial = new THREE.MeshStandardMaterial({
-      color: 0x4a5a6a,
-      roughness: 0.5,
-      metalness: 0.6,
-    })
+    // Small gaps to prevent Z-fighting with frame and between panels
+    const panelGap = 0.01    // 1cm gap between panels
+    const floorGap = 0.025   // 2.5cm (1 voxel) gap from floor
 
-    const panelGeometry = new THREE.BoxGeometry(
-      this.doorWidth / 2,
-      this.doorHeight - 0.1,
-      this.panelThickness
+    this.leftPanel = createVoxelPanelMesh(halfWidthVoxels, DOOR_HEIGHT_VOXELS, PANEL_DEPTH_VOXELS)
+    // Position left panel: origin at left edge of doorway
+    this.leftPanel.position.set(
+      -this.doorWidth / 2 - panelGap,   // X: left edge with gap
+      floorGap,                         // Y: slightly above floor
+      -this.panelDepth / 2              // Z: center depth-wise in frame
     )
-
-    this.leftPanel = new THREE.Mesh(panelGeometry, panelMaterial)
-    this.leftPanel.position.set(-this.doorWidth / 4, this.doorHeight / 2, 0)
-    this.leftPanel.castShadow = true
-    this.leftPanel.receiveShadow = true
     this.group.add(this.leftPanel)
 
-    this.rightPanel = new THREE.Mesh(panelGeometry, panelMaterial)
-    this.rightPanel.position.set(this.doorWidth / 4, this.doorHeight / 2, 0)
-    this.rightPanel.castShadow = true
-    this.rightPanel.receiveShadow = true
+    this.rightPanel = createVoxelPanelMesh(halfWidthVoxels, DOOR_HEIGHT_VOXELS, PANEL_DEPTH_VOXELS)
+    // Position right panel: origin at center of doorway
+    this.rightPanel.position.set(
+      panelGap,                         // X: center with gap
+      floorGap,                         // Y: slightly above floor
+      -this.panelDepth / 2              // Z: center depth-wise in frame
+    )
     this.group.add(this.rightPanel)
 
     // Status light strip
     this.statusLight = this.createStatusLight()
     this.group.add(this.statusLight)
 
-    // Position and rotate
+    // Position and rotate (convert voxel coords to world coords)
     const { position, rotation } = definition.properties
-    this.group.position.set(position.x, position.y, position.z)
+    this.group.position.set(
+      position.x * VOXEL_SIZE,
+      position.y * VOXEL_SIZE,
+      position.z * VOXEL_SIZE
+    )
     this.group.rotation.y = (rotation * Math.PI) / 180
 
     // Doors start closed - state managed by runtime based on control switch
-  }
-
-  private createFrame(): THREE.Group {
-    const frame = new THREE.Group()
-    const frameMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3a4a5a,
-      roughness: 0.6,
-      metalness: 0.4,
-    })
-
-    const frameThickness = 0.15
-    const frameDepth = this.panelThickness + 0.05  // Slightly larger than panel
-
-    // Top frame
-    const topFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(this.doorWidth + frameThickness * 2, frameThickness, frameDepth),
-      frameMaterial
-    )
-    topFrame.position.set(0, this.doorHeight + frameThickness / 2, 0)
-    topFrame.castShadow = true
-    topFrame.receiveShadow = true
-    frame.add(topFrame)
-
-    // Left frame
-    const leftFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(frameThickness, this.doorHeight, frameDepth),
-      frameMaterial
-    )
-    leftFrame.position.set(-this.doorWidth / 2 - frameThickness / 2, this.doorHeight / 2, 0)
-    leftFrame.castShadow = true
-    leftFrame.receiveShadow = true
-    frame.add(leftFrame)
-
-    // Right frame
-    const rightFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(frameThickness, this.doorHeight, frameDepth),
-      frameMaterial
-    )
-    rightFrame.position.set(this.doorWidth / 2 + frameThickness / 2, this.doorHeight / 2, 0)
-    rightFrame.castShadow = true
-    rightFrame.receiveShadow = true
-    frame.add(rightFrame)
-
-    return frame
   }
 
   private createStatusLight(): THREE.Mesh {
@@ -125,7 +91,8 @@ export class DoorMesh {
     })
 
     const light = new THREE.Mesh(lightGeometry, lightMaterial)
-    light.position.set(0, this.doorHeight + 0.1, this.panelThickness / 2 + 0.02)
+    // Position above the door opening, centered on the frame
+    light.position.set(0, this.doorHeight + 0.1, 0)
 
     return light
   }
@@ -186,9 +153,11 @@ export class DoorMesh {
       }
 
       // Slide panels UP into ceiling (avoids clipping through walls)
+      // Panels start slightly above floor, slide up by doorHeight when fully open
+      const floorGap = 0.025  // Match constructor value
       const slideAmount = this.openAmount * this.doorHeight
-      this.leftPanel.position.y = this.doorHeight / 2 + slideAmount
-      this.rightPanel.position.y = this.doorHeight / 2 + slideAmount
+      this.leftPanel.position.y = floorGap + slideAmount
+      this.rightPanel.position.y = floorGap + slideAmount
     }
   }
 

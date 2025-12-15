@@ -1,0 +1,95 @@
+{
+  "id": "door-sliding",
+  "name": "Sliding Door",
+  "description": "Vertical sliding door with status indicator",
+  "anchor": { "x": 0, "y": 0, "z": 0 },
+
+  "voxels": [],
+
+  "dynamicParts": [
+    {
+      "id": "panel",
+      "box": { "width": 48, "height": 86, "depth": 10, "type": "DOOR_PANEL" },
+      "anchor": { "x": 24, "y": 0, "z": 5 },
+      "transform": {
+        "position": [0, 1, 0]
+      }
+    },
+    {
+      "id": "statusLight",
+      "voxels": [
+        { "offset": [-20, 0, 0], "type": "LED_GREEN" },
+        { "offset": [-16, 0, 0], "type": "LED_GREEN" },
+        { "offset": [-12, 0, 0], "type": "LED_GREEN" },
+        { "offset": [-8, 0, 0], "type": "LED_GREEN" },
+        { "offset": [-4, 0, 0], "type": "LED_GREEN" },
+        { "offset": [0, 0, 0], "type": "LED_GREEN" },
+        { "offset": [4, 0, 0], "type": "LED_GREEN" },
+        { "offset": [8, 0, 0], "type": "LED_GREEN" },
+        { "offset": [12, 0, 0], "type": "LED_GREEN" },
+        { "offset": [16, 0, 0], "type": "LED_GREEN" }
+      ],
+      "anchor": { "x": 0, "y": 0, "z": 0 },
+      "transform": {
+        "position": [0, 90, 0]
+      }
+    }
+  ],
+
+  "states": {
+    "closed": {
+      "parts": {
+        "panel": { "position": [0, 1, 0] },
+        "statusLight": { "emissive": "#888888", "emissiveIntensity": 0.5 }
+      }
+    },
+    "open": {
+      "parts": {
+        "panel": { "position": [0, 87, 0] },
+        "statusLight": { "emissive": "#77dd77", "emissiveIntensity": 0.8 }
+      }
+    },
+    "locked": {
+      "parts": {
+        "panel": { "position": [0, 1, 0] },
+        "statusLight": { "emissive": "#ffb347", "emissiveIntensity": 0.8 }
+      }
+    },
+    "sealed": {
+      "parts": {
+        "panel": { "position": [0, 1, 0] },
+        "statusLight": { "emissive": "#ff6b6b", "emissiveIntensity": 1.0 }
+      }
+    }
+  },
+
+  "animations": {
+    "open": {
+      "duration": 300,
+      "keyframes": [
+        { "time": 0, "state": "closed" },
+        { "time": 1.0, "state": "open", "easing": "easeOutQuad" }
+      ]
+    },
+    "close": {
+      "duration": 300,
+      "keyframes": [
+        { "time": 0, "state": "open" },
+        { "time": 1.0, "state": "closed", "easing": "easeInQuad" }
+      ]
+    }
+  },
+
+  "stateBindings": {
+    "state": {
+      "OPEN": { "setState": "open", "playAnimation": "open" },
+      "CLOSED": { "setState": "closed", "playAnimation": "close" },
+      "LOCKED": { "setState": "locked", "playAnimation": "close" },
+      "SEALED": { "setState": "sealed", "playAnimation": "close" }
+    }
+  },
+
+  "parameters": {
+    "state": { "type": "enum", "values": ["OPEN", "CLOSED", "LOCKED", "SEALED"], "default": "CLOSED" }
+  }
+}

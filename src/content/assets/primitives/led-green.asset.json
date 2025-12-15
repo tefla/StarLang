@@ -1,0 +1,11 @@
+{
+  "id": "led-green",
+  "name": "Green LED",
+  "anchor": { "x": 0, "y": 0, "z": 0 },
+  "voxels": [
+    { "offset": [1, 0, 0], "type": "LED_GREEN" },
+    { "offset": [1, 0, 1], "type": "LED_GREEN" },
+    { "offset": [1, 1, 0], "type": "LED_GREEN" },
+    { "offset": [1, 1, 1], "type": "LED_GREEN" }
+  ]
+}

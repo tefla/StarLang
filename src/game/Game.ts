@@ -58,6 +58,8 @@ export class Game {
   }
 
   async init() {
+    console.log('=== GAME INIT START ===')
+
     // Set layout data (positions, sizes - hidden from player)
     this.runtime.setLayout(GALLEY_LAYOUT as ShipLayout)
 
@@ -69,7 +71,15 @@ export class Game {
       throw new Error('Ship compilation failed: ' + result.errors.map(e => e.message).join(', '))
     }
 
-    // Build 3D scene from compiled structure
+    // Build voxel world from layout (tries pre-built mesh first)
+    await this.scene.buildFromLayout(GALLEY_LAYOUT as ShipLayout, 'galley')
+
+    // Pass voxel world to player for collision
+    if (this.scene.voxelWorld) {
+      this.player.setVoxelWorld(this.scene.voxelWorld)
+    }
+
+    // Build entity overlays from compiled structure
     const structure = this.runtime.getStructure()
     if (structure) {
       this.scene.buildFromStructure(structure)
@@ -79,7 +89,12 @@ export class Game {
     this.runtime.loadFile('galley.sl', GALLEY_SHIP)
 
     // Set player starting position (inside galley)
-    this.player.setPosition(0, 0, 0)
+    // Room is centered at (0,0,0) with size 6x3x6m
+    // Spawn at center with small Y offset to ensure above floor
+    this.player.setPosition(0, 0.1, 0)
+
+    // Debug: check spawn collision
+    this.player.debugCollision('SPAWN')
 
     // Set initial O2 levels (start slightly low to create urgency)
     this.runtime.setProperty('galley.o2_level', 19.5, 'SYSTEM')

@@ -140,3 +140,4 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+- restart the game server after you make changes, as hot reloading isn't working properly

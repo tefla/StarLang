@@ -1,0 +1,93 @@
+{
+  "id": "warning-light",
+  "name": "Warning Light",
+  "description": "Wall-mounted warning indicator with multiple modes",
+  "anchor": { "x": 0, "y": 0, "z": 0 },
+
+  "voxels": [
+    { "offset": [0, 0, 0], "type": "PANEL" },
+    { "offset": [1, 0, 0], "type": "PANEL" },
+    { "offset": [2, 0, 0], "type": "PANEL" },
+    { "offset": [0, 1, 0], "type": "PANEL" },
+    { "offset": [2, 1, 0], "type": "PANEL" },
+    { "offset": [0, 2, 0], "type": "PANEL" },
+    { "offset": [1, 2, 0], "type": "PANEL" },
+    { "offset": [2, 2, 0], "type": "PANEL" }
+  ],
+
+  "dynamicParts": [
+    {
+      "id": "bulb",
+      "voxels": [
+        { "offset": [0, 0, 0], "type": "LED_RED" }
+      ],
+      "anchor": { "x": 0, "y": 0, "z": 0 },
+      "transform": {
+        "position": [1, 1, 1]
+      }
+    }
+  ],
+
+  "states": {
+    "off": {
+      "parts": {
+        "bulb": { "emissive": "#330000", "emissiveIntensity": 0.1 }
+      }
+    },
+    "on": {
+      "parts": {
+        "bulb": { "emissive": "#ff0000", "emissiveIntensity": 1.0 }
+      }
+    },
+    "dim": {
+      "parts": {
+        "bulb": { "emissive": "#ff0000", "emissiveIntensity": 0.2 }
+      }
+    }
+  },
+
+  "animations": {
+    "blink-slow": {
+      "duration": 2000,
+      "loop": true,
+      "keyframes": [
+        { "time": 0, "state": "on" },
+        { "time": 0.25, "state": "off", "easing": "easeInOut" },
+        { "time": 0.5, "state": "off" },
+        { "time": 0.75, "state": "on", "easing": "easeInOut" },
+        { "time": 1.0, "state": "on" }
+      ]
+    },
+    "blink-fast": {
+      "duration": 400,
+      "loop": true,
+      "keyframes": [
+        { "time": 0, "state": "on" },
+        { "time": 0.5, "state": "off" },
+        { "time": 1.0, "state": "on" }
+      ]
+    },
+    "pulse": {
+      "duration": 1500,
+      "loop": true,
+      "keyframes": [
+        { "time": 0, "state": "dim" },
+        { "time": 0.5, "state": "on", "easing": "easeInOutQuad" },
+        { "time": 1.0, "state": "dim", "easing": "easeInOutQuad" }
+      ]
+    }
+  },
+
+  "stateBindings": {
+    "mode": {
+      "OFF": { "setState": "off", "stopAnimation": "blink-slow" },
+      "WARNING": { "setState": "on", "playAnimation": "blink-slow" },
+      "CRITICAL": { "setState": "on", "playAnimation": "blink-fast" },
+      "STANDBY": { "setState": "dim", "playAnimation": "pulse" }
+    }
+  },
+
+  "parameters": {
+    "mode": { "type": "enum", "values": ["OFF", "WARNING", "CRITICAL", "STANDBY"], "default": "OFF" }
+  }
+}

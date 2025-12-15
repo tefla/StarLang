@@ -55,6 +55,15 @@ const VOXEL_COLORS: Record<number, number> = {
   [VoxelType.CONDUIT]: 0x999999,
   [VoxelType.TRIM]: 0xbbbbbb,
   [VoxelType.LIGHT_FIXTURE]: 0xffffaa,
+  [VoxelType.SWITCH]: 0x6080a0,    // Medium blue-gray (switch housing)
+  [VoxelType.SWITCH_BUTTON]: 0x888888, // Medium gray button
+  [VoxelType.LED_GREEN]: 0x00ff00,  // Bright green LED
+  [VoxelType.LED_RED]: 0xff0000,    // Bright red LED
+  [VoxelType.DOOR_FRAME]: 0x3a4a5a, // Dark metallic (matches DoorMesh frame)
+  [VoxelType.DOOR_PANEL]: 0x4a5a6a, // Metallic gray (matches DoorMesh panel)
+  [VoxelType.SCREEN]: 0x1a2744,     // Dark blue screen background
+  [VoxelType.DESK]: 0x2a3a4a,       // Dark metallic desk surface
+  [VoxelType.KEYBOARD]: 0x1a2a3a,   // Dark keyboard surface
 }
 
 /**
@@ -94,6 +103,13 @@ export class GreedyMesher {
       for (let dir = -1; dir <= 1; dir += 2) {
         this.processAxis(chunk, axis, dir, quads)
       }
+    }
+
+    // Count switch quads
+    const switchTypes = [11, 12, 13, 14]
+    const switchQuads = quads.filter(q => switchTypes.includes(q.voxelType))
+    if (switchQuads.length > 0) {
+      console.log(`Chunk ${chunk.cx},${chunk.cy},${chunk.cz}: ${switchQuads.length} switch quads`)
     }
 
     if (debug) {

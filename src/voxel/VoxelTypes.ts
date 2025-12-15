@@ -6,7 +6,8 @@
  */
 
 // Voxel size in world units (meters)
-export const VOXEL_SIZE = 0.1
+// 2.5cm voxels for detailed objects
+export const VOXEL_SIZE = 0.025
 
 // Chunk size in voxels (16x16x16 = 4096 voxels per chunk)
 // At 0.1m voxels, each chunk is 1.6m³
@@ -28,6 +29,15 @@ export enum VoxelType {
   CONDUIT = 8,       // Pipe/cable housing
   TRIM = 9,          // Decorative trim
   LIGHT_FIXTURE = 10, // Light emission source
+  SWITCH = 11,       // Wall-mounted switch housing
+  SWITCH_BUTTON = 12, // Switch button (clickable)
+  LED_GREEN = 13,    // Green LED indicator (OK status)
+  LED_RED = 14,      // Red LED indicator (FAULT status)
+  DOOR_FRAME = 15,   // Door frame (static)
+  DOOR_PANEL = 16,   // Door panel (animated, not in pre-built mesh)
+  SCREEN = 17,       // Terminal/status screen surface (emissive)
+  DESK = 18,         // Desk/table surface
+  KEYBOARD = 19,     // Keyboard surface
 }
 
 /**
