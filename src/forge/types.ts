@@ -673,6 +673,55 @@ export interface ConditionDef extends ASTNode {
 }
 
 // ============================================================================
+// Game Definition (entry point for game content)
+// ============================================================================
+
+/**
+ * Player configuration within a game definition.
+ */
+export interface PlayerConfig extends ASTNode {
+  kind: 'playerConfig'
+  controller?: string  // first_person, third_person, fixed_camera
+  spawnRoom?: string
+  spawnPosition?: Vec3
+  collision?: {
+    type: 'cylinder' | 'box' | 'none'
+    params: Record<string, Expression>
+  }
+}
+
+/**
+ * Game definition - entry point that defines what to load and how to start.
+ *
+ * Example:
+ *   game galley_escape
+ *     ship: "galley"
+ *     layout: "ships/galley/galley.layout.json"
+ *     scenario: "galley_escape"
+ *
+ *     player:
+ *       controller: first_person
+ *       spawn_room: "galley"
+ *       spawn_position: [0, 0.1, 0]
+ *
+ *     on_start:
+ *       start_scenario "galley_escape"
+ *       play_ambient "ship_hum"
+ */
+export interface GameDef extends ASTNode {
+  kind: 'game'
+  name: string
+  ship?: string
+  layout?: string
+  scenario?: string
+  player?: PlayerConfig
+  onStart?: Statement[]
+  onVictory?: Statement[]
+  onGameover?: Statement[]
+  properties?: Record<string, Expression>
+}
+
+// ============================================================================
 // Module (file)
 // ============================================================================
 
@@ -687,6 +736,7 @@ export type TopLevelDef =
   | ScenarioDef
   | BehaviorDef
   | ConditionDef
+  | GameDef
 
 export interface ForgeModule extends ASTNode {
   kind: 'module'

@@ -589,3 +589,96 @@ describe('Forge Error Formatting', () => {
     }
   })
 })
+
+describe('Game Definition', () => {
+  test('parses minimal game block', () => {
+    const ast = parse(`game test_game
+  ship: "test"
+  layout: "test.layout.json"
+  scenario: "test_scenario"`)
+
+    expect(ast.definitions.length).toBe(1)
+    expect(ast.definitions[0]!.kind).toBe('game')
+
+    const game = ast.definitions[0]!
+    if (game.kind === 'game') {
+      expect(game.name).toBe('test_game')
+      expect(game.ship).toBe('test')
+      expect(game.layout).toBe('test.layout.json')
+      expect(game.scenario).toBe('test_scenario')
+    }
+  })
+
+  test('parses game with player config', () => {
+    const ast = parse(`game player_test
+  ship: "galley"
+
+  player:
+    controller: first_person
+    spawn_room: "galley"
+    spawn_position: (0, 0.1, 0)
+    collision: cylinder { height: 1.6, radius: 0.35 }`)
+
+    const game = ast.definitions[0]!
+    if (game.kind === 'game') {
+      expect(game.player).toBeDefined()
+      expect(game.player!.controller).toBe('first_person')
+      expect(game.player!.spawnRoom).toBe('galley')
+      expect(game.player!.spawnPosition).toBeDefined()
+      expect(game.player!.spawnPosition!.kind).toBe('vec3')
+      expect(game.player!.collision).toBeDefined()
+      expect(game.player!.collision!.type).toBe('cylinder')
+      expect(game.player!.collision!.params.height).toBeDefined()
+      expect(game.player!.collision!.params.radius).toBeDefined()
+    }
+  })
+
+  test('parses game with lifecycle hooks', () => {
+    const ast = parse(`game hooks_test
+  ship: "test"
+
+  on start:
+    emit "game:started"
+
+  on victory:
+    emit "game:won"
+
+  on gameover:
+    emit "game:lost"`)
+
+    const game = ast.definitions[0]!
+    if (game.kind === 'game') {
+      expect(game.onStart).toBeDefined()
+      expect(game.onStart!.length).toBe(1)
+      expect(game.onStart![0]!.kind).toBe('emit')
+
+      expect(game.onVictory).toBeDefined()
+      expect(game.onVictory!.length).toBe(1)
+
+      expect(game.onGameover).toBeDefined()
+      expect(game.onGameover!.length).toBe(1)
+    }
+  })
+
+  test('parses galley.game.forge', async () => {
+    const source = await Bun.file(
+      new URL('../content/forge/galley.game.forge', import.meta.url)
+    ).text()
+
+    const ast = parse(source)
+    expect(ast.definitions.length).toBe(1)
+
+    const game = ast.definitions[0]!
+    if (game.kind === 'game') {
+      expect(game.name).toBe('galley_escape')
+      expect(game.ship).toBe('galley')
+      expect(game.layout).toBe('ships/galley/galley.layout.json')
+      expect(game.scenario).toBe('galley_escape')
+      expect(game.player).toBeDefined()
+      expect(game.player!.controller).toBe('first_person')
+      expect(game.onStart).toBeDefined()
+      expect(game.onVictory).toBeDefined()
+      expect(game.onGameover).toBeDefined()
+    }
+  })
+})

@@ -1,0 +1,25 @@
+# Game Definition - Galley Escape
+# Entry point that defines what ship/scenario to load and how to start
+
+game galley_escape
+  # What to load
+  ship: "galley"
+  layout: "ships/galley/galley.layout.json"
+  scenario: "galley_escape"
+
+  # Player setup
+  player:
+    controller: first_person
+    spawn_room: "galley"
+    spawn_position: (0, 0.1, 0)
+    collision: cylinder { height: 1.6, radius: 0.35 }
+
+  # Lifecycle hooks
+  on start:
+    emit "scenario:start"
+
+  on victory:
+    emit "ui:show_overlay"
+
+  on gameover:
+    emit "ui:show_gameover"

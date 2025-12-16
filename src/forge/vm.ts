@@ -94,6 +94,30 @@ interface VMCondition {
   fired: boolean  // Track if already triggered
 }
 
+/**
+ * Registered game definition in the VM.
+ * Games define the entry point: what ship/scenario to load and player config.
+ */
+export interface VMGame {
+  name: string
+  ship?: string
+  layout?: string
+  scenario?: string
+  player?: {
+    controller?: string
+    spawnRoom?: string
+    spawnPosition?: { x: number; y: number; z: number }
+    collision?: {
+      type: 'cylinder' | 'box' | 'none'
+      params: Record<string, number>
+    }
+  }
+  onStart?: AST.Statement[]
+  onVictory?: AST.Statement[]
+  onGameover?: AST.Statement[]
+  properties?: Record<string, unknown>
+}
+
 // ============================================================================
 // ForgeVM Class
 // ============================================================================
@@ -104,8 +128,10 @@ export class ForgeVM {
   private scenarios: VMScenario[] = []
   private behaviors: VMBehavior[] = []
   private conditions: VMCondition[] = []
+  private games: VMGame[] = []
   private eventListeners: Map<string, VMEventListener[]> = new Map()
   private activeScenario: VMScenario | null = null
+  private activeGame: VMGame | null = null
   private tickCount = 0
   private paused = false
 
@@ -254,6 +280,62 @@ export class ForgeVM {
         })
       }
     }
+
+    // Load games
+    for (const def of module.definitions) {
+      if (def.kind === 'game') {
+        const ctx = this.createContext()
+        const game: VMGame = {
+          name: def.name,
+          ship: def.ship,
+          layout: def.layout,
+          scenario: def.scenario,
+          onStart: def.onStart,
+          onVictory: def.onVictory,
+          onGameover: def.onGameover,
+        }
+
+        // Parse player config if present
+        if (def.player) {
+          game.player = {
+            controller: def.player.controller,
+            spawnRoom: def.player.spawnRoom,
+          }
+
+          // Evaluate spawn position
+          if (def.player.spawnPosition) {
+            const pos = def.player.spawnPosition
+            game.player.spawnPosition = {
+              x: this.evaluateExpression(pos.x, ctx) as number,
+              y: this.evaluateExpression(pos.y, ctx) as number,
+              z: this.evaluateExpression(pos.z, ctx) as number,
+            }
+          }
+
+          // Parse collision config
+          if (def.player.collision) {
+            const params: Record<string, number> = {}
+            for (const [key, expr] of Object.entries(def.player.collision.params)) {
+              params[key] = this.evaluateExpression(expr, ctx) as number
+            }
+            game.player.collision = {
+              type: def.player.collision.type,
+              params,
+            }
+          }
+        }
+
+        // Evaluate custom properties
+        if (def.properties) {
+          game.properties = {}
+          for (const [key, expr] of Object.entries(def.properties)) {
+            game.properties[key] = this.evaluateExpression(expr, ctx)
+          }
+        }
+
+        this.games.push(game)
+      }
+    }
   }
 
   /**
@@ -272,11 +354,88 @@ export class ForgeVM {
     this.scenarios = []
     this.behaviors = []
     this.conditions = []
+    this.games = []
     this.activeScenario = null
+    this.activeGame = null
     this.eventListeners.clear()
     clearFunctions()
     clearConfig()
     this.resetState()
+  }
+
+  // ============================================================================
+  // Game Management
+  // ============================================================================
+
+  /**
+   * Get a game definition by name.
+   */
+  getGame(name: string): VMGame | undefined {
+    return this.games.find(g => g.name === name)
+  }
+
+  /**
+   * Get all loaded game definitions.
+   */
+  getGames(): VMGame[] {
+    return [...this.games]
+  }
+
+  /**
+   * Get the active game.
+   */
+  getActiveGame(): VMGame | null {
+    return this.activeGame
+  }
+
+  /**
+   * Start a game by name.
+   * This sets the active game and executes on_start handlers.
+   */
+  startGame(name: string): boolean {
+    const game = this.games.find(g => g.name === name)
+    if (!game) return false
+
+    this.activeGame = game
+
+    // Execute on_start handlers
+    if (game.onStart && game.onStart.length > 0) {
+      const ctx = this.createContext()
+      executeStatements(game.onStart, ctx, this.createExecutionCallbacks())
+    }
+
+    this.emit('game:start', { name, game })
+    return true
+  }
+
+  /**
+   * Trigger victory for the active game.
+   */
+  triggerVictory(): void {
+    if (!this.activeGame) return
+
+    // Execute on_victory handlers
+    if (this.activeGame.onVictory && this.activeGame.onVictory.length > 0) {
+      const ctx = this.createContext()
+      executeStatements(this.activeGame.onVictory, ctx, this.createExecutionCallbacks())
+    }
+
+    this.emit('game:victory', { name: this.activeGame.name })
+  }
+
+  /**
+   * Trigger game over for the active game.
+   */
+  triggerGameover(): void {
+    if (!this.activeGame) return
+
+    // Execute on_gameover handlers
+    if (this.activeGame.onGameover && this.activeGame.onGameover.length > 0) {
+      const ctx = this.createContext()
+      executeStatements(this.activeGame.onGameover, ctx, this.createExecutionCallbacks())
+    }
+
+    this.emit('game:gameover', { name: this.activeGame.name })
   }
 
   // ============================================================================

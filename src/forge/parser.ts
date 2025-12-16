@@ -71,6 +71,8 @@ export class ForgeParser {
         return this.parseBehavior()
       case 'condition':
         return this.parseCondition()
+      case 'game':
+        return this.parseGame()
       default:
         throw this.error(`Unexpected keyword '${token.value}'`)
     }
@@ -2245,6 +2247,212 @@ export class ForgeParser {
       effects,
       loc
     }
+  }
+
+  // ============================================================================
+  // Game Definition (Phase 1 - Engine/Game Separation)
+  // ============================================================================
+
+  /**
+   * Parse a game definition:
+   *   game galley_escape
+   *     ship: "galley"
+   *     layout: "ships/galley/galley.layout.json"
+   *     scenario: "galley_escape"
+   *
+   *     player:
+   *       controller: first_person
+   *       spawn_room: "galley"
+   *       spawn_position: (0, 0.1, 0)
+   *
+   *     on_start:
+   *       start_scenario "galley_escape"
+   */
+  private parseGame(): AST.GameDef {
+    const loc = this.currentLoc()
+    this.expectKeyword('game')
+    const name = this.expectIdentifier()
+    this.expectNewline()
+    this.expectIndent()
+
+    const game: AST.GameDef = {
+      kind: 'game',
+      name,
+      loc
+    }
+
+    while (!this.checkDedent() && !this.isAtEnd()) {
+      this.skipNewlines()
+      if (this.checkDedent()) break
+
+      const token = this.current()
+
+      if (token.type === 'KEYWORD') {
+        switch (token.value) {
+          case 'ship':
+            this.advance()
+            this.expect('COLON')
+            game.ship = this.expect('STRING').value
+            this.expectNewlineOrDedent()
+            break
+          case 'layout':
+            this.advance()
+            this.expect('COLON')
+            game.layout = this.expect('STRING').value
+            this.expectNewlineOrDedent()
+            break
+          case 'scenario':
+            this.advance()
+            this.expect('COLON')
+            game.scenario = this.expect('STRING').value
+            this.expectNewlineOrDedent()
+            break
+          case 'player':
+            game.player = this.parsePlayerConfig()
+            break
+          case 'on':
+            // Handle on_start, on_victory, on_gameover as "on start:", "on victory:", etc.
+            this.advance()
+            const eventType = this.expectIdentifier()
+            this.expect('COLON')
+            this.expectNewline()
+            this.expectIndent()
+
+            const handlers: AST.Statement[] = []
+            while (!this.checkDedent() && !this.isAtEnd()) {
+              this.skipNewlines()
+              if (this.checkDedent()) break
+              handlers.push(this.parseStatement())
+              this.expectNewlineOrDedent()
+            }
+            this.consumeDedent()
+
+            if (eventType === 'start') {
+              game.onStart = handlers
+            } else if (eventType === 'victory') {
+              game.onVictory = handlers
+            } else if (eventType === 'gameover') {
+              game.onGameover = handlers
+            }
+            break
+          default:
+            throw this.error(`Unexpected keyword '${token.value}' in game`)
+        }
+      } else if (token.type === 'IDENTIFIER') {
+        // Generic property: name: value
+        const propName = token.value
+        this.advance()
+        this.expect('COLON')
+        game.properties = game.properties || {}
+        game.properties[propName] = this.parseExpression()
+        this.expectNewlineOrDedent()
+      } else {
+        throw this.error(`Unexpected token in game: ${token.value}`)
+      }
+    }
+
+    this.consumeDedent()
+    return game
+  }
+
+  /**
+   * Parse player configuration block:
+   *   player:
+   *     controller: first_person
+   *     spawn_room: "galley"
+   *     spawn_position: (0, 0.1, 0)
+   *     collision: cylinder { height: 1.6, radius: 0.35 }
+   */
+  private parsePlayerConfig(): AST.PlayerConfig {
+    const loc = this.currentLoc()
+    this.expectKeyword('player')
+    this.expect('COLON')
+    this.expectNewline()
+    this.expectIndent()
+
+    const config: AST.PlayerConfig = {
+      kind: 'playerConfig',
+      loc
+    }
+
+    while (!this.checkDedent() && !this.isAtEnd()) {
+      this.skipNewlines()
+      if (this.checkDedent()) break
+
+      const token = this.current()
+
+      if (token.type === 'KEYWORD' || token.type === 'IDENTIFIER') {
+        const propName = token.value
+        this.advance()
+        this.expect('COLON')
+
+        switch (propName) {
+          case 'controller':
+            config.controller = this.expectIdentifier()
+            break
+          case 'spawn_room':
+            config.spawnRoom = this.expect('STRING').value
+            break
+          case 'spawn_position':
+            config.spawnPosition = this.parseVec3()
+            break
+          case 'collision':
+            config.collision = this.parseCollisionConfig()
+            break
+          default:
+            // Skip unknown properties
+            this.parseExpression()
+        }
+        this.expectNewlineOrDedent()
+      } else {
+        throw this.error(`Unexpected token in player config: ${token.value}`)
+      }
+    }
+
+    this.consumeDedent()
+    return config
+  }
+
+  /**
+   * Parse collision configuration:
+   *   collision: cylinder { height: 1.6, radius: 0.35 }
+   *   collision: box { width: 1, height: 2, depth: 1 }
+   *   collision: none
+   */
+  private parseCollisionConfig(): AST.PlayerConfig['collision'] {
+    const typeToken = this.current()
+
+    if (typeToken.type === 'IDENTIFIER' || typeToken.type === 'KEYWORD') {
+      const typeName = typeToken.value
+      this.advance()
+
+      if (typeName === 'none') {
+        return { type: 'none', params: {} }
+      }
+
+      if (typeName !== 'cylinder' && typeName !== 'box') {
+        throw this.error(`Unknown collision type '${typeName}', expected cylinder, box, or none`)
+      }
+
+      // Parse params: { height: 1.6, radius: 0.35 }
+      const params: Record<string, AST.Expression> = {}
+      if (this.check('LBRACE')) {
+        this.advance()
+        while (!this.check('RBRACE') && !this.isAtEnd()) {
+          const paramName = this.expectIdentifier()
+          this.expect('COLON')
+          params[paramName] = this.parseExpression()
+          if (this.check('COMMA')) {
+            this.advance()
+          }
+        }
+        this.expect('RBRACE')
+      }
+
+      return { type: typeName as 'cylinder' | 'box', params }
+    }
+
+    throw this.error(`Expected collision type, got ${typeToken.type}`)
   }
 
   // ============================================================================

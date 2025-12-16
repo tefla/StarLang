@@ -701,3 +701,133 @@ condition complex
     expect(fired).toBe(true)
   })
 })
+
+// ============================================================================
+// Game Definition Tests
+// ============================================================================
+
+describe('Game Definitions', () => {
+  test('loads minimal game definition', () => {
+    vm.loadSource(`
+game test_game
+  ship: "test_ship"
+  layout: "test.layout.json"
+  scenario: "test_scenario"
+`)
+
+    const games = vm.getGames()
+    expect(games.length).toBe(1)
+    expect(games[0]!.name).toBe('test_game')
+    expect(games[0]!.ship).toBe('test_ship')
+    expect(games[0]!.layout).toBe('test.layout.json')
+    expect(games[0]!.scenario).toBe('test_scenario')
+  })
+
+  test('loads game with player config', () => {
+    vm.loadSource(`
+game player_game
+  ship: "test"
+
+  player:
+    controller: first_person
+    spawn_room: "start"
+    spawn_position: (1, 2, 3)
+    collision: cylinder { height: 1.6, radius: 0.35 }
+`)
+
+    const game = vm.getGame('player_game')
+    expect(game).toBeDefined()
+    expect(game!.player).toBeDefined()
+    expect(game!.player!.controller).toBe('first_person')
+    expect(game!.player!.spawnRoom).toBe('start')
+    expect(game!.player!.spawnPosition).toEqual({ x: 1, y: 2, z: 3 })
+    expect(game!.player!.collision).toEqual({
+      type: 'cylinder',
+      params: { height: 1.6, radius: 0.35 }
+    })
+  })
+
+  test('getGame returns undefined for nonexistent game', () => {
+    expect(vm.getGame('nonexistent')).toBeUndefined()
+  })
+
+  test('startGame sets active game and executes on_start', () => {
+    let startFired = false
+    vm.on('test:started', () => { startFired = true })
+
+    vm.loadSource(`
+game start_test
+  ship: "test"
+
+  on start:
+    emit "test:started"
+    set game_started: true
+`)
+
+    expect(vm.getActiveGame()).toBeNull()
+
+    const started = vm.startGame('start_test')
+    expect(started).toBe(true)
+    expect(vm.getActiveGame()?.name).toBe('start_test')
+    expect(startFired).toBe(true)
+    expect(vm.getStateValue('game_started')).toBe(true)
+  })
+
+  test('startGame returns false for nonexistent game', () => {
+    expect(vm.startGame('nonexistent')).toBe(false)
+  })
+
+  test('triggerVictory executes on_victory handlers', () => {
+    let victoryFired = false
+    vm.on('test:victory', () => { victoryFired = true })
+
+    vm.loadSource(`
+game victory_test
+  ship: "test"
+
+  on victory:
+    emit "test:victory"
+    set won: true
+`)
+
+    vm.startGame('victory_test')
+    expect(victoryFired).toBe(false)
+
+    vm.triggerVictory()
+    expect(victoryFired).toBe(true)
+    expect(vm.getStateValue('won')).toBe(true)
+  })
+
+  test('triggerGameover executes on_gameover handlers', () => {
+    let gameoverFired = false
+    vm.on('test:gameover', () => { gameoverFired = true })
+
+    vm.loadSource(`
+game gameover_test
+  ship: "test"
+
+  on gameover:
+    emit "test:gameover"
+    set lost: true
+`)
+
+    vm.startGame('gameover_test')
+    expect(gameoverFired).toBe(false)
+
+    vm.triggerGameover()
+    expect(gameoverFired).toBe(true)
+    expect(vm.getStateValue('lost')).toBe(true)
+  })
+
+  test('clear removes all games', () => {
+    vm.loadSource(`
+game clear_test
+  ship: "test"
+`)
+
+    expect(vm.getGames().length).toBe(1)
+    vm.clear()
+    expect(vm.getGames().length).toBe(0)
+    expect(vm.getActiveGame()).toBeNull()
+  })
+})
