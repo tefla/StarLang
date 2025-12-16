@@ -2,7 +2,7 @@
 
 import * as THREE from 'three'
 import { PlayerSystem } from './PlayerSystem'
-import { ShipScene } from './ShipScene'
+import { SceneManager } from './SceneManager'
 import { ScreenEntity } from './EntitySystem'
 import { Runtime } from '../runtime/Runtime'
 import { audioSystem } from './AudioSystem'
@@ -19,7 +19,7 @@ export type InteractionTarget = {
 
 export class InteractionSystem {
   private player: PlayerSystem
-  private scene: ShipScene
+  private scene: SceneManager
   private runtime: Runtime
 
   private currentTarget: InteractionTarget | null = null
@@ -40,7 +40,7 @@ export class InteractionSystem {
   private currentCode = ''
   private currentFile = ''
 
-  constructor(player: PlayerSystem, scene: ShipScene, runtime: Runtime) {
+  constructor(player: PlayerSystem, scene: SceneManager, runtime: Runtime) {
     this.player = player
     this.scene = scene
     this.runtime = runtime

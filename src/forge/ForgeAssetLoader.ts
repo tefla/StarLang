@@ -105,13 +105,13 @@ export function loadForgeAssets(): AnimatedAssetDef[] {
   }
 
   const path = require('path')
-  const gameDir = path.join(__dirname, '../../game/forge')
+  const gameDir = path.join(__dirname, '../../game/shared')
   return loadForgeAssetsFromDir(gameDir)
 }
 
 /**
  * Load assets from a single .forge file via HTTP (browser) or fs (server).
- * @param filename The forge filename relative to game/forge/
+ * @param filename The forge filename relative to game/shared/
  * @returns Array of compiled AnimatedAssetDef (a file can contain multiple assets)
  */
 export async function loadForgeFileAsync(filename: string): Promise<AnimatedAssetDef[]> {
@@ -120,7 +120,7 @@ export async function loadForgeFileAsync(filename: string): Promise<AnimatedAsse
 
     if (isBrowser) {
       // Fetch via HTTP in browser
-      const response = await fetch(`/game/forge/${filename}`)
+      const response = await fetch(`/game/shared/${filename}`)
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
@@ -129,7 +129,7 @@ export async function loadForgeFileAsync(filename: string): Promise<AnimatedAsse
       // Read from filesystem on server
       const fs = require('fs')
       const path = require('path')
-      const filePath = path.join(__dirname, '../../game/forge', filename)
+      const filePath = path.join(__dirname, '../../game/shared', filename)
       source = fs.readFileSync(filePath, 'utf-8')
     }
 
@@ -151,6 +151,36 @@ export async function loadForgeAssetsAsync(): Promise<AnimatedAssetDef[]> {
 
   // Flatten arrays - each file can contain multiple assets
   return results.flat()
+}
+
+/**
+ * Load assets from a specific game root directory (browser only).
+ * Discovers and loads all .asset.forge files in the game's assets directory.
+ * @param gameRoot The game root path (e.g., '/game/pong')
+ * @param assetFiles List of asset filenames relative to gameRoot/assets/
+ * @returns Array of compiled AnimatedAssetDef
+ */
+export async function loadForgeAssetsFromGameRoot(
+  gameRoot: string,
+  assetFiles: string[]
+): Promise<AnimatedAssetDef[]> {
+  const results: AnimatedAssetDef[] = []
+
+  for (const filename of assetFiles) {
+    const url = `${gameRoot}/assets/${filename}`
+    try {
+      const response = await fetch(url)
+      if (!response.ok) continue
+
+      const source = await response.text()
+      const assets = compileAssets(source, url)
+      results.push(...assets)
+    } catch (e) {
+      // File might not contain assets - skip
+    }
+  }
+
+  return results
 }
 
 /**

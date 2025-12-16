@@ -12,3 +12,7 @@ export {
   type GameConfig,
   type GameLifecycleHandlers,
 } from './GameRunner'
+export { SceneManager, ShipScene } from './SceneManager'
+export { CameraSystem, type CameraConfig } from './CameraSystem'
+export { InputEventSystem, type InputConfig } from './InputEventSystem'
+export { PositionSyncSystem, type SyncedEntity } from './PositionSyncSystem'

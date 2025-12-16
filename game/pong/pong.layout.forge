@@ -1,0 +1,29 @@
+# Pong Arena Layout
+# Places the arena, ball, and paddles in 3D space
+
+layout pong-arena
+  coordinate: world  # Use world coordinates (meters) instead of voxels
+
+  # Arena is centered at origin
+  assets:
+    arena at (0, 0, 0):
+      asset: arena
+      rotation: 0
+
+    # Ball starts at center
+    ball at (0, 0.25, 0):
+      asset: ball
+      rotation: 0
+
+    # Left paddle (player) - blue
+    paddle_left at (-9, 0.25, 0):
+      asset: paddle
+      rotation: 0
+      color: "blue"
+
+    # Right paddle (AI) - red
+    paddle_right at (9, 0.25, 0):
+      asset: paddle
+      rotation: 0
+      color: "red"
+

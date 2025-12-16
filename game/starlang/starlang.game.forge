@@ -1,10 +1,10 @@
-# Game Definition - Galley Escape
+# Game Definition - StarLang
 # Entry point that defines what ship/scenario to load and how to start
 
-game galley_escape
+game starlang
   # What to load
   ship: "galley"
-  layout: "forge/layouts/galley.layout.forge"
+  layout: "starlang/starlang.layout.forge"
   scenario: "galley_escape"
 
   # Player setup

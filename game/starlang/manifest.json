@@ -1,0 +1,12 @@
+[
+  "configs/atmosphere.config.forge",
+  "configs/game-rules.config.forge",
+  "configs/world.config.forge",
+  "starlang.behavior.forge",
+  "starlang.conditions.forge",
+  "starlang.game.forge",
+  "starlang.interactions.forge",
+  "starlang.layout.forge",
+  "starlang.rules.forge",
+  "starlang.scenario.forge"
+]

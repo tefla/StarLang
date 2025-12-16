@@ -91,6 +91,9 @@ const builtins: Record<string, BuiltinFn> = {
   cos: (x) => Math.cos(asNumber(x)),
   tan: (x) => Math.tan(asNumber(x)),
 
+  // Random
+  random: () => Math.random(),
+
   // Clamping and range
   min: (...args) => Math.min(...args.map(asNumber)),
   max: (...args) => Math.max(...args.map(asNumber)),

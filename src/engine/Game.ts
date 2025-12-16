@@ -1,9 +1,12 @@
 // Main Game Class - Orchestrates all game systems
 
 import * as THREE from 'three'
-import { ShipScene } from './ShipScene'
+import { SceneManager } from './SceneManager'
 import { PlayerSystem } from './PlayerSystem'
 import { InteractionSystem } from './Interaction'
+import { CameraSystem } from './CameraSystem'
+import { InputEventSystem } from './InputEventSystem'
+import { PositionSyncSystem } from './PositionSyncSystem'
 import { Runtime } from '../runtime/Runtime'
 import { RuntimeForgeBridge } from '../runtime/RuntimeForgeBridge'
 import type { ShipLayout } from '../types/layout'
@@ -12,17 +15,34 @@ import { VOXEL_SIZE } from '../voxel/VoxelTypes'
 import { Config } from '../forge/ConfigRegistry'
 import { compileLayout } from '../forge'
 import { GameRunner, type GameConfig } from './GameRunner'
+import { loadAnimatedAssetsFromGameRoot } from '../voxel/AnimatedAssetLoader'
+import { Forge2GameMode } from './Forge2GameMode'
+
+// Asset files for different games
+// TODO: Move to game config or discover automatically
+const GAME_ASSETS: Record<string, string[]> = {
+  pong: ['arena.asset.forge', 'ball.asset.forge', 'paddle.asset.forge'],
+}
+
+export interface GameOptions {
+  gameRoot?: string // Default: from URL ?game= param or 'galley'
+}
 
 export class Game {
   private container: HTMLElement
   private renderer: THREE.WebGLRenderer
-  private scene: ShipScene
-  private player: PlayerSystem
-  private interaction: InteractionSystem
+  private scene: SceneManager
+  private player: PlayerSystem | null = null
+  private cameraSystem: CameraSystem | null = null
+  private inputEventSystem: InputEventSystem | null = null
+  private positionSyncSystem: PositionSyncSystem | null = null
+  private interaction: InteractionSystem | null = null
   private runtime: Runtime
   private bridge: RuntimeForgeBridge
   private gameRunner: GameRunner
   private gameConfig: GameConfig | null = null
+  private gameRoot: string
+  private forge2Mode: Forge2GameMode | null = null
 
   private clock = new THREE.Clock()
   private running = false
@@ -35,8 +55,12 @@ export class Game {
   // Victory tracking
   private hasReachedCorridor = false
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options: GameOptions = {}) {
     this.container = container
+
+    // Determine game root from options, URL param, or default
+    this.gameRoot = options.gameRoot || this.getGameRootFromURL() || 'galley'
+    console.log(`[Game] Loading game from: /game/${this.gameRoot}`)
 
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({
@@ -60,42 +84,59 @@ export class Game {
     this.gameRunner = new GameRunner(this.bridge.vm)
 
     // Create scene
-    this.scene = new ShipScene(this.runtime)
+    this.scene = new SceneManager(this.runtime)
 
-    // Create player with config from Forge
-    this.player = new PlayerSystem({
-      moveSpeed: Config.player.movement.walkSpeed,
-      lookSensitivity: Config.player.movement.lookSensitivity,
-      fov: Config.player.camera.fov,
-      near: Config.player.camera.near,
-      far: Config.player.camera.far,
-      maxPitch: Config.player.camera.maxPitch,
-      height: Config.player.collision.height,
-      radius: Config.player.collision.radius,
-      keys: {
-        forward: ['KeyW'],
-        backward: ['KeyS'],
-        left: ['KeyA'],
-        right: ['KeyD'],
-        jump: ['Space'],
-      },
-    })
+    // Player and interaction systems are created later based on controller type
+  }
 
-    // Create interaction system
-    this.interaction = new InteractionSystem(this.player, this.scene, this.runtime)
+  /**
+   * Get game root from URL query parameter (?game=pong)
+   */
+  private getGameRootFromURL(): string | null {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('game')
   }
 
   async init() {
     console.log('=== GAME INIT START ===')
 
+    // Check for Forge 2.0 game first (.f2 files)
+    const isForge2 = await this.isForge2Game()
+    if (isForge2) {
+      console.log(`[Game] Detected Forge 2.0 game: ${this.gameRoot}`)
+      const aspect = this.container.clientWidth / this.container.clientHeight
+      await this.initForge2Mode(aspect)
+
+      // Create UI overlays
+      this.createWarningOverlay()
+      this.createGameOverOverlay()
+      this.createVictoryOverlay()
+
+      console.log('Game initialized successfully (Forge 2.0 mode)')
+      return
+    }
+
     // Load Forge scripting files first (configs, rules, scenarios, behaviors, game definitions)
     await this.bridge.loadForgeFiles()
 
-    // Load game definition and start the game
-    await this.gameRunner.loadGameFile('/game/forge/galley.game.forge')
+    // Load all forge files from game directory
+    await this.loadGameForgeFiles()
+
+    // Find and load game definition from game root
+    const gameFiles = await this.findGameFiles()
+    if (gameFiles.gameFile) {
+      await this.gameRunner.loadGameFile(gameFiles.gameFile)
+    }
 
     // Start the game and get configuration
-    this.gameConfig = this.gameRunner.startGame('galley_escape')
+    // Try to find game by name matching gameRoot, or use first available
+    const gameNames = this.gameRunner.getGameNames()
+    const gameName = gameNames.find(n => n.includes(this.gameRoot)) || gameNames[0]
+
+    if (gameName) {
+      this.gameConfig = this.gameRunner.startGame(gameName)
+    }
+
     if (!this.gameConfig) {
       console.warn('Game definition not found, using defaults')
       // Fallback to hardcoded config
@@ -114,14 +155,269 @@ export class Game {
     }
 
     console.log('Game config loaded:', this.gameConfig.name)
+    console.log('Controller type:', this.gameConfig.player.controller)
+
+    // Set up camera and input based on controller type
+    const isFixedCamera = this.gameConfig.player.controller === 'fixed_camera'
+    const aspect = this.container.clientWidth / this.container.clientHeight
+
+    if (isFixedCamera) {
+      // Fixed camera mode (e.g., Pong)
+      await this.initFixedCameraMode(aspect)
+    } else {
+      // First person mode (e.g., Galley)
+      await this.initFirstPersonMode()
+    }
+
+    // Set up lifecycle handlers
+    this.gameRunner.setHandlers({
+      onVictory: () => this.showVictory(),
+      onGameover: () => this.showGameOver(),
+    })
+
+    // Also listen for direct VM victory event (from conditions)
+    this.bridge.vm.on('game:victory', () => {
+      this.showVictory()
+    })
+
+    // Subscribe to atmosphere events (only for first person games)
+    if (!isFixedCamera) {
+      this.setupAtmosphereEvents()
+    }
+
+    // Create warning overlay UI
+    this.createWarningOverlay()
+    this.createGameOverOverlay()
+    this.createVictoryOverlay()
+
+    console.log('Game initialized successfully')
+  }
+
+  /**
+   * Check if this is a Forge 2.0 game (has a .f2 file)
+   */
+  private async isForge2Game(): Promise<boolean> {
+    const f2Path = `/game/${this.gameRoot}/${this.gameRoot}.f2`
+    console.log(`[Game] Checking for Forge 2.0 game: ${f2Path}`)
+    try {
+      // Use GET instead of HEAD for better compatibility
+      const response = await fetch(f2Path)
+      console.log(`[Game] Forge 2.0 check response: ${response.status}`)
+      return response.ok
+    } catch (e) {
+      console.log(`[Game] Forge 2.0 check failed:`, e)
+      return false
+    }
+  }
+
+  /**
+   * Initialize Forge 2.0 game mode
+   */
+  private async initForge2Mode(aspect: number): Promise<void> {
+    console.log('[Game] Initializing Forge 2.0 mode')
+
+    // Create Forge 2.0 game mode with the scene
+    this.forge2Mode = new Forge2GameMode(this.scene.scene)
+
+    // Set up input listeners
+    this.forge2Mode.setupInputListeners(this.container)
+
+    // Create camera (orthographic, top-down for Pong-style games)
+    this.cameraSystem = new CameraSystem({
+      type: 'orthographic',
+      position: { x: 0, y: 15, z: 0 },
+      lookAt: { x: 0, y: 0, z: 0 },
+      viewSize: 14,
+    }, aspect)
+
+    // Add basic lighting
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.5)
+    this.scene.scene.add(ambientLight)
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
+    directionalLight.position.set(5, 10, 5)
+    directionalLight.castShadow = true
+    this.scene.scene.add(directionalLight)
+
+    // Load the game
+    const gamePath = `/game/${this.gameRoot}/${this.gameRoot}.f2`
+    await this.forge2Mode.loadGame(gamePath)
+
+    // Set up event handlers for game lifecycle
+    this.forge2Mode.on('game:victory', (data) => {
+      console.log('[Game] Victory!', data)
+      this.showVictory()
+    })
+
+    this.forge2Mode.on('game:defeat', (data) => {
+      console.log('[Game] Defeat!', data)
+      this.showGameOver()
+    })
+  }
+
+  /**
+   * Find game files in the game root directory
+   */
+  private async findGameFiles(): Promise<{ gameFile: string | null }> {
+    // Try to find *.game.forge in game root
+    const possiblePaths = [
+      `/game/${this.gameRoot}/${this.gameRoot}.game.forge`,
+      `/game/forge/${this.gameRoot}.game.forge`,
+    ]
+
+    for (const path of possiblePaths) {
+      try {
+        const response = await fetch(path, { method: 'HEAD' })
+        if (response.ok) {
+          return { gameFile: path }
+        }
+      } catch {
+        // Continue to next path
+      }
+    }
+
+    return { gameFile: null }
+  }
+
+  /**
+   * Load all forge files from the game directory
+   */
+  private async loadGameForgeFiles(): Promise<void> {
+    // For now, try to load common forge files from the game directory
+    const forgeFiles = [
+      `/game/${this.gameRoot}/${this.gameRoot}.scenario.forge`,
+      `/game/${this.gameRoot}/${this.gameRoot}.rules.forge`,
+      `/game/${this.gameRoot}/${this.gameRoot}.conditions.forge`,
+    ]
+
+    for (const path of forgeFiles) {
+      try {
+        const response = await fetch(path)
+        if (response.ok) {
+          const source = await response.text()
+          this.bridge.vm.loadSource(source)
+          console.log(`[Game] Loaded ${path}`)
+        }
+      } catch {
+        // File doesn't exist, skip
+      }
+    }
+  }
+
+  /**
+   * Initialize fixed camera mode (orthographic, no player movement)
+   */
+  private async initFixedCameraMode(aspect: number): Promise<void> {
+    console.log('[Game] Initializing fixed camera mode')
+
+    // Create camera from config (with defaults)
+    const gameCamera = this.gameConfig!.camera
+    const cameraConfig = {
+      type: gameCamera?.type || 'orthographic' as const,
+      position: gameCamera?.position || { x: 0, y: 15, z: 0 },
+      lookAt: gameCamera?.lookAt || { x: 0, y: 0, z: 0 },
+      fov: gameCamera?.fov,
+      viewSize: gameCamera?.viewSize || 14,
+    }
+
+    this.cameraSystem = new CameraSystem(cameraConfig, aspect)
+
+    // Set up input event system for fixed camera games
+    this.inputEventSystem = new InputEventSystem(this.bridge.vm)
+
+    // Set scene reference for VM callbacks
+    this.bridge.setScene(this.scene)
+
+    // Load Forge entity definitions (assets)
+    await this.scene.loadForgeEntities()
+
+    // Load game-specific assets if defined
+    const gameAssets = GAME_ASSETS[this.gameRoot]
+    if (gameAssets) {
+      await loadAnimatedAssetsFromGameRoot(`/game/${this.gameRoot}`, gameAssets)
+    }
+
+    // Load game-specific scripts (rules, scenario, conditions)
+    await this.bridge.loadGameScripts(`/game/${this.gameRoot}`)
+
+    // Load layout if specified
+    if (this.gameConfig!.layout) {
+      const layoutPath = `/game/${this.gameConfig!.layout}`
+      try {
+        const layoutResponse = await fetch(layoutPath)
+        if (layoutResponse.ok) {
+          if (layoutPath.endsWith('.forge')) {
+            const layoutSource = await layoutResponse.text()
+            const compiledLayout = compileLayout(layoutSource, layoutPath)
+            if (compiledLayout) {
+              this.runtime.setLayout(compiledLayout)
+              await this.scene.buildFromLayout(compiledLayout, this.gameRoot)
+            }
+          } else {
+            const layout = await layoutResponse.json() as ShipLayout
+            this.runtime.setLayout(layout)
+            await this.scene.buildFromLayout(layout, this.gameRoot)
+          }
+        }
+      } catch (e) {
+        console.warn(`[Game] Failed to load layout: ${layoutPath}`)
+      }
+    }
+
+    // Set up position sync if configured
+    if (this.gameConfig!.sync) {
+      this.positionSyncSystem = new PositionSyncSystem(this.bridge.vm)
+
+      // Register synced entities
+      for (const [entityName, statePath] of Object.entries(this.gameConfig!.sync.entries)) {
+        const instance = this.scene.getAssetInstance(entityName)
+        if (instance) {
+          this.positionSyncSystem.register(entityName, instance.group, statePath)
+          console.log(`[Game] Registered sync: ${entityName} -> ${statePath}`)
+        } else {
+          console.warn(`[Game] Could not find entity for sync: ${entityName}`)
+        }
+      }
+    }
+
+    // Start scenario if specified
+    if (this.gameConfig!.scenario) {
+      this.bridge.startScenario(this.gameConfig!.scenario)
+    }
+  }
+
+  /**
+   * Initialize first person mode (perspective camera, player movement)
+   */
+  private async initFirstPersonMode(): Promise<void> {
+    console.log('[Game] Initializing first person mode')
+
+    // Create player with config from Forge
+    this.player = new PlayerSystem({
+      moveSpeed: Config.player.movement.walkSpeed,
+      lookSensitivity: Config.player.movement.lookSensitivity,
+      fov: Config.player.camera.fov,
+      near: Config.player.camera.near,
+      far: Config.player.camera.far,
+      maxPitch: Config.player.camera.maxPitch,
+      height: Config.player.collision.height,
+      radius: Config.player.collision.radius,
+      keys: {
+        forward: ['KeyW'],
+        backward: ['KeyS'],
+        left: ['KeyA'],
+        right: ['KeyD'],
+      },
+    })
+
+    // Create interaction system
+    this.interaction = new InteractionSystem(this.player, this.scene, this.runtime)
 
     // Load layout data from game/ directory
-    // Support both .forge (compiled at runtime) and .json (pre-compiled)
     let layout: ShipLayout
-    const layoutPath = `/game/${this.gameConfig.layout}`
+    const layoutPath = `/game/${this.gameConfig!.layout}`
 
     if (layoutPath.endsWith('.forge')) {
-      // Load and compile Forge layout
       const layoutResponse = await fetch(layoutPath)
       if (!layoutResponse.ok) {
         throw new Error(`Failed to load layout: ${layoutPath}`)
@@ -133,7 +429,6 @@ export class Game {
       }
       layout = compiledLayout
     } else {
-      // Load pre-compiled JSON layout
       const layoutResponse = await fetch(layoutPath)
       if (!layoutResponse.ok) {
         throw new Error(`Failed to load layout: ${layoutPath}`)
@@ -144,7 +439,7 @@ export class Game {
     this.runtime.setLayout(layout)
 
     // Load ship definition from game/ directory
-    const shipPath = `/game/ships/${this.gameConfig.ship}/${this.gameConfig.ship}.sl`
+    const shipPath = `/game/ships/${this.gameConfig!.ship}/${this.gameConfig!.ship}.sl`
     const shipResponse = await fetch(shipPath)
     if (!shipResponse.ok) {
       throw new Error(`Failed to load ship definition: ${shipPath}`)
@@ -162,11 +457,14 @@ export class Game {
     // Load Forge entity definitions
     await this.scene.loadForgeEntities()
 
+    // Load game-specific scripts (rules, scenario, conditions)
+    await this.bridge.loadGameScripts(`/game/${this.gameRoot}`)
+
     // Set scene reference for VM callbacks (animations, state changes)
     this.bridge.setScene(this.scene)
 
     // Build voxel world from layout (tries pre-built mesh first)
-    await this.scene.buildFromLayout(layout, this.gameConfig.ship)
+    await this.scene.buildFromLayout(layout, this.gameConfig!.ship)
 
     // Pass voxel world to player for collision
     if (this.scene.voxelWorld) {
@@ -180,50 +478,28 @@ export class Game {
     }
 
     // Load ship files for editing
-    this.runtime.loadFile('galley.sl', shipSource)
+    this.runtime.loadFile(`${this.gameConfig!.ship}.sl`, shipSource)
 
     // Set player starting position from game config
-    const spawn = this.gameConfig.player.spawnPosition
+    const spawn = this.gameConfig!.player.spawnPosition
     this.player.setPosition(spawn.x, spawn.y, spawn.z)
 
     // Debug: check spawn collision
     this.player.debugCollision('SPAWN')
 
     // Set initial O2 levels (start slightly low to create urgency)
-    // Note: This is also set by the scenario, but kept for fallback
     this.runtime.setProperty('galley.o2_level', Config.gameRules.initialO2Level, 'SYSTEM')
 
     // Set initial player room from game config
-    this.runtime.setPlayerRoom(this.gameConfig.player.spawnRoom)
+    this.runtime.setPlayerRoom(this.gameConfig!.player.spawnRoom)
 
     // Start the scenario from game config
-    if (this.gameConfig.scenario) {
-      this.bridge.startScenario(this.gameConfig.scenario)
+    if (this.gameConfig!.scenario) {
+      this.bridge.startScenario(this.gameConfig!.scenario)
     }
-
-    // Set up lifecycle handlers
-    this.gameRunner.setHandlers({
-      onVictory: () => this.showVictory(),
-      onGameover: () => this.showGameOver(),
-    })
-
-    // Also listen for direct VM victory event (from conditions)
-    this.bridge.vm.on('game:victory', () => {
-      this.showVictory()
-    })
-
-    // Subscribe to atmosphere events
-    this.setupAtmosphereEvents()
 
     // Update collision objects
     this.updateCollision()
-
-    // Create warning overlay UI
-    this.createWarningOverlay()
-    this.createGameOverOverlay()
-    this.createVictoryOverlay()
-
-    console.log('Game initialized successfully')
   }
 
   private setupAtmosphereEvents() {
@@ -330,7 +606,7 @@ export class Game {
   private showGameOver() {
     if (!this.gameOverOverlay) return
     this.gameOverOverlay.style.display = 'flex'
-    this.player.unlock() // Release pointer lock
+    this.player?.unlock() // Release pointer lock (only in first person mode)
   }
 
   private restartGame() {
@@ -344,8 +620,8 @@ export class Game {
     if (this.gameOverOverlay) this.gameOverOverlay.style.display = 'none'
     if (this.victoryOverlay) this.victoryOverlay.style.display = 'none'
 
-    // Reset player position
-    this.player.setPosition(0, 0, 0)
+    // Reset player position (only in first person mode)
+    this.player?.setPosition(0, 0, 0)
   }
 
   private createVictoryOverlay() {
@@ -398,10 +674,11 @@ export class Game {
     if (!this.victoryOverlay || this.hasReachedCorridor) return
     this.hasReachedCorridor = true
     this.victoryOverlay.style.display = 'flex'
-    this.player.unlock()
+    this.player?.unlock()
   }
 
   private updateCollision() {
+    if (!this.player) return // No collision in fixed camera mode
     const collisionObjects = this.scene.getCollisionObjects()
     this.player.setCollisionObjects(collisionObjects)
   }
@@ -422,29 +699,62 @@ export class Game {
 
     const deltaTime = this.clock.getDelta()
 
-    // Update player room based on position
-    this.updatePlayerRoom()
+    // Get active camera
+    const camera = this.getActiveCamera()
 
-    // Update audio listener position
-    const cameraDirection = new THREE.Vector3()
-    this.player.camera.getWorldDirection(cameraDirection)
-    audioSystem.updateListener(this.player.camera.position, cameraDirection)
+    // Forge 2.0 mode - simple game loop
+    if (this.forge2Mode) {
+      this.forge2Mode.tick(deltaTime)
+      this.scene.update(deltaTime)
+      this.renderer.render(this.scene.scene, camera)
+      return
+    }
 
-    // Update systems
-    this.player.update(deltaTime)
+    if (this.player) {
+      // First person mode
+      this.updatePlayerRoom()
+
+      // Update audio listener position
+      const cameraDirection = new THREE.Vector3()
+      this.player.camera.getWorldDirection(cameraDirection)
+      audioSystem.updateListener(this.player.camera.position, cameraDirection)
+
+      // Update systems
+      this.player.update(deltaTime)
+      this.interaction?.update()
+    }
+
+    // Update scene
     this.scene.update(deltaTime)
-    this.interaction.update()
+
+    // Update position sync (for fixed camera games)
+    this.positionSyncSystem?.update()
 
     // Use bridge.tick() instead of runtime.tick()
-    // Bridge handles ForgeVM execution (O2 depletion, victory conditions)
+    // Bridge handles ForgeVM execution (rules, victory conditions)
     // and syncs state between Runtime and ForgeVM
     this.bridge.tick(deltaTime)
 
     // Render
-    this.renderer.render(this.scene.scene, this.player.camera)
+    this.renderer.render(this.scene.scene, camera)
+  }
+
+  /**
+   * Get the active camera (player camera or fixed camera)
+   */
+  private getActiveCamera(): THREE.Camera {
+    if (this.player) {
+      return this.player.camera
+    }
+    if (this.cameraSystem) {
+      return this.cameraSystem.camera
+    }
+    throw new Error('No camera available')
   }
 
   private updatePlayerRoom() {
+    if (!this.player) return // Only for first person mode
+
     const structure = this.runtime.getStructure()
     if (!structure) return
 
@@ -482,16 +792,24 @@ export class Game {
     const height = this.container.clientHeight
 
     this.renderer.setSize(width, height)
-    this.player.resize(width, height)
+
+    if (this.player) {
+      this.player.resize(width, height)
+    }
+    if (this.cameraSystem) {
+      this.cameraSystem.resize(width, height)
+    }
   }
 
   dispose() {
     this.running = false
     this.gameRunner.stopGame()
     this.bridge.dispose()
+    this.forge2Mode?.dispose()
     this.scene.dispose()
-    this.player.dispose()
-    this.interaction.dispose()
+    this.player?.dispose()
+    this.interaction?.dispose()
+    this.inputEventSystem?.dispose()
     this.renderer.dispose()
     audioSystem.dispose()
     this.container.removeChild(this.renderer.domElement)

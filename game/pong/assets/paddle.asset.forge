@@ -1,0 +1,17 @@
+# Paddle Asset - Glowing neon paddle for Pong
+# Vertical bar with emissive glow
+
+asset paddle
+  name: "Paddle"
+  anchor: (4, 8, 50)  # Center of paddle
+
+  parts:
+    body:
+      # Main paddle body (8 wide, 16 tall, 100 deep in voxels)
+      # At VOXEL_SIZE=0.025, this is 0.2m x 0.4m x 2.5m
+      box (0, 0, 0) size (8, 16, 100) as METAL
+      at: (0, 0, 0)
+
+  states:
+    default:
+      body.emissive: #4488ff @ 0.8

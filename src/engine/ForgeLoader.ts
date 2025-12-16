@@ -151,6 +151,54 @@ export class ForgeLoader {
   }
 
   /**
+   * Load all .forge files from a directory using manifest.json.
+   * The manifest lists all .forge files in the directory (required for browser).
+   *
+   * @param dir Directory path (e.g., "/game/shared")
+   * @param filterByKind Optional: only load files matching these patterns
+   */
+  async loadDirectory(dir: string, filterByKind?: string[]): Promise<ForgeLoadResult> {
+    const manifestUrl = `${dir}/manifest.json`
+
+    try {
+      const response = await fetch(manifestUrl)
+      if (!response.ok) {
+        return {
+          assets: [],
+          layouts: [],
+          entities: [],
+          configs: [],
+          errors: [`No manifest found at ${manifestUrl}`]
+        }
+      }
+
+      const files: string[] = await response.json()
+
+      // Optionally filter files by extension pattern (e.g., ".config.forge")
+      let filesToLoad = files
+      if (filterByKind && filterByKind.length > 0) {
+        filesToLoad = files.filter(f => {
+          for (const kind of filterByKind) {
+            if (f.includes(`.${kind}.forge`)) return true
+          }
+          return false
+        })
+      }
+
+      const urls = filesToLoad.map(f => `${dir}/${f}`)
+      return this.loadFiles(urls)
+    } catch (e) {
+      return {
+        assets: [],
+        layouts: [],
+        entities: [],
+        configs: [],
+        errors: [`Failed to load directory ${dir}: ${e}`]
+      }
+    }
+  }
+
+  /**
    * Get a cached asset definition.
    */
   getAsset(id: string): AnimatedAssetDef | undefined {

@@ -67,7 +67,8 @@ const STRUCTURE_KEYWORDS = new Set([
   'player', 'ship', 'controller', 'collision', 'spawn_room', 'spawn_position',
   'target', 'range', 'prompt', 'on_interact', 'where', 'prompt_broken',
   'display-template', 'width', 'height', 'header', 'footer', 'rows', 'label', 'value', 'color',
-  'nominal', 'warning', 'error'
+  'nominal', 'warning', 'error',
+  'camera', 'sync', 'viewSize', 'lookAt', 'fov', 'lights', 'intensity'
 ])
 
 const GEOMETRY_KEYWORDS = new Set([

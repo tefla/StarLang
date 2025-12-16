@@ -1,0 +1,107 @@
+# Pong Game Rules
+# All game logic: physics, collision, AI, input handling
+
+# =============================================================================
+# Ball Physics
+# =============================================================================
+
+# Ball movement - runs every tick
+rule ball_movement
+  trigger: tick
+  when: $game_active == true and $game_paused == false
+  effect:
+    set ball_x: $ball_x + $ball_vx * $delta
+    set ball_z: $ball_z + $ball_vz * $delta
+
+# Ball bounce off top wall
+rule ball_wall_top_bounce
+  trigger: tick
+  when: $ball_z < -$arena_depth / 2 + 0.3 and $ball_vz < 0
+  effect:
+    set ball_vz: abs($ball_vz)
+    emit "sound:bounce"
+
+# Ball bounce off bottom wall
+rule ball_wall_bottom_bounce
+  trigger: tick
+  when: $ball_z > $arena_depth / 2 - 0.3 and $ball_vz > 0
+  effect:
+    set ball_vz: -abs($ball_vz)
+    emit "sound:bounce"
+
+# =============================================================================
+# Paddle Collision
+# =============================================================================
+
+# Ball hits left paddle
+# Collision zone: paddle half-height (1.25m) + ball radius (0.25m) = 1.5m
+rule ball_paddle_left_hit
+  trigger: tick
+  when: $ball_x < -8.5 and $ball_x > -9.5 and $ball_vx < 0 and abs($ball_z - $paddle_left_z) < 1.5
+  effect:
+    set ball_vx: abs($ball_vx) * 1.05
+    set ball_vx: clamp($ball_vx, -$ball_max_speed, $ball_max_speed)
+    set ball_vz: $ball_vz + ($ball_z - $paddle_left_z) * 2
+    set ball_vz: clamp($ball_vz, -$ball_max_speed, $ball_max_speed)
+    emit "sound:hit"
+
+# Ball hits right paddle
+rule ball_paddle_right_hit
+  trigger: tick
+  when: $ball_x > 8.5 and $ball_x < 9.5 and $ball_vx > 0 and abs($ball_z - $paddle_right_z) < 1.5
+  effect:
+    set ball_vx: -abs($ball_vx) * 1.05
+    set ball_vx: clamp($ball_vx, -$ball_max_speed, $ball_max_speed)
+    set ball_vz: $ball_vz + ($ball_z - $paddle_right_z) * 2
+    set ball_vz: clamp($ball_vz, -$ball_max_speed, $ball_max_speed)
+    emit "sound:hit"
+
+# =============================================================================
+# Player Paddle Control
+# =============================================================================
+
+# Left paddle move up (W key)
+rule paddle_left_up
+  trigger: tick
+  when: $input_KeyW == true and $game_active == true
+  effect:
+    set paddle_left_z: $paddle_left_z - $paddle_speed * $delta
+    set paddle_left_z: clamp($paddle_left_z, -$arena_depth / 2 + 1.5, $arena_depth / 2 - 1.5)
+
+# Left paddle move down (S key)
+rule paddle_left_down
+  trigger: tick
+  when: $input_KeyS == true and $game_active == true
+  effect:
+    set paddle_left_z: $paddle_left_z + $paddle_speed * $delta
+    set paddle_left_z: clamp($paddle_left_z, -$arena_depth / 2 + 1.5, $arena_depth / 2 - 1.5)
+
+# Alternative: Arrow keys
+rule paddle_left_up_arrow
+  trigger: tick
+  when: $input_ArrowUp == true and $game_active == true
+  effect:
+    set paddle_left_z: $paddle_left_z - $paddle_speed * $delta
+    set paddle_left_z: clamp($paddle_left_z, -$arena_depth / 2 + 1.5, $arena_depth / 2 - 1.5)
+
+rule paddle_left_down_arrow
+  trigger: tick
+  when: $input_ArrowDown == true and $game_active == true
+  effect:
+    set paddle_left_z: $paddle_left_z + $paddle_speed * $delta
+    set paddle_left_z: clamp($paddle_left_z, -$arena_depth / 2 + 1.5, $arena_depth / 2 - 1.5)
+
+# =============================================================================
+# AI Paddle Control
+# =============================================================================
+
+# AI tracks the ball with some lag
+rule ai_paddle_track
+  trigger: tick
+  when: $game_active == true
+  effect:
+    if $ball_vx > 0:
+      set paddle_right_z: lerp($paddle_right_z, $ball_z, 3 * $delta)
+    else:
+      set paddle_right_z: lerp($paddle_right_z, 0, 1 * $delta)
+    set paddle_right_z: clamp($paddle_right_z, -$arena_depth / 2 + 1.5, $arena_depth / 2 - 1.5)

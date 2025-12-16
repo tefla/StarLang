@@ -12,7 +12,7 @@ import { Runtime, type EventType } from './Runtime'
 import { ForgeVM } from '../forge/vm'
 import { forgeLoader } from '../engine/ForgeLoader'
 import { Config } from '../forge/ConfigRegistry'
-import type { ShipScene } from '../engine/ShipScene'
+import type { SceneManager } from '../engine/SceneManager'
 
 /**
  * State mapping configuration.
@@ -103,7 +103,7 @@ function getEventRoutes(): EventRoute[] {
 export class RuntimeForgeBridge {
   public readonly vm: ForgeVM
   private runtime: Runtime
-  private scene: ShipScene | null = null
+  private scene: SceneManager | null = null
   private _stateMappingsOverride?: StateMapping[]
   private _eventRoutesOverride?: EventRoute[]
   private forgeFilesLoaded = false
@@ -136,68 +136,87 @@ export class RuntimeForgeBridge {
   /**
    * Set the scene reference for animation/state callbacks.
    */
-  setScene(scene: ShipScene): void {
+  setScene(scene: SceneManager): void {
     this.scene = scene
   }
 
   /**
-   * Load all .forge files from the game directory.
+   * Load shared .forge files (configs, assets, entities).
+   * Uses ForgeLoader.loadDirectory() to discover files via manifest.json.
    */
   async loadForgeFiles(): Promise<void> {
     if (this.forgeFilesLoaded) return
 
-    // Config files - loaded via ForgeLoader to register with ConfigRegistry
-    const configFiles = [
-      '/game/forge/configs/game-rules.config.forge',
-      '/game/forge/configs/audio.config.forge',
-      '/game/forge/configs/lighting.config.forge',
-      '/game/forge/configs/particles.config.forge',
-      '/game/forge/configs/player.config.forge',
-      '/game/forge/configs/ui.config.forge',
-      '/game/forge/configs/voxel-colors.config.forge',
-      '/game/forge/configs/voxel-types.config.forge',
-      '/game/forge/configs/node-types.config.forge',
-      '/game/forge/configs/roles.config.forge',
-      '/game/forge/configs/screen-colors.config.forge',
-      '/game/forge/configs/entity-system.config.forge',
-      '/game/forge/configs/voxel-world.config.forge',
-      '/game/forge/configs/prefabs.config.forge',
-      '/game/forge/configs/interactions.config.forge',
-    ]
-
-    // Load configs via ForgeLoader (registers with ConfigRegistry)
-    const configResult = await forgeLoader.loadFiles(configFiles)
-    if (configResult.errors.length > 0) {
-      console.warn('[RuntimeForgeBridge] Config load errors:', configResult.errors)
+    // Load shared resources (configs, assets, entities)
+    // ForgeLoader auto-registers configs with ConfigRegistry
+    const result = await forgeLoader.loadDirectory('/game/shared')
+    if (result.errors.length > 0) {
+      console.warn('[RuntimeForgeBridge] Shared load errors:', result.errors)
     }
-    console.log(`[RuntimeForgeBridge] Loaded ${configResult.configs.length} configs`)
-
-    // Script files - loaded via ForgeVM for rules/scenarios/behaviors/conditions
-    const scriptFiles = [
-      '/game/forge/configs/atmosphere.config.forge',
-      '/game/forge/configs/world.config.forge',
-      '/game/forge/scripts/helpers.forge',
-      '/game/forge/scripts/atmosphere.rules.forge',
-      '/game/forge/scripts/galley_escape.scenario.forge',
-      '/game/forge/scripts/galley_escape.condition.forge',
-      '/game/forge/scripts/door.behavior.forge',
-    ]
-
-    for (const path of scriptFiles) {
-      try {
-        const response = await fetch(path)
-        if (response.ok) {
-          const source = await response.text()
-          this.vm.loadSource(source)
-          console.log(`[RuntimeForgeBridge] Loaded script: ${path}`)
-        }
-      } catch (e) {
-        console.warn(`[RuntimeForgeBridge] Failed to load ${path}:`, e)
-      }
-    }
+    console.log(`[RuntimeForgeBridge] Loaded ${result.configs.length} configs, ${result.assets.length} assets`)
 
     this.forgeFilesLoaded = true
-    console.log('[RuntimeForgeBridge] Forge files loaded')
+  }
+
+  /**
+   * Load game-specific scripts (rules, scenarios, conditions, behaviors).
+   * Called after loadForgeFiles() to load game-specific content.
+   *
+   * @param gameRoot Path to game directory (e.g., "/game/starlang" or "/game/pong")
+   */
+  async loadGameScripts(gameRoot: string): Promise<void> {
+    // Load game-specific resources via ForgeLoader (configs, assets)
+    const result = await forgeLoader.loadDirectory(gameRoot)
+    if (result.errors.length > 0) {
+      console.warn('[RuntimeForgeBridge] Game load errors:', result.errors)
+    }
+    console.log(`[RuntimeForgeBridge] Loaded ${result.configs.length} game configs`)
+
+    // Load game scripts into VM for rule/scenario/condition execution
+    // The ForgeLoader handles configs, but scripts need to be loaded into VM
+    const manifestUrl = `${gameRoot}/manifest.json`
+    try {
+      const response = await fetch(manifestUrl)
+      if (response.ok) {
+        const files: string[] = await response.json()
+        // Load scripts (rules, scenarios, conditions, behaviors) into VM
+        const scriptFiles = files.filter(f =>
+          f.endsWith('.rules.forge') ||
+          f.endsWith('.scenario.forge') ||
+          f.endsWith('.conditions.forge') ||
+          f.endsWith('.behavior.forge') ||
+          f.endsWith('.interactions.forge') ||
+          f.includes('scripts/')
+        )
+
+        for (const file of scriptFiles) {
+          try {
+            const scriptResponse = await fetch(`${gameRoot}/${file}`)
+            if (scriptResponse.ok) {
+              const source = await scriptResponse.text()
+              this.vm.loadSource(source)
+              console.log(`[RuntimeForgeBridge] Loaded script: ${file}`)
+            }
+          } catch (e) {
+            console.warn(`[RuntimeForgeBridge] Failed to load ${file}:`, e)
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[RuntimeForgeBridge] Failed to load game scripts from ${gameRoot}:`, e)
+    }
+
+    // Also load shared helpers into VM
+    try {
+      const helperResponse = await fetch('/game/shared/scripts/helpers.forge')
+      if (helperResponse.ok) {
+        const source = await helperResponse.text()
+        this.vm.loadSource(source)
+        console.log('[RuntimeForgeBridge] Loaded shared helpers')
+      }
+    } catch (e) {
+      // Helpers are optional
+    }
   }
 
   /**

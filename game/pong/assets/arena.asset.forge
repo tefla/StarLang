@@ -1,0 +1,9 @@
+# Arena Asset - Playing field for Pong
+# Empty placeholder - the arena boundaries are defined by game rules
+# Visual arena (floor, walls) should be added via scene setup, not voxels
+
+asset arena
+  name: "Arena"
+  anchor: (0, 0, 0)
+
+  # No visible parts - arena is defined by game logic only

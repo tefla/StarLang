@@ -2314,6 +2314,12 @@ export class ForgeParser {
           case 'player':
             game.player = this.parsePlayerConfig()
             break
+          case 'camera':
+            game.camera = this.parseCameraConfig()
+            break
+          case 'sync':
+            game.sync = this.parseSyncConfig()
+            break
           case 'on':
             // Handle on_start, on_victory, on_gameover as "on start:", "on victory:", etc.
             this.advance()
@@ -2457,6 +2463,119 @@ export class ForgeParser {
     }
 
     throw this.error(`Expected collision type, got ${typeToken.type}`)
+  }
+
+  /**
+   * Parse camera configuration block:
+   *   camera:
+   *     type: orthographic
+   *     position: (0, 15, 0)
+   *     lookAt: (0, 0, 0)
+   *     viewSize: 14
+   */
+  private parseCameraConfig(): AST.CameraConfigDef {
+    const loc = this.currentLoc()
+    this.expectKeyword('camera')
+    this.expect('COLON')
+    this.expectNewline()
+    this.expectIndent()
+
+    const config: AST.CameraConfigDef = {
+      kind: 'cameraConfig',
+      type: 'perspective', // default
+      loc
+    }
+
+    while (!this.checkDedent() && !this.isAtEnd()) {
+      this.skipNewlines()
+      if (this.checkDedent()) break
+
+      const token = this.current()
+
+      if (token.type === 'KEYWORD' || token.type === 'IDENTIFIER') {
+        const propName = token.value
+        this.advance()
+        this.expect('COLON')
+
+        switch (propName) {
+          case 'type':
+            const typeValue = this.expectIdentifier()
+            if (typeValue !== 'perspective' && typeValue !== 'orthographic') {
+              throw this.error(`Invalid camera type '${typeValue}', expected perspective or orthographic`)
+            }
+            config.type = typeValue
+            break
+          case 'position':
+            config.position = this.parseVec3()
+            break
+          case 'lookAt':
+            config.lookAt = this.parseVec3()
+            break
+          case 'fov':
+            const fovExpr = this.parseExpression()
+            if (fovExpr.kind === 'number') {
+              config.fov = fovExpr.value
+            }
+            break
+          case 'viewSize':
+            const viewSizeExpr = this.parseExpression()
+            if (viewSizeExpr.kind === 'number') {
+              config.viewSize = viewSizeExpr.value
+            }
+            break
+          default:
+            // Skip unknown properties
+            this.parseExpression()
+        }
+        this.expectNewlineOrDedent()
+      } else {
+        throw this.error(`Unexpected token in camera config: ${token.value}`)
+      }
+    }
+
+    this.consumeDedent()
+    return config
+  }
+
+  /**
+   * Parse sync configuration block:
+   *   sync:
+   *     ball: "ball.position"
+   *     paddle_left: "paddle_left.position"
+   */
+  private parseSyncConfig(): AST.SyncConfigDef {
+    const loc = this.currentLoc()
+    this.expectKeyword('sync')
+    this.expect('COLON')
+    this.expectNewline()
+    this.expectIndent()
+
+    const config: AST.SyncConfigDef = {
+      kind: 'syncConfig',
+      entries: {},
+      loc
+    }
+
+    while (!this.checkDedent() && !this.isAtEnd()) {
+      this.skipNewlines()
+      if (this.checkDedent()) break
+
+      const token = this.current()
+
+      if (token.type === 'IDENTIFIER') {
+        const entityName = token.value
+        this.advance()
+        this.expect('COLON')
+        const statePath = this.expect('STRING').value
+        config.entries[entityName] = statePath
+        this.expectNewlineOrDedent()
+      } else {
+        throw this.error(`Unexpected token in sync config: ${token.value}`)
+      }
+    }
+
+    this.consumeDedent()
+    return config
   }
 
   // ============================================================================

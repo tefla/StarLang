@@ -1,0 +1,36 @@
+# Pong Game Definition
+# Entry point for the Pong game - defines configuration and what to load
+
+game pong
+  # What to load
+  layout: "pong/pong.layout.forge"
+  scenario: "pong_game"
+
+  # Player setup - fixed camera, no player movement
+  player:
+    controller: fixed_camera
+    collision: none
+
+  # Orthographic camera for top-down view
+  camera:
+    type: orthographic
+    position: (0, 15, 0)
+    lookAt: (0, 0, 0)
+    viewSize: 14
+
+  # Position-synced entities
+  # These entities have their positions synced from VM state to THREE.js
+  sync:
+    ball: "ball.position"
+    paddle_left: "paddle_left.position"
+    paddle_right: "paddle_right.position"
+
+  # Lifecycle hooks
+  on start:
+    emit "game:ready"
+
+  on victory:
+    emit "ui:show_victory"
+
+  on gameover:
+    emit "ui:show_gameover"

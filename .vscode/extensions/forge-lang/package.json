@@ -13,7 +13,7 @@
       {
         "id": "forge",
         "aliases": ["Forge", "forge"],
-        "extensions": [".forge"],
+        "extensions": [".forge", ".f2"],
         "configuration": "./language-configuration.json"
       }
     ],

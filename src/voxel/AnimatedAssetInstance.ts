@@ -104,6 +104,11 @@ export class AnimatedAssetInstance {
 
     // Apply initial state bindings
     this.applyAllBindings()
+
+    // Apply default state if it exists (for emissive, colors, etc.)
+    if (definition.states?.['default']) {
+      this.animationController.setState('default')
+    }
   }
 
   /**

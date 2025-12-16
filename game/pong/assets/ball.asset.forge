@@ -1,0 +1,16 @@
+# Ball Asset - Glowing neon sphere for Pong
+# Simple voxel ball with emissive glow
+
+asset ball
+  name: "Ball"
+  anchor: (10, 10, 10)  # Center of 20x20x20 ball
+
+  parts:
+    core:
+      # Bright glowing core (20 voxels = 0.5m at 0.025m/voxel)
+      box (0, 0, 0) size (20, 20, 20) as LED_GREEN
+      at: (0, 0, 0)
+
+  states:
+    default:
+      core.emissive: #00ff88 @ 1.0

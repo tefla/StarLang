@@ -32,6 +32,24 @@ export interface PlayerConfig {
 }
 
 /**
+ * Camera configuration extracted from game definition.
+ */
+export interface CameraConfig {
+  type: 'perspective' | 'orthographic'
+  position?: { x: number; y: number; z: number }
+  lookAt?: { x: number; y: number; z: number }
+  fov?: number
+  viewSize?: number
+}
+
+/**
+ * Entity position sync configuration.
+ */
+export interface SyncConfig {
+  entries: Record<string, string> // entity name -> state path
+}
+
+/**
  * Game configuration extracted from game definition.
  */
 export interface GameConfig {
@@ -40,6 +58,8 @@ export interface GameConfig {
   layout: string
   scenario: string
   player: PlayerConfig
+  camera?: CameraConfig
+  sync?: SyncConfig
 }
 
 /**
@@ -146,12 +166,34 @@ export class GameRunner {
       }
     }
 
+    // Build camera config if present
+    let cameraConfig: CameraConfig | undefined
+    if (game.camera) {
+      cameraConfig = {
+        type: game.camera.type,
+        position: game.camera.position,
+        lookAt: game.camera.lookAt,
+        fov: game.camera.fov,
+        viewSize: game.camera.viewSize,
+      }
+    }
+
+    // Build sync config if present
+    let syncConfig: SyncConfig | undefined
+    if (game.sync) {
+      syncConfig = {
+        entries: game.sync,
+      }
+    }
+
     return {
       name: game.name,
       ship: game.ship || 'unknown',
       layout: game.layout || '',
       scenario: game.scenario || '',
       player: playerConfig,
+      camera: cameraConfig,
+      sync: syncConfig,
     }
   }
 

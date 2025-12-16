@@ -170,3 +170,23 @@ export async function loadAnimatedAssetsAsync(): Promise<void> {
   }
   console.log(`AnimatedAssetLoader: Loaded ${animatedAssets.length} animated assets`)
 }
+
+/**
+ * Load animated assets from a specific game root directory.
+ * @param gameRoot The game root path (e.g., '/game/pong')
+ * @param assetFiles List of asset filenames relative to gameRoot/assets/
+ */
+export async function loadAnimatedAssetsFromGameRoot(
+  gameRoot: string,
+  assetFiles: string[]
+): Promise<void> {
+  const { loadForgeAssetsFromGameRoot } = await import('../forge/ForgeAssetLoader')
+  const allAssets = await loadForgeAssetsFromGameRoot(gameRoot, assetFiles)
+
+  // Register all assets (both animated and static)
+  for (const asset of allAssets) {
+    animatedAssetLoader.register(asset)
+  }
+
+  console.log(`AnimatedAssetLoader: Loaded ${allAssets.length} assets from ${gameRoot}`)
+}

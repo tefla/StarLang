@@ -1,4 +1,5 @@
-// Ship Scene - Main 3D scene management
+// SceneManager - Main 3D scene management
+// (Renamed from ShipScene to be game-agnostic)
 
 import * as THREE from 'three'
 import { Runtime } from '../runtime/Runtime'
@@ -18,7 +19,7 @@ import { ForgeLoader } from './ForgeLoader'
 import { enableClientHotReload, type ForgeHotReloadEvent } from '../forge'
 import { Config } from '../forge/ConfigRegistry'
 
-export class ShipScene {
+export class SceneManager {
   public scene: THREE.Scene
   public switchDefs = new Map<string, SwitchDefinition>()  // Switch definitions for interaction
   public terminals = new Map<string, ScreenEntity>()  // Terminal entities
@@ -29,6 +30,9 @@ export class ShipScene {
 
   // Animated assets (doors, switches, warning lights, fans, etc.)
   public animatedAssets = new Map<string, AnimatedAssetInstance>()
+
+  // Layout asset instances (placed via layout.forge files, keyed by placement name)
+  private layoutAssetInstances = new Map<string, AnimatedAssetInstance>()
 
   // Voxel rendering
   public voxelWorld: VoxelWorld | null = null
@@ -79,7 +83,7 @@ export class ShipScene {
       await loadAnimatedAssetsAsync()
 
       // Load terminal entity definition
-      const terminalSource = await fetch('/game/forge/entities/terminal.entity.forge')
+      const terminalSource = await fetch('/game/shared/entities/terminal.entity.forge')
         .then(r => r.ok ? r.text() : Promise.reject(r.statusText))
         .catch(() => null)
 
@@ -87,10 +91,10 @@ export class ShipScene {
         const result = this.forgeLoader.loadSource(terminalSource)
         for (const entity of result.entities) {
           this.entitySystem.registerDefinition(entity)
-          console.log(`[ShipScene] Loaded Forge entity: ${entity.id}`)
+          console.log(`[SceneManager] Loaded Forge entity: ${entity.id}`)
         }
         if (result.errors.length > 0) {
-          console.warn('[ShipScene] Forge entity errors:', result.errors)
+          console.warn('[SceneManager] Forge entity errors:', result.errors)
         }
       }
 
@@ -101,7 +105,7 @@ export class ShipScene {
 
       this.forgeEntitiesLoaded = true
     } catch (e) {
-      console.warn('[ShipScene] Failed to load Forge entities:', e)
+      console.warn('[SceneManager] Failed to load Forge entities:', e)
     }
   }
 
@@ -176,6 +180,42 @@ export class ShipScene {
 
     // Add ceiling lights for each room
     this.addCeilingLights(layout)
+
+    // Create asset instances from layout
+    await this.createLayoutAssetInstances(layout)
+  }
+
+  /**
+   * Create asset instances from layout assetInstances.
+   * These are stored by their placement name for position sync.
+   */
+  private async createLayoutAssetInstances(layout: ShipLayout): Promise<void> {
+    if (!layout.assetInstances) return
+
+    for (const [name, instance] of Object.entries(layout.assetInstances)) {
+      const assetInstance = animatedAssetLoader.createInstance(
+        instance.asset,
+        instance.position,
+        instance.rotation || 0,
+        instance.params || {}
+      )
+
+      if (assetInstance) {
+        this.layoutAssetInstances.set(name, assetInstance)
+        this.scene.add(assetInstance.group)
+        console.log(`[SceneManager] Created layout asset '${name}' (${instance.asset}) at (${instance.position.x}, ${instance.position.y}, ${instance.position.z})`)
+      } else {
+        console.warn(`[SceneManager] Failed to create layout asset '${name}' (${instance.asset})`)
+      }
+    }
+  }
+
+  /**
+   * Get an asset instance by its layout placement name.
+   * Returns the AnimatedAssetInstance or undefined if not found.
+   */
+  getAssetInstance(name: string): AnimatedAssetInstance | undefined {
+    return this.layoutAssetInstances.get(name) || this.animatedAssets.get(name)
   }
 
   /**
@@ -255,9 +295,9 @@ export class ShipScene {
 
           this.animatedAssets.set(fanId, instance)
           this.scene.add(instance.group)
-          console.log(`[ShipScene] Created fan ${fanId} using AnimatedAssetInstance`)
+          console.log(`[SceneManager] Created fan ${fanId} using AnimatedAssetInstance`)
         } else {
-          console.warn(`[ShipScene] Failed to create AnimatedAssetInstance for ${info.assetId}`)
+          console.warn(`[SceneManager] Failed to create AnimatedAssetInstance for ${info.assetId}`)
         }
       }
     }
@@ -380,7 +420,7 @@ export class ShipScene {
         this.terminals.set(id, entity)
         this.scene.add(entity.group)
       } else {
-        console.warn(`[ShipScene] Terminal entity definition not loaded, skipping ${id}`)
+        console.warn(`[SceneManager] Terminal entity definition not loaded, skipping ${id}`)
       }
     }
 
@@ -590,3 +630,6 @@ export class ShipScene {
     }
   }
 }
+
+// Backwards compatibility alias
+export { SceneManager as ShipScene }

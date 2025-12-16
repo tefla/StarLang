@@ -155,6 +155,14 @@ export interface VMGame {
       params: Record<string, number>
     }
   }
+  camera?: {
+    type: 'perspective' | 'orthographic'
+    position?: { x: number; y: number; z: number }
+    lookAt?: { x: number; y: number; z: number }
+    fov?: number
+    viewSize?: number
+  }
+  sync?: Record<string, string> // entity name -> state path
   onStart?: AST.Statement[]
   onVictory?: AST.Statement[]
   onGameover?: AST.Statement[]
@@ -368,6 +376,38 @@ export class ForgeVM {
               params,
             }
           }
+        }
+
+        // Parse camera config if present
+        if (def.camera) {
+          game.camera = {
+            type: def.camera.type,
+          }
+          if (def.camera.position) {
+            game.camera.position = {
+              x: this.evaluateExpression(def.camera.position.x, ctx) as number,
+              y: this.evaluateExpression(def.camera.position.y, ctx) as number,
+              z: this.evaluateExpression(def.camera.position.z, ctx) as number,
+            }
+          }
+          if (def.camera.lookAt) {
+            game.camera.lookAt = {
+              x: this.evaluateExpression(def.camera.lookAt.x, ctx) as number,
+              y: this.evaluateExpression(def.camera.lookAt.y, ctx) as number,
+              z: this.evaluateExpression(def.camera.lookAt.z, ctx) as number,
+            }
+          }
+          if (def.camera.fov !== undefined) {
+            game.camera.fov = def.camera.fov
+          }
+          if (def.camera.viewSize !== undefined) {
+            game.camera.viewSize = def.camera.viewSize
+          }
+        }
+
+        // Parse sync config if present
+        if (def.sync) {
+          game.sync = { ...def.sync.entries }
         }
 
         // Evaluate custom properties

@@ -1,0 +1,10 @@
+[
+  "assets/arena.asset.forge",
+  "assets/ball.asset.forge",
+  "assets/paddle.asset.forge",
+  "pong.conditions.forge",
+  "pong.game.forge",
+  "pong.layout.forge",
+  "pong.rules.forge",
+  "pong.scenario.forge"
+]

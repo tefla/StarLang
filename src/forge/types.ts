@@ -809,6 +809,26 @@ export interface PlayerConfig extends ASTNode {
  *       start_scenario "galley_escape"
  *       play_ambient "ship_hum"
  */
+/**
+ * Camera configuration for a game.
+ */
+export interface CameraConfigDef extends ASTNode {
+  kind: 'cameraConfig'
+  type: 'perspective' | 'orthographic'
+  position?: Vec3
+  lookAt?: Vec3
+  fov?: number
+  viewSize?: number
+}
+
+/**
+ * Entity position sync configuration.
+ */
+export interface SyncConfigDef extends ASTNode {
+  kind: 'syncConfig'
+  entries: Record<string, string> // entity name -> state path
+}
+
 export interface GameDef extends ASTNode {
   kind: 'game'
   name: string
@@ -816,6 +836,8 @@ export interface GameDef extends ASTNode {
   layout?: string
   scenario?: string
   player?: PlayerConfig
+  camera?: CameraConfigDef
+  sync?: SyncConfigDef
   onStart?: Statement[]
   onVictory?: Statement[]
   onGameover?: Statement[]

@@ -1,0 +1,64 @@
+# Pong Game Conditions
+# Scoring and victory/defeat conditions
+
+# =============================================================================
+# Scoring Conditions
+# =============================================================================
+
+# Right player scores (ball passes left boundary)
+condition goal_right
+  type: checkpoint
+  trigger: $ball_x < -$arena_width / 2 - 0.5
+  effect:
+    set score_right: $score_right + 1
+    emit "sound:score"
+    emit "ui:score_update"
+    # Reset ball - serve towards left (loser receives)
+    set ball_x: 0
+    set ball_z: 0
+    set ball_vx: -5
+    set ball_vz: (random() - 0.5) * 6
+    # Reset paddles to center
+    set paddle_left_z: 0
+    set paddle_right_z: 0
+
+# Left player scores (ball passes right boundary)
+condition goal_left
+  type: checkpoint
+  trigger: $ball_x > $arena_width / 2 + 0.5
+  effect:
+    set score_left: $score_left + 1
+    emit "sound:score"
+    emit "ui:score_update"
+    # Reset ball - serve towards right (loser receives)
+    set ball_x: 0
+    set ball_z: 0
+    set ball_vx: 5
+    set ball_vz: (random() - 0.5) * 6
+    # Reset paddles to center
+    set paddle_left_z: 0
+    set paddle_right_z: 0
+
+# =============================================================================
+# Victory Conditions
+# =============================================================================
+
+# Player wins (left side)
+condition victory_left
+  type: victory
+  trigger: $score_left >= 5
+  message: "YOU WIN!"
+  effect:
+    set game_active: false
+    emit "sound:victory"
+    emit "ui:show_victory"
+
+# AI wins (right side)
+condition victory_right
+  type: defeat
+  trigger: $score_right >= 5
+  message: "AI WINS!"
+  effect:
+    set game_active: false
+    emit "sound:defeat"
+    emit "ui:show_gameover"

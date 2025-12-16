@@ -1,0 +1,254 @@
+# Pong - Forge 2.0
+# A clean implementation of Pong demonstrating the language
+
+# =============================================================================
+# Game Configuration
+# =============================================================================
+
+let config = {
+  arena_width: 20,
+  arena_depth: 12,
+  paddle_speed: 8,
+  paddle_height: 2.5,
+  ball_max_speed: 15,
+  win_score: 5
+}
+
+# =============================================================================
+# Game State
+# =============================================================================
+
+let ball = {
+  x: 0,
+  y: 0.25,
+  z: 0,
+  vx: 5,
+  vz: 3
+}
+
+let paddle_left = {
+  x: -9,
+  y: 0.25,
+  z: 0
+}
+
+let paddle_right = {
+  x: 9,
+  y: 0.25,
+  z: 0
+}
+
+let score = {
+  left: 0,
+  right: 0
+}
+
+let game = {
+  active: true,
+  paused: false
+}
+
+# =============================================================================
+# Visual Meshes (created in init)
+# =============================================================================
+
+let ball_mesh = null
+let paddle_left_mesh = null
+let paddle_right_mesh = null
+let floor_mesh = null
+let wall_top_mesh = null
+let wall_bottom_mesh = null
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+fn clamp_paddle(z):
+  let limit = config.arena_depth / 2 - 1.5
+  return math.clamp(z, -limit, limit)
+
+fn clamp_ball_speed(v):
+  return math.clamp(v, -config.ball_max_speed, config.ball_max_speed)
+
+fn reset_ball(direction):
+  set ball.x: 0
+  set ball.z: 0
+  set ball.vx: direction * 5
+  set ball.vz: (random.float(-1, 1)) * 3
+  set paddle_left.z: 0
+  set paddle_right.z: 0
+
+# =============================================================================
+# Ball Physics
+# =============================================================================
+
+on "tick" when game.active and not game.paused:
+  let dt = event.dt
+
+  # Move ball
+  set ball.x: ball.x + ball.vx * dt
+  set ball.z: ball.z + ball.vz * dt
+
+# Wall bounces
+on "tick" when ball.z < -config.arena_depth / 2 + 0.3 and ball.vz < 0:
+  set ball.vz: abs(ball.vz)
+  emit "sound:bounce"
+
+on "tick" when ball.z > config.arena_depth / 2 - 0.3 and ball.vz > 0:
+  set ball.vz: -abs(ball.vz)
+  emit "sound:bounce"
+
+# =============================================================================
+# Paddle Collision
+# =============================================================================
+
+# Left paddle hit
+on "tick" when ball.x < -8.5 and ball.x > -9.5 and ball.vx < 0:
+  if abs(ball.z - paddle_left.z) < 1.5:
+    set ball.vx: clamp_ball_speed(abs(ball.vx) * 1.05)
+    set ball.vz: clamp_ball_speed(ball.vz + (ball.z - paddle_left.z) * 2)
+    emit "sound:hit"
+
+# Right paddle hit
+on "tick" when ball.x > 8.5 and ball.x < 9.5 and ball.vx > 0:
+  if abs(ball.z - paddle_right.z) < 1.5:
+    set ball.vx: clamp_ball_speed(-abs(ball.vx) * 1.05)
+    set ball.vz: clamp_ball_speed(ball.vz + (ball.z - paddle_right.z) * 2)
+    emit "sound:hit"
+
+# =============================================================================
+# Player Input (Left Paddle)
+# =============================================================================
+
+on "tick" when game.active and (input.isKeyDown("W") or input.isKeyDown("ArrowUp")):
+  set paddle_left.z: clamp_paddle(paddle_left.z - config.paddle_speed * event.dt)
+
+on "tick" when game.active and (input.isKeyDown("S") or input.isKeyDown("ArrowDown")):
+  set paddle_left.z: clamp_paddle(paddle_left.z + config.paddle_speed * event.dt)
+
+# =============================================================================
+# AI Control (Right Paddle)
+# =============================================================================
+
+on "tick" when game.active:
+  let dt = event.dt
+
+  # AI tracks ball when it's coming towards it, returns to center otherwise
+  if ball.vx > 0:
+    set paddle_right.z: math.lerp(paddle_right.z, ball.z, 3 * dt)
+  else:
+    set paddle_right.z: math.lerp(paddle_right.z, 0, 1 * dt)
+
+  set paddle_right.z: clamp_paddle(paddle_right.z)
+
+# =============================================================================
+# Scoring
+# =============================================================================
+
+# Right scores (ball passed left boundary)
+on "tick" when ball.x < -config.arena_width / 2 - 0.5:
+  set score.right: score.right + 1
+  emit "sound:score"
+  emit "ui:score_update" { left: score.left, right: score.right }
+  reset_ball(-1)  # Serve towards loser
+
+# Left scores (ball passed right boundary)
+on "tick" when ball.x > config.arena_width / 2 + 0.5:
+  set score.left: score.left + 1
+  emit "sound:score"
+  emit "ui:score_update" { left: score.left, right: score.right }
+  reset_ball(1)  # Serve towards loser
+
+# =============================================================================
+# Victory Conditions
+# =============================================================================
+
+on "tick" when score.left >= config.win_score and game.active:
+  set game.active: false
+  emit "sound:victory"
+  emit "game:victory" { winner: "player", message: "YOU WIN!" }
+
+on "tick" when score.right >= config.win_score and game.active:
+  set game.active: false
+  emit "sound:defeat"
+  emit "game:defeat" { winner: "ai", message: "AI WINS!" }
+
+# =============================================================================
+# Game Controls
+# =============================================================================
+
+on "keydown:Escape":
+  set game.paused: not game.paused
+  if game.paused:
+    emit "ui:show_pause"
+  else:
+    emit "ui:hide_pause"
+
+on "keydown:R" when not game.active:
+  # Restart game
+  set score.left: 0
+  set score.right: 0
+  set game.active: true
+  set game.paused: false
+  reset_ball(1)
+  emit "game:restart"
+
+# =============================================================================
+# Initialization
+# =============================================================================
+
+on "init":
+  # Create arena floor
+  set floor_mesh: render.box(config.arena_width + 2, 0.1, config.arena_depth + 2, "#1a1a2e")
+  render.spawn(floor_mesh)
+  render.setPosition(floor_mesh, 0, -0.05, 0)
+
+  # Create top and bottom walls
+  set wall_top_mesh: render.box(config.arena_width + 2, 0.3, 0.3, "#3a3a5e")
+  render.spawn(wall_top_mesh)
+  render.setPosition(wall_top_mesh, 0, 0.15, -config.arena_depth / 2 - 0.15)
+
+  set wall_bottom_mesh: render.box(config.arena_width + 2, 0.3, 0.3, "#3a3a5e")
+  render.spawn(wall_bottom_mesh)
+  render.setPosition(wall_bottom_mesh, 0, 0.15, config.arena_depth / 2 + 0.15)
+
+  # Create ball (white sphere)
+  set ball_mesh: render.sphere(0.35, "#ffffff")
+  render.spawn(ball_mesh)
+  render.setEmissive(ball_mesh, "#ffffff", 0.3)
+
+  # Create left paddle (player - green)
+  set paddle_left_mesh: render.box(0.3, 0.5, config.paddle_height, "#00ff88")
+  render.spawn(paddle_left_mesh)
+  render.setEmissive(paddle_left_mesh, "#00ff88", 0.3)
+
+  # Create right paddle (AI - red)
+  set paddle_right_mesh: render.box(0.3, 0.5, config.paddle_height, "#ff4466")
+  render.spawn(paddle_right_mesh)
+  render.setEmissive(paddle_right_mesh, "#ff4466", 0.3)
+
+  # Center line (decorative)
+  let center_line = render.box(0.05, 0.02, config.arena_depth, "#444466")
+  render.spawn(center_line)
+  render.setPosition(center_line, 0, 0.01, 0)
+
+  emit "game:ready" {
+    title: "PONG",
+    instructions: "W/S or Arrow Keys to move. First to 5 wins!"
+  }
+
+# =============================================================================
+# Visual Sync (update mesh positions from state)
+# =============================================================================
+
+on "tick":
+  # Update ball position
+  if ball_mesh != null:
+    render.setPosition(ball_mesh, ball.x, ball.y, ball.z)
+
+  # Update paddle positions
+  if paddle_left_mesh != null:
+    render.setPosition(paddle_left_mesh, paddle_left.x, paddle_left.y, paddle_left.z)
+
+  if paddle_right_mesh != null:
+    render.setPosition(paddle_right_mesh, paddle_right.x, paddle_right.y, paddle_right.z)

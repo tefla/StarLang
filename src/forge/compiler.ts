@@ -206,11 +206,24 @@ export class ForgeCompiler {
       if (layout.assets.length > 0) {
         result.assetInstances = {}
         for (const asset of layout.assets) {
-          result.assetInstances[asset.name] = {
+          const instance: AssetInstance = {
             asset: asset.asset,
             position: this.compileVec3ToPosition(asset.position),
             rotation: (asset.rotation ?? 0) as 0 | 90 | 180 | 270
           }
+
+          // Include properties as params
+          if (asset.properties) {
+            instance.params = {}
+            for (const [key, expr] of Object.entries(asset.properties)) {
+              const value = this.evaluateConstant(expr)
+              if (value !== undefined) {
+                instance.params[key] = value as string | number | boolean
+              }
+            }
+          }
+
+          result.assetInstances[asset.name] = instance
         }
       }
 
@@ -498,6 +511,27 @@ export class ForgeCompiler {
       this.evalNumber(vec.y),
       this.evalNumber(vec.z)
     ]
+  }
+
+  /**
+   * Evaluate a constant expression to a primitive value.
+   */
+  private evaluateConstant(expr: AST.Expression): string | number | boolean | undefined {
+    switch (expr.kind) {
+      case 'string':
+        return expr.value
+      case 'number':
+        return expr.value
+      case 'boolean':
+        return expr.value
+      case 'identifier':
+        // Could be a boolean keyword
+        if (expr.name === 'true') return true
+        if (expr.name === 'false') return false
+        return undefined
+      default:
+        return undefined
+    }
   }
 
   private evalNumber(expr: AST.Expression): number {
@@ -819,7 +853,17 @@ export class ForgeCompiler {
       }
       current = current[parts[i]!] as Record<string, unknown>
     }
-    current[parts[parts.length - 1]!] = value
+
+    const propName = parts[parts.length - 1]!
+
+    // Special handling for emissive with intensity: { color, intensity } -> emissive + emissiveIntensity
+    if (propName === 'emissive' && typeof value === 'object' && value !== null && 'color' in value && 'intensity' in value) {
+      const emissiveValue = value as { color: string; intensity: number }
+      current['emissive'] = emissiveValue.color
+      current['emissiveIntensity'] = emissiveValue.intensity
+    } else {
+      current[propName] = value
+    }
   }
 
   private compileAnimations(animations: AST.AnimationsBlock): Record<string, AnimationDef> {
