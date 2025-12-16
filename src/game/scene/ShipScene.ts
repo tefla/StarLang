@@ -3,7 +3,7 @@
 import * as THREE from 'three'
 import { Runtime } from '../../runtime/Runtime'
 import type { ShipStructure, SwitchDefinition, WallLightDefinition } from '../../types/nodes'
-import { SparkEffect } from '../effects/ParticleSystem'
+import { SparkEffect } from '../../engine/ParticleSystem'
 import { VoxelWorld } from '../../voxel/VoxelWorld'
 import { VoxelRenderer } from '../../voxel/VoxelRenderer'
 import { VoxelMapBuilder } from '../../voxel/VoxelMapBuilder'

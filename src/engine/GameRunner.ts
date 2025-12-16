@@ -8,7 +8,7 @@
  * This enables data-driven game configuration instead of hardcoded TypeScript.
  */
 
-import { ForgeVM, VMGame } from '../forge/vm'
+import { ForgeVM, type VMGame } from '../forge/vm'
 import { parse } from '../forge/parser'
 
 // ============================================================================

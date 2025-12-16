@@ -2,7 +2,7 @@
 // Handles raycasting, target detection, and executes Forge interaction handlers
 
 import * as THREE from 'three'
-import { ForgeVM, VMInteraction } from '../forge/vm'
+import { ForgeVM, type VMInteraction } from '../forge/vm'
 
 /**
  * Entity data for interaction matching.

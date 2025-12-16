@@ -1,7 +1,7 @@
 // Audio System - Spatial sound and procedural audio for the ship environment
 
 import * as THREE from 'three'
-import { Config } from '../../forge/ConfigRegistry'
+import { Config } from '../forge/ConfigRegistry'
 
 export class AudioSystem {
   private audioContext: AudioContext | null = null

@@ -1,7 +1,7 @@
 // Particle System - Visual effects for sparks, dust, etc.
 
 import * as THREE from 'three'
-import { Config } from '../../forge/ConfigRegistry'
+import { Config } from '../forge/ConfigRegistry'
 
 interface Particle {
   position: THREE.Vector3

@@ -4,7 +4,7 @@
 
 import { test, expect, describe, beforeEach } from 'bun:test'
 import * as THREE from 'three'
-import { PlayerSystem, PlayerConfig } from './PlayerSystem'
+import { PlayerSystem, type PlayerConfig } from './PlayerSystem'
 
 const defaultConfig: PlayerConfig = {
   moveSpeed: 2.0,

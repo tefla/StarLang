@@ -4,7 +4,7 @@
 
 import { test, expect, describe, beforeEach } from 'bun:test'
 import * as THREE from 'three'
-import { InteractionSystem, InteractableEntity, InteractionTarget } from './InteractionSystem'
+import { InteractionSystem, type InteractableEntity, type InteractionTarget } from './InteractionSystem'
 import { createVM, ForgeVM } from '../forge/vm'
 
 let vm: ForgeVM
