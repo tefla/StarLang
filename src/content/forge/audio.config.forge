@@ -1,0 +1,50 @@
+# Audio Configuration
+# Sound design parameters for all game audio
+
+config audio
+  volumes:
+    master: 0.5
+    ambient: 0.15
+    sfx: 0.4
+
+  spatial:
+    default_range: 15            # Default sound falloff distance (meters)
+    switch_range: 8              # Switch click audible range
+
+  door:
+    duration: 0.6                # Door sound length (seconds)
+    open_freq_start: 200         # Opening sound start frequency (Hz)
+    open_freq_end: 2000          # Opening sound end frequency (Hz)
+
+  switch:
+    press_freq: 800              # Button press start frequency
+    press_end_freq: 200          # Button press end frequency
+    release_freq: 600            # Button release start frequency
+    release_end_freq: 150        # Button release end frequency
+
+  warning:
+    normal_freq: 660             # Warning beep frequency
+    normal_beeps: 2              # Number of beeps for warning
+    normal_duration: 0.2         # Duration per beep (seconds)
+    critical_freq: 880           # Critical beep frequency
+    critical_beeps: 3            # Number of beeps for critical
+    critical_duration: 0.15      # Duration per critical beep
+
+  terminal:
+    access_tones: [400, 500, 600]  # Rising tone sequence for terminal access
+
+  compile:
+    success_tones: [523, 659, 784]  # C5, E5, G5 major chord
+    error_freq_1: 150              # Error buzz frequency 1
+    error_freq_2: 155              # Error buzz frequency 2 (detuned)
+
+  ambient:
+    base_freq: 60                # Ship hum base frequency
+    harmonic_freq: 120           # Second harmonic
+    lfo_rate: 0.5                # Modulation speed (Hz)
+
+  sparks:
+    num_crackles_min: 3          # Minimum crackle sounds
+    num_crackles_max: 7          # Maximum crackle sounds
+    filter_freq_min: 2000        # Crackle filter min frequency
+    filter_freq_max: 5000        # Crackle filter max frequency

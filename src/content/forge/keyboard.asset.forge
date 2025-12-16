@@ -1,0 +1,9 @@
+# Keyboard - Computer keyboard
+# 50cm x 2.5cm x 15cm (19x1x5 voxels)
+
+asset keyboard
+  name: "Keyboard"
+  anchor: (10, 0, 3)
+
+  geometry:
+    box (0, 0, 0) to (19, 1, 5) as KEYBOARD

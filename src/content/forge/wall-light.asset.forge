@@ -1,0 +1,32 @@
+# Wall Light - Wall-mounted fixture with panel surround
+# Panel at z=0 (wall surface), fixture at z=2 (projects into room)
+
+asset wall-light
+  name: "Wall Light"
+  anchor: (0, 0, 0)
+
+  geometry:
+    # Panel surround (frame around light)
+    voxel (0, -1, 0) as PANEL
+    voxel (1, -1, 0) as PANEL
+    voxel (2, -1, 0) as PANEL
+    voxel (3, -1, 0) as PANEL
+    voxel (4, -1, 0) as PANEL
+    voxel (0, 0, 0) as PANEL
+    voxel (4, 0, 0) as PANEL
+    voxel (0, 1, 0) as PANEL
+    voxel (1, 1, 0) as PANEL
+    voxel (2, 1, 0) as PANEL
+    voxel (3, 1, 0) as PANEL
+    voxel (4, 1, 0) as PANEL
+
+    # Light fixture (3x3 grid projecting into room)
+    voxel (1, -1, 2) as LIGHT_FIXTURE
+    voxel (2, -1, 2) as LIGHT_FIXTURE
+    voxel (3, -1, 2) as LIGHT_FIXTURE
+    voxel (1, 0, 2) as LIGHT_FIXTURE
+    voxel (2, 0, 2) as LIGHT_FIXTURE
+    voxel (3, 0, 2) as LIGHT_FIXTURE
+    voxel (1, 1, 2) as LIGHT_FIXTURE
+    voxel (2, 1, 2) as LIGHT_FIXTURE
+    voxel (3, 1, 2) as LIGHT_FIXTURE

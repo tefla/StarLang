@@ -1,75 +1,95 @@
 /**
  * Voxel asset manifest.
- * Exports all built-in assets for loading.
+ * Loads all assets from Forge DSL files.
+ *
+ * Supports both synchronous (server) and asynchronous (browser) loading.
  */
 
 import type { VoxelAssetDef } from '../../voxel/VoxelAsset'
 import type { AnimatedAssetDef } from '../../voxel/AnimatedAsset'
+import { getAllForgeAssets, getAllForgeAssetsAsync } from '../../forge/ForgeAssetLoader'
 
-// Import static JSON assets
-import ledGreen from './primitives/led-green.asset.json'
-import ledRed from './primitives/led-red.asset.json'
-import button from './primitives/button.asset.json'
-import switchAsset from './controls/switch.asset.json'
-import wallLight from './lights/wall-light.asset.json'
-import ceilingLight from './lights/ceiling-light.asset.json'
+// Detect browser environment
+const isBrowser = typeof window !== 'undefined'
 
-// Import furniture assets
-import desk from './furniture/desk.asset.json'
-import monitorStand from './furniture/monitor-stand.asset.json'
-import monitorFrame from './furniture/monitor-frame.asset.json'
-import keyboard from './furniture/keyboard.asset.json'
-import workstation from './furniture/workstation.asset.json'
+// Get all assets compiled from .forge files (sync - server only)
+// In browser, this returns empty initially - use async functions
+const allForgeAssets = getAllForgeAssets()
 
-// Import terminal assets
-import wallTerminal from './terminals/wall-terminal.asset.json'
+// Cache for async-loaded assets
+let cachedBuiltinAssets: VoxelAssetDef[] | null = null
+let cachedAnimatedAssets: AnimatedAssetDef[] | null = null
 
-// Import door assets
-import doorFrame from './doors/door-frame.asset.json'
+/**
+ * Filter assets into builtin (static) and animated categories.
+ */
+function categorizeAssets(assets: AnimatedAssetDef[]): {
+  builtin: VoxelAssetDef[]
+  animated: AnimatedAssetDef[]
+} {
+  const builtin = assets.filter(
+    asset => !asset.dynamicParts || asset.dynamicParts.length === 0
+  ) as unknown as VoxelAssetDef[]
 
-// Import mechanical assets
-import fanBlades from './mechanical/fan-blades.asset.json'
-import wallFan from './mechanical/wall-fan.asset.json'
+  const animated = assets.filter(
+    asset => (asset.dynamicParts && asset.dynamicParts.length > 0) ||
+             (asset.states && Object.keys(asset.states).length > 0) ||
+             (asset.animations && Object.keys(asset.animations).length > 0)
+  )
 
-// Import animated JSON assets
-import switchAnimated from './controls/switch-animated.asset.json'
-import warningLight from './lights/warning-light.asset.json'
-import doorSliding from './doors/door-sliding.asset.json'
+  return { builtin, animated }
+}
 
 /**
  * All built-in static assets.
- * Cast via unknown because JSON imports don't preserve tuple types.
+ * These are assets without dynamicParts (simple voxel geometry).
+ * In browser, returns cached assets or empty - use getBuiltinAssetsAsync.
  */
-export const builtinAssets: VoxelAssetDef[] = [
-  // Primitives
-  ledGreen as unknown as VoxelAssetDef,
-  ledRed as unknown as VoxelAssetDef,
-  button as unknown as VoxelAssetDef,
-  // Controls
-  switchAsset as unknown as VoxelAssetDef,
-  // Lights
-  wallLight as unknown as VoxelAssetDef,
-  ceilingLight as unknown as VoxelAssetDef,
-  // Furniture
-  desk as unknown as VoxelAssetDef,
-  monitorStand as unknown as VoxelAssetDef,
-  monitorFrame as unknown as VoxelAssetDef,
-  keyboard as unknown as VoxelAssetDef,
-  workstation as unknown as VoxelAssetDef,
-  // Terminals
-  wallTerminal as unknown as VoxelAssetDef,
-  // Doors
-  doorFrame as unknown as VoxelAssetDef,
-  // Mechanical
-  fanBlades as unknown as VoxelAssetDef,
-  wallFan as unknown as VoxelAssetDef
-]
+export const builtinAssets: VoxelAssetDef[] = isBrowser
+  ? (cachedBuiltinAssets ?? [])
+  : categorizeAssets(allForgeAssets).builtin
 
 /**
  * All built-in animated assets.
+ * These are assets with dynamicParts, states, or animations.
+ * In browser, returns cached assets or empty - use getAnimatedAssetsAsync.
  */
-export const animatedAssets: AnimatedAssetDef[] = [
-  switchAnimated as unknown as AnimatedAssetDef,
-  warningLight as unknown as AnimatedAssetDef,
-  doorSliding as unknown as AnimatedAssetDef
-]
+export const animatedAssets: AnimatedAssetDef[] = isBrowser
+  ? (cachedAnimatedAssets ?? [])
+  : categorizeAssets(allForgeAssets).animated
+
+/**
+ * Load all assets asynchronously (works in browser).
+ * Call this during game initialization.
+ */
+export async function loadAllAssetsAsync(): Promise<{
+  builtin: VoxelAssetDef[]
+  animated: AnimatedAssetDef[]
+}> {
+  const allAssets = await getAllForgeAssetsAsync()
+  const { builtin, animated } = categorizeAssets(allAssets)
+
+  // Cache the results
+  cachedBuiltinAssets = builtin
+  cachedAnimatedAssets = animated
+
+  return { builtin, animated }
+}
+
+/**
+ * Get builtin assets asynchronously.
+ */
+export async function getBuiltinAssetsAsync(): Promise<VoxelAssetDef[]> {
+  if (cachedBuiltinAssets) return cachedBuiltinAssets
+  const { builtin } = await loadAllAssetsAsync()
+  return builtin
+}
+
+/**
+ * Get animated assets asynchronously.
+ */
+export async function getAnimatedAssetsAsync(): Promise<AnimatedAssetDef[]> {
+  if (cachedAnimatedAssets) return cachedAnimatedAssets
+  const { animated } = await loadAllAssetsAsync()
+  return animated
+}

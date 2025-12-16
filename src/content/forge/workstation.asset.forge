@@ -1,0 +1,11 @@
+# Engineering Workstation - Complete workstation with desk, monitor, and keyboard
+
+asset workstation
+  name: "Engineering Workstation"
+  anchor: (0, 0, 0)
+
+  geometry:
+    child desk at (0, 0, 0)
+    child monitor-stand at (0, 32, 8)
+    child monitor-frame at (0, 48, 8)
+    child keyboard at (0, 32, -7)

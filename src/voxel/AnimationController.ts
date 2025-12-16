@@ -33,6 +33,9 @@ export class AnimationController {
   private currentStateName: string | null = null
   private activeAnimations: Map<string, ActiveAnimation> = new Map()
 
+  /** Callback invoked when an animation completes (non-looping animations only) */
+  public onAnimationComplete?: (animationName: string) => void
+
   constructor(
     parts: Map<string, DynamicPartMesh>,
     states: Record<string, AssetStateDef>,
@@ -143,6 +146,11 @@ export class AnimationController {
         normalizedTime = 1
         this.applyAnimationFrame(animation, normalizedTime)
         this.activeAnimations.delete(name)
+
+        // Invoke completion callback
+        if (this.onAnimationComplete) {
+          this.onAnimationComplete(name)
+        }
         continue
       }
 

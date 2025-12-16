@@ -133,6 +133,8 @@ export const animatedAssetLoader = new AnimatedAssetLoader()
 /**
  * Load animated assets into the global loader.
  * Call this at startup after loadBuiltinAssets().
+ *
+ * Note: In browser, use loadAnimatedAssetsAsync() instead.
  */
 export function loadAnimatedAssets(): void {
   // Import animated assets from content synchronously
@@ -142,4 +144,17 @@ export function loadAnimatedAssets(): void {
     animatedAssetLoader.registerAnimated(asset)
   }
   console.log(`AnimatedAssetLoader: Loaded ${animatedAssets.length} animated assets`)
+}
+
+/**
+ * Load animated assets into the global loader asynchronously.
+ * Use this in browser environment.
+ */
+export async function loadAnimatedAssetsAsync(): Promise<void> {
+  const { getAnimatedAssetsAsync } = await import('../content/assets/index')
+  const assets = await getAnimatedAssetsAsync()
+  for (const asset of assets) {
+    animatedAssetLoader.registerAnimated(asset)
+  }
+  console.log(`AnimatedAssetLoader: Loaded ${assets.length} animated assets`)
 }

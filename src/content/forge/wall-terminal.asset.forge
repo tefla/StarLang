@@ -1,0 +1,13 @@
+# Wall Terminal - Wall-mounted status terminal
+# Anchor at back-left corner. Panel at z=0, screen at z=1
+
+asset wall-terminal
+  name: "Wall Terminal"
+  anchor: (0, 0, 0)
+
+  geometry:
+    # Panel at wall surface (20x16 voxels)
+    box (0, 0, 0) to (20, 16, 1) as PANEL
+
+    # Screen extends into room (16x12 voxels)
+    box (2, 2, 1) to (18, 14, 2) as SCREEN

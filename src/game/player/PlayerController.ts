@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import type { VoxelWorld } from '../../voxel/VoxelWorld'
 import { VoxelRaycast } from '../../voxel/VoxelRaycast'
 import { VoxelType, getVoxelType, worldToVoxel } from '../../voxel/VoxelTypes'
+import { Config } from '../../forge/ConfigRegistry'
 
 export interface PlayerState {
   position: THREE.Vector3
@@ -18,10 +19,10 @@ export class PlayerController {
   public camera: THREE.PerspectiveCamera
   public state: PlayerState
 
-  private moveSpeed = 5
-  private lookSpeed = 0.002
-  private playerHeight = 1.7
-  private playerRadius = 0.3
+  private get moveSpeed() { return Config.player.movement.walkSpeed }
+  private get lookSpeed() { return Config.player.movement.lookSensitivity }
+  private get playerHeight() { return Config.player.collision.height }
+  private get playerRadius() { return Config.player.collision.radius }
 
   private keys = new Map<string, boolean>()
   private mouseLocked = false

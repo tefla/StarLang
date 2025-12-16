@@ -10,16 +10,18 @@ import type {
   TerminalDefinition
 } from '../types/nodes'
 import type { ShipLayout } from '../types/layout'
+import { Config } from '../forge/ConfigRegistry'
 
 export type StateCallback = (path: string, value: any, oldValue: any) => void
 export type EventType = 'compile:success' | 'compile:error' | 'state:change' | 'door:open' | 'door:close' | 'atmosphere:warning' | 'atmosphere:critical' | 'game:over'
 export type EventHandler = (event: any) => void
 
-// Atmosphere simulation constants
-const O2_DEPLETION_RATE = 0.05 // % per second when room is occupied
-const O2_WARNING_THRESHOLD = 19
-const O2_CRITICAL_THRESHOLD = 16
-const O2_GAMEOVER_THRESHOLD = 12
+// Atmosphere simulation constants - now loaded from config
+// Defaults are used until configs are loaded
+const getO2DepletionRate = () => Config.gameRules.o2DepletionRate
+const getO2WarningThreshold = () => Config.gameRules.o2WarningThreshold
+const getO2CriticalThreshold = () => Config.gameRules.o2CriticalThreshold
+const getO2GameoverThreshold = () => Config.gameRules.o2GameoverThreshold
 
 interface FileContent {
   path: string
@@ -235,7 +237,7 @@ export class Runtime {
     this.eventHandlers.get(event)?.delete(handler)
   }
 
-  private emit(event: EventType, data: any) {
+  emit(event: EventType, data: any) {
     this.eventHandlers.get(event)?.forEach(handler => handler(data))
   }
 
@@ -311,19 +313,19 @@ export class Runtime {
       const state = this.states.get(this.playerRoomId)
       if (state && state.values['powered']) {
         const currentO2 = state.values['o2_level'] as number
-        const newO2 = Math.max(0, currentO2 - O2_DEPLETION_RATE * deltaTime)
+        const newO2 = Math.max(0, currentO2 - getO2DepletionRate() * deltaTime)
 
         if (newO2 !== currentO2) {
           this.setProperty(`${this.playerRoomId}.o2_level`, newO2, 'SYSTEM')
 
           // Check for warning/critical levels
-          if (newO2 <= O2_GAMEOVER_THRESHOLD && !this.gameOver) {
+          if (newO2 <= getO2GameoverThreshold() && !this.gameOver) {
             this.gameOver = true
             this.emit('game:over', { o2Level: newO2, roomId: this.playerRoomId })
-          } else if (newO2 <= O2_CRITICAL_THRESHOLD && this.lastWarningLevel !== 'critical') {
+          } else if (newO2 <= getO2CriticalThreshold() && this.lastWarningLevel !== 'critical') {
             this.lastWarningLevel = 'critical'
             this.emit('atmosphere:critical', { o2Level: newO2, roomId: this.playerRoomId })
-          } else if (newO2 <= O2_WARNING_THRESHOLD && this.lastWarningLevel === 'none') {
+          } else if (newO2 <= getO2WarningThreshold() && this.lastWarningLevel === 'none') {
             this.lastWarningLevel = 'warning'
             this.emit('atmosphere:warning', { o2Level: newO2, roomId: this.playerRoomId })
           }

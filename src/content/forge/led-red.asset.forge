@@ -1,0 +1,10 @@
+# Red LED - Simple indicator light
+asset led-red
+  name: "Red LED"
+  anchor: (0, 0, 0)
+
+  geometry:
+    voxel (1, 0, 0) as LED_RED
+    voxel (1, 0, 1) as LED_RED
+    voxel (1, 1, 0) as LED_RED
+    voxel (1, 1, 1) as LED_RED

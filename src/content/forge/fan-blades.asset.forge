@@ -1,0 +1,41 @@
+# 4-blade fan rotor, 30cm diameter
+# Hub centered at (6, 6) with 2x2 center
+# Uses dynamic part so it can be spun by continuous rotation
+
+asset fan-blades
+  name: "Fan Blades"
+  anchor: (6, 6, 0)
+
+  params:
+    powered: bool = true
+    speed: float = 4.0
+
+  parts:
+    rotor:
+      # Center hub 2x2
+      (5, 5, 0) as FAN_HUB
+      (6, 5, 0) as FAN_HUB
+      (5, 6, 0) as FAN_HUB
+      (6, 6, 0) as FAN_HUB
+
+      # Blade 1 - up (y = 7 to 11)
+      repeat y from 7 to 11 step 1:
+        (5, y, 0) as FAN_BLADE
+        (6, y, 0) as FAN_BLADE
+
+      # Blade 2 - down (y = 0 to 4)
+      repeat y from 0 to 4 step 1:
+        (5, y, 0) as FAN_BLADE
+        (6, y, 0) as FAN_BLADE
+
+      # Blade 3 - right (x = 7 to 11)
+      repeat x from 7 to 11 step 1:
+        (x, 5, 0) as FAN_BLADE
+        (x, 6, 0) as FAN_BLADE
+
+      # Blade 4 - left (x = 0 to 4)
+      repeat x from 0 to 4 step 1:
+        (x, 5, 0) as FAN_BLADE
+        (x, 6, 0) as FAN_BLADE
+
+      at: (0, 0, 0)

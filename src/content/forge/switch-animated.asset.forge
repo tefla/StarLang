@@ -1,0 +1,66 @@
+# Animated Wall Switch - Switch with animated button press and status LED
+# Frame at z=0, button/indicator project forward
+
+asset switch-animated
+  name: "Animated Wall Switch"
+  anchor: (0, 0, 0)
+
+  params:
+    status: enum(OK, FAULT) = OK
+
+  geometry:
+    # Frame (3x11 rectangle)
+    repeat x from 0 to 2 step 1:
+      repeat y from 0 to 10 step 1:
+        voxel (x, y, 0) as SWITCH
+
+  parts:
+    button:
+      voxel (0, 0, 0) as SWITCH_BUTTON
+      voxel (1, 0, 0) as SWITCH_BUTTON
+      voxel (0, 1, 0) as SWITCH_BUTTON
+      voxel (1, 1, 0) as SWITCH_BUTTON
+      at: (0.5, 4, 1)
+
+    indicator:
+      voxel (0, 0, 0) as LED_GREEN
+      at: (1, 8, 1)
+
+  states:
+    idle:
+      button.position: (0.5, 4, 1)
+      indicator.emissive: #00ff00 @ 0.3
+
+    pressed:
+      button.position: (0.5, 4, 0.5)
+      indicator.emissive: #00ff00 @ 1.0
+
+    fault:
+      button.position: (0.5, 4, 1)
+      indicator.emissive: #ff0000 @ 0.5
+
+    fault-bright:
+      button.position: (0.5, 4, 1)
+      indicator.emissive: #ff0000 @ 1.0
+
+    fault-dim:
+      button.position: (0.5, 4, 1)
+      indicator.emissive: #ff0000 @ 0.1
+
+  animations:
+    press: 200ms
+      0% -> idle
+      30% -> pressed using easeOutQuad
+      70% -> pressed
+      100% -> idle using easeInQuad
+
+    blink: 800ms loop
+      0% -> fault-bright
+      40% -> fault-dim using easeInOut
+      60% -> fault-dim
+      100% -> fault-bright using easeInOut
+
+  when $status:
+    match $status:
+      OK -> setState(idle), stopAnimation(blink)
+      FAULT -> setState(fault), play(blink)

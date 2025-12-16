@@ -1,0 +1,4 @@
+[test]
+# Exclude Playwright E2E tests from Bun's test runner
+# E2E tests should be run separately with: bun run test:e2e
+root = "src"

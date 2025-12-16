@@ -1,7 +1,6 @@
 // Ship Scene - Main 3D scene management
 
 import * as THREE from 'three'
-import { TerminalMesh } from '../terminals/TerminalMesh'
 import { Runtime } from '../../runtime/Runtime'
 import type { ShipStructure, SwitchDefinition, WallLightDefinition } from '../../types/nodes'
 import { SparkEffect } from '../effects/ParticleSystem'
@@ -11,66 +10,148 @@ import { VoxelMapBuilder } from '../../voxel/VoxelMapBuilder'
 import { VOXEL_SIZE } from '../../voxel/VoxelTypes'
 import { loadVoxelMesh } from '../../voxel/VoxelMeshLoader'
 import type { ShipLayout } from '../../types/layout'
-import { animatedAssetLoader, loadAnimatedAssets } from '../../voxel/AnimatedAssetLoader'
+import { animatedAssetLoader, loadAnimatedAssetsAsync } from '../../voxel/AnimatedAssetLoader'
 import type { AnimatedAssetInstance } from '../../voxel/AnimatedAssetInstance'
-import { FanMesh } from '../mechanical/FanMesh'
 import type { AnimatedChildInfo } from '../../voxel/VoxelAssetLoader'
+import { EntitySystem, ScreenEntity, type Entity } from '../../engine/EntitySystem'
+import { ForgeLoader } from '../../engine/ForgeLoader'
+import { enableClientHotReload, type ForgeHotReloadEvent } from '../../forge'
+import { Config } from '../../forge/ConfigRegistry'
 
 export class ShipScene {
   public scene: THREE.Scene
   public switchDefs = new Map<string, SwitchDefinition>()  // Switch definitions for interaction
-  public terminalMeshes = new Map<string, TerminalMesh>()
+  public terminals = new Map<string, ScreenEntity>()  // Terminal entities
   public wallLights = new Map<string, { light: THREE.PointLight; def: WallLightDefinition; isOn: boolean }>()
   public ceilingLights = new Map<string, THREE.PointLight>()
   public ceilingLightsOn = true
   public sparkEffect: SparkEffect
 
-  // Animated assets (doors, switches, warning lights, etc.)
+  // Animated assets (doors, switches, warning lights, fans, etc.)
   public animatedAssets = new Map<string, AnimatedAssetInstance>()
-
-  // Spinning fans
-  public fans: FanMesh[] = []
 
   // Voxel rendering
   public voxelWorld: VoxelWorld | null = null
   public voxelRenderer: VoxelRenderer | null = null
   private prebuiltMesh: THREE.Mesh | null = null
 
+  // Forge entity system
+  public entitySystem: EntitySystem
+  private forgeLoader: ForgeLoader
+  private forgeEntitiesLoaded = false
+  private hotReloadCleanup?: () => void
+
   private runtime: Runtime
 
   constructor(runtime: Runtime) {
     this.runtime = runtime
     this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(0x101520)
+    this.scene.background = new THREE.Color(Config.lighting.scene.backgroundColor)
     // Minimal fog for atmosphere
-    this.scene.fog = new THREE.Fog(0x101520, 30, 100)
+    this.scene.fog = new THREE.Fog(
+      Config.lighting.scene.fogColor,
+      Config.lighting.scene.fogNear,
+      Config.lighting.scene.fogFar
+    )
 
     this.setupLighting()
 
     // Initialize particle effects
     this.sparkEffect = new SparkEffect(this.scene)
 
-    // Load animated asset definitions
-    loadAnimatedAssets()
+    // Animated asset definitions are loaded asynchronously
+    // Call loadForgeEntities() before buildFromStructure()
+
+    // Initialize Forge entity system
+    this.entitySystem = new EntitySystem()
+    this.forgeLoader = new ForgeLoader()
+  }
+
+  /**
+   * Load Forge entity definitions and animated assets.
+   * Call this before buildFromStructure to enable Forge-based entities.
+   */
+  async loadForgeEntities(): Promise<void> {
+    if (this.forgeEntitiesLoaded) return
+
+    try {
+      // Load animated asset definitions (async for browser support)
+      await loadAnimatedAssetsAsync()
+
+      // Load terminal entity definition
+      const terminalSource = await fetch('/content/forge/terminal.entity.forge')
+        .then(r => r.ok ? r.text() : Promise.reject(r.statusText))
+        .catch(() => null)
+
+      if (terminalSource) {
+        const result = this.forgeLoader.loadSource(terminalSource)
+        for (const entity of result.entities) {
+          this.entitySystem.registerDefinition(entity)
+          console.log(`[ShipScene] Loaded Forge entity: ${entity.id}`)
+        }
+        if (result.errors.length > 0) {
+          console.warn('[ShipScene] Forge entity errors:', result.errors)
+        }
+      }
+
+      // Enable hot reloading in development
+      this.hotReloadCleanup = enableClientHotReload((event: ForgeHotReloadEvent) => {
+        this.handleForgeHotReload(event)
+      })
+
+      this.forgeEntitiesLoaded = true
+    } catch (e) {
+      console.warn('[ShipScene] Failed to load Forge entities:', e)
+    }
+  }
+
+  /**
+   * Handle hot reload events for Forge files.
+   */
+  private handleForgeHotReload(event: ForgeHotReloadEvent): void {
+    if (event.type === 'error') {
+      console.error(`[Forge HMR] ${event.filePath}:\n${event.error}`)
+      return
+    }
+
+    if (event.type === 'entity' && event.entity) {
+      console.log(`[Forge HMR] Reloading entity: ${event.entity.id}`)
+      this.entitySystem.registerDefinition(event.entity)
+      // Note: Existing instances won't automatically update
+      // A full rebuild would be needed for that
+    }
+
+    if (event.type === 'asset' && event.asset) {
+      console.log(`[Forge HMR] Asset updated: ${event.asset.id}`)
+      // Assets could be reloaded here if the AnimatedAssetLoader supports it
+    }
   }
 
   private setupLighting() {
     // Ambient light for basic visibility
-    const ambientLight = new THREE.AmbientLight(0x404050, 0.4)
+    const ambientLight = new THREE.AmbientLight(
+      Config.lighting.ambient.color,
+      Config.lighting.ambient.intensity
+    )
     this.scene.add(ambientLight)
 
     // Directional light for shadows and depth
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6)
+    const dirLight = new THREE.DirectionalLight(
+      Config.lighting.directional.color,
+      Config.lighting.directional.intensity
+    )
     dirLight.position.set(10, 20, 10)
     dirLight.castShadow = true
-    dirLight.shadow.mapSize.width = 2048
-    dirLight.shadow.mapSize.height = 2048
+    const shadowMapSize = Config.lighting.directional.shadowMapSize
+    dirLight.shadow.mapSize.width = shadowMapSize
+    dirLight.shadow.mapSize.height = shadowMapSize
     dirLight.shadow.camera.near = 0.5
     dirLight.shadow.camera.far = 100
-    dirLight.shadow.camera.left = -30
-    dirLight.shadow.camera.right = 30
-    dirLight.shadow.camera.top = 30
-    dirLight.shadow.camera.bottom = -30
+    const shadowBounds = Config.lighting.directional.shadowBounds
+    dirLight.shadow.camera.left = -shadowBounds
+    dirLight.shadow.camera.right = shadowBounds
+    dirLight.shadow.camera.top = shadowBounds
+    dirLight.shadow.camera.bottom = -shadowBounds
     this.scene.add(dirLight)
   }
 
@@ -148,14 +229,36 @@ export class ShipScene {
 
   /**
    * Create animated child meshes (e.g., spinning fan blades).
+   * Uses AnimatedAssetInstance with continuous spin instead of hardcoded FanMesh.
    */
   private createAnimatedChildren(animatedChildren: AnimatedChildInfo[]) {
+    let fanIndex = 0
     for (const info of animatedChildren) {
       if (info.animate.type === 'spin') {
-        const fan = new FanMesh(info)
-        this.fans.push(fan)
-        this.scene.add(fan.group)
-        console.log(`[ShipScene] Created fan from ${info.assetId} with ${info.voxels.length} voxels`)
+        // Create AnimatedAssetInstance for the fan
+        const instance = animatedAssetLoader.createInstance(
+          info.assetId,
+          info.position,
+          info.rotation ?? 0,
+          { powered: true }
+        )
+
+        if (instance) {
+          // Enable continuous spin based on animation config
+          instance.enableContinuousSpin(
+            info.animate.axis,
+            info.animate.speed ?? Math.PI * 2  // Default 1 rotation/sec
+          )
+
+          const fanId = `fan_${info.assetId}_${fanIndex++}`
+          instance.group.userData = { type: 'fan', id: fanId }
+
+          this.animatedAssets.set(fanId, instance)
+          this.scene.add(instance.group)
+          console.log(`[ShipScene] Created fan ${fanId} using AnimatedAssetInstance`)
+        } else {
+          console.warn(`[ShipScene] Failed to create AnimatedAssetInstance for ${info.assetId}`)
+        }
       }
     }
   }
@@ -170,7 +273,12 @@ export class ShipScene {
       const lightY = (room.position.y + room.size.height) * VOXEL_SIZE - 0.3
 
       const lightRange = room.size.width * VOXEL_SIZE * 2
-      const ceilingLight = new THREE.PointLight(0xffffee, 1.5, lightRange, 1)
+      const ceilingLight = new THREE.PointLight(
+        Config.lighting.ceiling.color,
+        Config.lighting.ceiling.intensity,
+        lightRange,
+        Config.lighting.ceiling.decay
+      )
       ceilingLight.position.set(centerX, lightY, centerZ)
       ceilingLight.name = `ceiling_light_${roomId}`
       this.scene.add(ceilingLight)
@@ -186,7 +294,7 @@ export class ShipScene {
 
     // Toggle ceiling lights
     for (const light of this.ceilingLights.values()) {
-      light.intensity = this.ceilingLightsOn ? 1.5 : 0
+      light.intensity = this.ceilingLightsOn ? Config.lighting.ceiling.intensity : 0
     }
 
     // Toggle wall lights (voxel-based, just PointLight)
@@ -234,11 +342,46 @@ export class ShipScene {
       }
     }
 
-    // Build terminals
+    // Build terminals using ScreenEntity
     for (const [id, terminalDef] of structure.terminals) {
-      const terminalMesh = new TerminalMesh(terminalDef, this.runtime, this.voxelWorld)
-      this.terminalMeshes.set(id, terminalMesh)
-      this.scene.add(terminalMesh.group)
+      const { position, rotation, terminal_type, location, display_name, mounted_files } = terminalDef.properties
+
+      // Get terminal entity definition from Forge
+      const terminalEntityDef = this.entitySystem.getDefinition('terminal')
+
+      if (terminalEntityDef) {
+        // Create ScreenEntity from Forge definition
+        const worldPos = new THREE.Vector3(
+          position.x * VOXEL_SIZE,
+          position.y * VOXEL_SIZE,
+          position.z * VOXEL_SIZE
+        )
+        // Add 180° offset - terminal faces opposite direction from layout rotation
+        const effectiveRotation = rotation + 180
+
+        const entity = new ScreenEntity(id, terminalEntityDef, worldPos, effectiveRotation)
+        entity.group.userData = { type: 'terminal', id, interactable: true }
+
+        // Configure terminal with runtime and voxel world
+        entity.setRuntime(this.runtime)
+        if (this.voxelWorld) {
+          entity.setVoxelWorld(this.voxelWorld)
+        }
+        entity.setTerminalConfig(
+          terminal_type as 'STATUS' | 'ENGINEERING' | 'COMMAND',
+          location,
+          display_name
+        )
+        if (mounted_files) {
+          entity.setMountedFiles(mounted_files)
+        }
+
+        // Register with entity system and scene
+        this.terminals.set(id, entity)
+        this.scene.add(entity.group)
+      } else {
+        console.warn(`[ShipScene] Terminal entity definition not loaded, skipping ${id}`)
+      }
     }
 
     // Build animated switches
@@ -280,15 +423,15 @@ export class ShipScene {
       const rotationRad = (rotation * Math.PI) / 180
 
       // Offset light into room from wall surface
-      const wallOffset = 0.12
+      const wallOffset = Config.lighting.wall.offset
       const offsetX = Math.sin(rotationRad) * wallOffset
       const offsetZ = Math.cos(rotationRad) * wallOffset
 
       const pointLight = new THREE.PointLight(
         new THREE.Color(color),
         intensity * 2,
-        8,   // distance
-        1.5  // decay
+        Config.lighting.wall.distance,
+        Config.lighting.wall.decay
       )
       pointLight.position.set(
         position.x * VOXEL_SIZE + offsetX,
@@ -302,19 +445,23 @@ export class ShipScene {
   }
 
   update(deltaTime: number) {
-    // Update terminal screens
-    for (const terminal of this.terminalMeshes.values()) {
-      terminal.update(deltaTime)
+    // Update terminal screens (ScreenEntity)
+    for (const terminal of this.terminals.values()) {
+      terminal.update(deltaTime, {
+        params: {},
+        state: {}
+      })
     }
 
-    // Update animated assets (doors, switches, warning lights, etc.)
+    // Update other Forge entities
+    this.entitySystem.update(deltaTime, {
+      params: {},
+      state: {}
+    })
+
+    // Update animated assets (doors, switches, warning lights, fans, etc.)
     for (const instance of this.animatedAssets.values()) {
       instance.update(deltaTime)
-    }
-
-    // Update spinning fans
-    for (const fan of this.fans) {
-      fan.update(deltaTime)
     }
 
     // Update particle effects
@@ -339,9 +486,16 @@ export class ShipScene {
       }
     }
 
-    // Terminals
-    for (const terminal of this.terminalMeshes.values()) {
+    // Terminals (ScreenEntity)
+    for (const terminal of this.terminals.values()) {
       interactables.push(terminal.group)
+    }
+
+    // Forge entities
+    for (const entity of this.entitySystem.getAllInstances()) {
+      if (entity.isInteractable) {
+        interactables.push(entity.group)
+      }
     }
 
     return interactables
@@ -383,17 +537,24 @@ export class ShipScene {
     }
     this.animatedAssets.clear()
 
-    for (const terminal of this.terminalMeshes.values()) {
+    // Clear terminals (ScreenEntity)
+    for (const terminal of this.terminals.values()) {
       this.scene.remove(terminal.group)
       terminal.dispose()
     }
-    this.terminalMeshes.clear()
+    this.terminals.clear()
 
     for (const wallLight of this.wallLights.values()) {
       this.scene.remove(wallLight.light)
       wallLight.light.dispose()
     }
     this.wallLights.clear()
+
+    // Clear Forge entities
+    for (const entity of this.entitySystem.getAllInstances()) {
+      this.scene.remove(entity.group)
+    }
+    this.entitySystem.dispose()
   }
 
   /**
@@ -421,5 +582,11 @@ export class ShipScene {
   dispose() {
     this.clear()
     this.sparkEffect.dispose()
+
+    // Clean up hot reload
+    if (this.hotReloadCleanup) {
+      this.hotReloadCleanup()
+      this.hotReloadCleanup = undefined
+    }
   }
 }

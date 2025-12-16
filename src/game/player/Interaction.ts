@@ -3,11 +3,12 @@
 import * as THREE from 'three'
 import { PlayerController } from './PlayerController'
 import { ShipScene } from '../scene/ShipScene'
-import { TerminalMesh } from '../terminals/TerminalMesh'
+import { ScreenEntity } from '../../engine/EntitySystem'
 import { Runtime } from '../../runtime/Runtime'
 import { audioSystem } from '../audio/AudioSystem'
 import { VoxelRaycast } from '../../voxel/VoxelRaycast'
 import { VoxelType, VOXEL_SIZE } from '../../voxel/VoxelTypes'
+import { Config } from '../../forge/ConfigRegistry'
 
 export type InteractionTarget = {
   type: 'door' | 'terminal' | 'door_panel' | 'switch'
@@ -22,8 +23,8 @@ export class InteractionSystem {
   private runtime: Runtime
 
   private currentTarget: InteractionTarget | null = null
-  private interactionRange = 2.5
-  private focusedTerminal: TerminalMesh | null = null
+  private get interactionRange() { return Config.player.interaction.range }
+  private focusedTerminal: ScreenEntity | null = null
 
   // UI elements
   private crosshair: HTMLElement | null = null
@@ -106,10 +107,10 @@ export class InteractionSystem {
         obj = obj.parent
       }
 
-      if (userData) {
+      if (userData && userData.id) {
         this.currentTarget = {
           type: userData.type as 'door' | 'terminal' | 'door_panel' | 'switch',
-          id: userData.id,
+          id: userData.id,  // Already checked in conditional
           object: intersection.object,
           distance: intersection.distance
         }
@@ -167,7 +168,7 @@ export class InteractionSystem {
     for (const [id, switchDef] of this.scene.switchDefs) {
       const switchPos = new THREE.Vector3(
         switchDef.properties.position.x * VOXEL_SIZE,
-        (switchDef.properties.position.y + 48) * VOXEL_SIZE,  // +48 voxels = 1.2m height at 2.5cm
+        (switchDef.properties.position.y + Config.player.interaction.switchHeightOffset) * VOXEL_SIZE,
         switchDef.properties.position.z * VOXEL_SIZE
       )
       const dist = hitWorldPos.distanceTo(switchPos)
@@ -207,7 +208,7 @@ export class InteractionSystem {
     // Convert voxel coords to world coords
     const switchPos = new THREE.Vector3(
       switchDef.properties.position.x * VOXEL_SIZE,
-      (switchDef.properties.position.y + 48) * VOXEL_SIZE,  // +48 voxels = 1.2m at 2.5cm
+      (switchDef.properties.position.y + Config.player.interaction.switchHeightOffset) * VOXEL_SIZE,
       switchDef.properties.position.z * VOXEL_SIZE
     )
 
@@ -250,10 +251,10 @@ export class InteractionSystem {
   }
 
   private interactWithTerminal(terminalId: string) {
-    const terminalMesh = this.scene.terminalMeshes.get(terminalId)
-    if (!terminalMesh) return
+    const terminal = this.scene.terminals.get(terminalId)
+    if (!terminal) return
 
-    const terminalType = terminalMesh.definition.properties.terminal_type
+    const terminalType = terminal.getTerminalType()
 
     // STATUS terminals are read-only, just don't respond to E
     if (terminalType === 'STATUS') {
@@ -261,10 +262,10 @@ export class InteractionSystem {
     }
 
     // Focus on terminal
-    this.focusTerminal(terminalMesh)
+    this.focusTerminal(terminal)
   }
 
-  private focusTerminal(terminal: TerminalMesh) {
+  private focusTerminal(terminal: ScreenEntity) {
     this.focusedTerminal = terminal
     terminal.focus()
     audioSystem.playTerminalAccess()
@@ -280,8 +281,8 @@ export class InteractionSystem {
     if (this.crosshair) this.crosshair.style.display = 'none'
 
     // Load file content and show editor
-    if (terminal.definition.properties.terminal_type === 'ENGINEERING') {
-      const files = terminal.definition.properties.mounted_files ?? []
+    if (terminal.getTerminalType() === 'ENGINEERING') {
+      const files = terminal.getMountedFiles()
 
       if (files.length > 0) {
         const file = this.runtime.getFile(files[0]!)
@@ -404,10 +405,10 @@ export class InteractionSystem {
         }
         break
       case 'terminal':
-        const terminal = this.scene.terminalMeshes.get(this.currentTarget.id)
-        const type = terminal?.definition.properties.terminal_type ?? 'STATUS'
+        const terminal = this.scene.terminals.get(this.currentTarget.id)
+        const type = terminal?.getTerminalType() ?? 'STATUS'
         if (type === 'STATUS') {
-          text = `${terminal?.definition.properties.display_name ?? 'Status Display'}`
+          text = `${terminal?.getDisplayName() ?? 'Status Display'}`
         } else {
           text = `Press <kbd>E</kbd> to use terminal`
         }

@@ -1,0 +1,10 @@
+# Door Panel - Single sliding door panel (half of a double door)
+# 6x18 voxel panel
+
+asset door-panel
+  name: "Door Panel"
+  anchor: (0, 0, 0)
+
+  geometry:
+    # Panel: 6 wide, 18 tall, 1 deep
+    box (0, 0, 0) to (6, 18, 1) as DOOR_PANEL

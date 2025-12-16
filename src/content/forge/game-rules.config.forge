@@ -1,0 +1,14 @@
+# Game Rules Configuration
+# Core gameplay parameters for atmosphere, victory conditions, etc.
+
+config game-rules
+  atmosphere:
+    o2_depletion_rate: 0.05      # % per second when room is occupied
+    o2_warning_threshold: 19     # Show warning below this %
+    o2_critical_threshold: 16    # Critical warning below this %
+    o2_gameover_threshold: 12    # Game over below this %
+    initial_o2_level: 19.5       # Starting O2 level in galley
+
+  victory:
+    target_room: "corridor"      # Room to reach for victory
+    source_room: "galley"        # Must come from this room

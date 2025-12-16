@@ -1,0 +1,34 @@
+# Wall Switch - Wall-mounted switch with status LED
+# Frame at z=0 (wall surface), button/LEDs at z=1
+
+asset switch
+  name: "Wall Switch"
+  anchor: (0, 0, 0)
+
+  params:
+    status: enum(OK, FAULT) = OK
+
+  geometry:
+    # Frame (11x16 rectangle outline)
+    # Top edge
+    repeat x from 0 to 10 step 1:
+      voxel (x, 0, 0) as SWITCH
+
+    # Left edge
+    repeat y from 1 to 14 step 1:
+      voxel (0, y, 0) as SWITCH
+
+    # Right edge
+    repeat y from 1 to 14 step 1:
+      voxel (10, y, 0) as SWITCH
+
+    # Bottom edge
+    repeat x from 0 to 10 step 1:
+      voxel (x, 15, 0) as SWITCH
+
+    # Button child
+    child button at (5, 5, 1)
+
+    # LED children (conditional on status)
+    child led-green at (5, 10, 1) when $status == OK
+    child led-red at (5, 10, 1) when $status == FAULT

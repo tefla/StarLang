@@ -1,0 +1,16 @@
+# Atmosphere Configuration
+# Defines O2 depletion rates and thresholds for the life support system
+
+config atmosphere
+  o2:
+    depletion_rate: 0.05
+    warning_threshold: 19
+    critical_threshold: 16
+    gameover_threshold: 12
+    regen_rate: 0.1
+
+  temperature:
+    min: 10
+    max: 35
+    comfortable_min: 18
+    comfortable_max: 24

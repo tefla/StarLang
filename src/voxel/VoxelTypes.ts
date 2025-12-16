@@ -5,6 +5,8 @@
  * chairs, tables, buttons, screens.
  */
 
+import { Config } from '../forge/ConfigRegistry'
+
 // Voxel size in world units (meters)
 // 2.5cm voxels for detailed objects
 export const VOXEL_SIZE = 0.025
@@ -210,4 +212,46 @@ export const FACE_OFFSETS: readonly [number, number, number][] = FACE_NORMALS
  */
 export function oppositeFace(face: Face): Face {
   return face ^ 1  // XOR with 1 flips between pairs (0,1), (2,3), (4,5)
+}
+
+/**
+ * VoxelType enum value to string name mapping for config lookups.
+ */
+const VOXEL_TYPE_NAMES: Record<VoxelType, string> = {
+  [VoxelType.AIR]: 'AIR',
+  [VoxelType.HULL]: 'HULL',
+  [VoxelType.WALL]: 'WALL',
+  [VoxelType.FLOOR]: 'FLOOR',
+  [VoxelType.CEILING]: 'CEILING',
+  [VoxelType.GLASS]: 'GLASS',
+  [VoxelType.METAL_GRATE]: 'METAL_GRATE',
+  [VoxelType.PANEL]: 'PANEL',
+  [VoxelType.CONDUIT]: 'CONDUIT',
+  [VoxelType.TRIM]: 'TRIM',
+  [VoxelType.LIGHT_FIXTURE]: 'LIGHT_FIXTURE',
+  [VoxelType.SWITCH]: 'SWITCH',
+  [VoxelType.SWITCH_BUTTON]: 'SWITCH_BUTTON',
+  [VoxelType.LED_GREEN]: 'LED_GREEN',
+  [VoxelType.LED_RED]: 'LED_RED',
+  [VoxelType.DOOR_FRAME]: 'DOOR_FRAME',
+  [VoxelType.DOOR_PANEL]: 'DOOR_PANEL',
+  [VoxelType.SCREEN]: 'SCREEN',
+  [VoxelType.DESK]: 'DESK',
+  [VoxelType.KEYBOARD]: 'KEYBOARD',
+  [VoxelType.DUCT]: 'DUCT',
+  [VoxelType.FAN_HUB]: 'FAN_HUB',
+  [VoxelType.FAN_BLADE]: 'FAN_BLADE',
+}
+
+/**
+ * Get the color for a voxel type from the configuration.
+ * @param voxelType - The voxel type enum value
+ * @returns The color as a hex number (e.g., 0x4488ff)
+ */
+export function getVoxelColor(voxelType: VoxelType): number {
+  const typeName = VOXEL_TYPE_NAMES[voxelType]
+  if (typeName) {
+    return Config.voxelColors.get(typeName)
+  }
+  return 0x888888 // Default fallback
 }

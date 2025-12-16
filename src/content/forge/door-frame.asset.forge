@@ -1,0 +1,16 @@
+# Door Frame - Standard door frame for sliding doors
+# Anchor at back-left corner. Opening is 48x87 voxels (1.2m x 2.175m)
+
+asset door-frame
+  name: "Door Frame"
+  anchor: (0, 0, 0)
+
+  geometry:
+    # Top lintel (60 wide, 7 tall, 14 deep)
+    box (0, 87, 0) to (60, 94, 14) as DOOR_FRAME
+
+    # Left jamb (6 wide, 87 tall, 14 deep)
+    box (0, 0, 0) to (6, 87, 14) as DOOR_FRAME
+
+    # Right jamb (6 wide, 87 tall, 14 deep)
+    box (54, 0, 0) to (60, 87, 14) as DOOR_FRAME

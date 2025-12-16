@@ -1,0 +1,27 @@
+# Galley Escape Scenario
+# Act 1: Escape from the damaged galley to the corridor
+
+scenario galley_escape
+  initial:
+    player_room: "galley"
+    player_position_x: 0
+    player_position_y: 0.1
+    player_position_z: 0
+    galley_o2: 19.5
+    galley_powered: true
+    corridor_o2: 21.0
+    corridor_powered: true
+    galley_door_state: "CLOSED"
+    victory: false
+
+  on room_change when $player_room == "corridor" and $previous_room == "galley":
+    set victory: true
+    emit "game:victory"
+
+  on door_open when $door_id == "galley_exit":
+    set galley_door_state: "OPEN"
+    emit "door:opened"
+
+  on door_close when $door_id == "galley_exit":
+    set galley_door_state: "CLOSED"
+    emit "door:closed"

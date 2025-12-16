@@ -1,0 +1,24 @@
+# Wall-mounted ventilation fan with duct housing
+# 40cm x 40cm, 20cm deep
+
+asset wall-fan
+  name: "Wall Ventilation Fan"
+  anchor: (8, 8, 0)
+
+  params:
+    powered: bool = true
+    speed: float[0..10] = 4.0
+
+  geometry:
+    # Back plate
+    box (0, 0, 0) to (16, 16, 2) as DUCT
+
+    # Duct walls
+    box (0, 0, 2) to (2, 16, 8) as DUCT
+    box (14, 0, 2) to (16, 16, 8) as DUCT
+    box (2, 0, 2) to (14, 2, 8) as DUCT
+    box (2, 14, 2) to (14, 16, 8) as DUCT
+
+  child fan-blades at (8, 8, 3):
+    when $powered:
+      animate spin on z at $speed

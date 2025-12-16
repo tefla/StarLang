@@ -1,6 +1,7 @@
 // Particle System - Visual effects for sparks, dust, etc.
 
 import * as THREE from 'three'
+import { Config } from '../../forge/ConfigRegistry'
 
 interface Particle {
   position: THREE.Vector3
@@ -16,9 +17,10 @@ export class SparkEffect {
   private geometry: THREE.BufferGeometry
   private material: THREE.PointsMaterial
   private points: THREE.Points
-  private maxParticles = 50
+  private maxParticles: number
 
   constructor(scene: THREE.Scene) {
+    this.maxParticles = Config.particles.sparks.maxCount
     // Create geometry with max particles
     this.geometry = new THREE.BufferGeometry()
     const positions = new Float32Array(this.maxParticles * 3)
@@ -44,7 +46,12 @@ export class SparkEffect {
     scene.add(this.points)
   }
 
-  emit(position: THREE.Vector3, count: number = 15) {
+  emit(position: THREE.Vector3, count: number = Config.particles.sparks.defaultEmit) {
+    const colors = Config.particles.sparks.colors
+    const weights = Config.particles.sparks.colorWeights
+    const lifetimeMin = Config.particles.sparks.lifetimeMin
+    const lifetimeRange = Config.particles.sparks.lifetimeMax - lifetimeMin
+
     for (let i = 0; i < count; i++) {
       if (this.particles.length >= this.maxParticles) {
         // Remove oldest particle
@@ -58,16 +65,18 @@ export class SparkEffect {
         (Math.random() - 0.5) * 2
       )
 
-      // Spark colors - orange/yellow/white
+      // Spark colors - weighted random selection
       const colorChoice = Math.random()
       let color: THREE.Color
-      if (colorChoice < 0.3) {
-        color = new THREE.Color(0xffff88) // White-yellow
-      } else if (colorChoice < 0.7) {
-        color = new THREE.Color(0xffaa44) // Orange
+      if (colorChoice < weights[0]!) {
+        color = new THREE.Color(colors[0])
+      } else if (colorChoice < weights[0]! + weights[1]!) {
+        color = new THREE.Color(colors[1])
       } else {
-        color = new THREE.Color(0xff6622) // Red-orange
+        color = new THREE.Color(colors[2])
       }
+
+      const life = lifetimeMin + Math.random() * lifetimeRange
 
       const particle: Particle = {
         position: position.clone().add(new THREE.Vector3(
@@ -76,8 +85,8 @@ export class SparkEffect {
           (Math.random() - 0.5) * 0.1
         )),
         velocity,
-        life: 0.3 + Math.random() * 0.4, // 0.3-0.7 seconds
-        maxLife: 0.3 + Math.random() * 0.4,
+        life,
+        maxLife: life,
         size: 0.02 + Math.random() * 0.03,
         color,
       }
@@ -87,8 +96,8 @@ export class SparkEffect {
   }
 
   update(deltaTime: number) {
-    const gravity = new THREE.Vector3(0, -9.8, 0)
-    const drag = 0.98
+    const gravity = new THREE.Vector3(0, Config.particles.sparks.gravity, 0)
+    const drag = Config.particles.sparks.drag
 
     // Update particles
     for (let i = this.particles.length - 1; i >= 0; i--) {

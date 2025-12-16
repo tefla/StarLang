@@ -16,7 +16,8 @@ import {
   VoxelType,
   type Voxel,
   getVoxelType,
-  isTransparent
+  isTransparent,
+  getVoxelColor
 } from './VoxelTypes'
 import type { VoxelChunk } from './VoxelChunk'
 import type { VoxelWorld } from './VoxelWorld'
@@ -38,35 +39,6 @@ interface Quad {
   dir: number
   // Voxel type for material
   voxelType: VoxelType
-}
-
-/**
- * Color palette for voxel types - bright distinct colors for testing.
- */
-const VOXEL_COLORS: Record<number, number> = {
-  [VoxelType.AIR]: 0x000000,
-  [VoxelType.HULL]: 0x8888aa,      // Light blue-gray
-  [VoxelType.WALL]: 0x4488ff,      // Bright blue
-  [VoxelType.FLOOR]: 0x44aa44,     // Bright green
-  [VoxelType.CEILING]: 0xcccccc,   // Light gray
-  [VoxelType.GLASS]: 0x88ddff,     // Cyan
-  [VoxelType.METAL_GRATE]: 0xaaaaaa,
-  [VoxelType.PANEL]: 0x8899cc,     // Blue-ish
-  [VoxelType.CONDUIT]: 0x999999,
-  [VoxelType.TRIM]: 0xbbbbbb,
-  [VoxelType.LIGHT_FIXTURE]: 0xffffaa,
-  [VoxelType.SWITCH]: 0x6080a0,    // Medium blue-gray (switch housing)
-  [VoxelType.SWITCH_BUTTON]: 0x888888, // Medium gray button
-  [VoxelType.LED_GREEN]: 0x00ff00,  // Bright green LED
-  [VoxelType.LED_RED]: 0xff0000,    // Bright red LED
-  [VoxelType.DOOR_FRAME]: 0x3a4a5a, // Dark metallic (matches DoorMesh frame)
-  [VoxelType.DOOR_PANEL]: 0x4a5a6a, // Metallic gray (matches DoorMesh panel)
-  [VoxelType.SCREEN]: 0x1a2744,     // Dark blue screen background
-  [VoxelType.DESK]: 0x2a3a4a,       // Dark metallic desk surface
-  [VoxelType.KEYBOARD]: 0x1a2a3a,   // Dark keyboard surface
-  [VoxelType.DUCT]: 0x5a5a5a,       // Gray duct metal
-  [VoxelType.FAN_HUB]: 0x3a3a3a,    // Dark hub center
-  [VoxelType.FAN_BLADE]: 0x7a7a7a,  // Light gray blade
 }
 
 /**
@@ -326,7 +298,7 @@ export class GreedyMesher {
       }
 
       // Color from voxel type
-      const colorHex = VOXEL_COLORS[voxelType] ?? 0xff00ff
+      const colorHex = getVoxelColor(voxelType)
       const color = new THREE.Color(colorHex)
       for (let i = 0; i < 4; i++) {
         colors.push(color.r, color.g, color.b)

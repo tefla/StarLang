@@ -1,0 +1,77 @@
+# Terminal Entity - Interactive screen terminals
+# Supports STATUS, ENGINEERING, and COMMAND terminal types
+
+entity terminal
+  params:
+    type: enum(STATUS, ENGINEERING, COMMAND) = STATUS
+    display_name: string = "Terminal"
+    location: string = "unknown"
+    focused: bool = false
+
+  screen:
+    size: (512, 384)
+    font: "JetBrains Mono"
+    fontSize: 16
+    background: #1a2744
+    lineHeight: 20
+    padding: 20
+
+  render:
+    match $type:
+      STATUS:
+        text "=== {$display_name} ===" centered
+        text ""
+        text "ENVIRONMENTAL STATUS"
+        text "--------------------"
+        text ""
+        row "  O2 Level:" "{$location.o2_level}%"
+        row "  Temperature:" "{$location.temperature}C"
+        row "  Pressure:" "{$location.pressure}atm"
+        text ""
+        text "--------------------"
+        row "System Status:" "{$status}"
+
+      ENGINEERING:
+        text "=== ENGINEERING TERMINAL ===" centered
+        text ""
+        text "System Status: DEGRADED"
+        text "AI Core: OFFLINE"
+        text ""
+        text "Ship configuration loaded."
+        text ""
+        text "---------------------------------"
+
+      COMMAND:
+        text "=== COMMAND INTERFACE ===" centered
+        text "User: Riley Chen (Cook)"
+        text ""
+        text "> _"
+
+  styles:
+    header:
+      color: #4a6fa5
+    success:
+      color: #77dd77
+    warning:
+      color: #ffb347
+    error:
+      color: #ff6b6b
+    prompt:
+      color: #77dd77
+    muted:
+      color: #9ca3af
+
+  on focus:
+    set focused: true
+    emit "terminal:focus"
+
+  on blur:
+    set focused: false
+
+  on click when $type == ENGINEERING:
+    emit "terminal:open_editor"
+
+  on keypress when $focused:
+    match $key:
+      Escape -> emit "terminal:close"
+      Enter -> emit "terminal:submit"

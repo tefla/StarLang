@@ -1,0 +1,22 @@
+# Button - Pressable switch button (3x4 voxels)
+asset button
+  name: "Button"
+  anchor: (0, 0, 0)
+
+  geometry:
+    # Bottom row (y=0)
+    voxel (1, 0, -1) as SWITCH_BUTTON
+    voxel (1, 0, 0) as SWITCH_BUTTON
+    voxel (1, 0, 1) as SWITCH_BUTTON
+    # Row y=1
+    voxel (1, 1, -1) as SWITCH_BUTTON
+    voxel (1, 1, 0) as SWITCH_BUTTON
+    voxel (1, 1, 1) as SWITCH_BUTTON
+    # Row y=2
+    voxel (1, 2, -1) as SWITCH_BUTTON
+    voxel (1, 2, 0) as SWITCH_BUTTON
+    voxel (1, 2, 1) as SWITCH_BUTTON
+    # Top row (y=3)
+    voxel (1, 3, -1) as SWITCH_BUTTON
+    voxel (1, 3, 0) as SWITCH_BUTTON
+    voxel (1, 3, 1) as SWITCH_BUTTON

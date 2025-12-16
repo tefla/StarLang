@@ -1,0 +1,31 @@
+# Atmosphere Simulation Rules
+# Handles O2 depletion and temperature changes
+
+rule o2_depletion
+  trigger: tick
+  when: $player_room and $player_room_powered
+  effect:
+    set player_room_o2: clamp($player_room_o2 - 0.05 * $delta, 0, 100)
+    if $player_room_o2 <= 12:
+      emit "game:over"
+
+rule temperature_regulation
+  trigger: tick
+  when: $player_room and $player_room_powered
+  effect:
+    if $player_room_temp < 18:
+      set player_room_temp: $player_room_temp + 0.1 * $delta
+    elif $player_room_temp > 24:
+      set player_room_temp: $player_room_temp - 0.1 * $delta
+
+rule o2_warning
+  trigger: tick
+  when: $player_room_o2 < 19 and $player_room_o2 >= 16
+  effect:
+    emit "warning:o2_low"
+
+rule o2_critical
+  trigger: tick
+  when: $player_room_o2 < 16 and $player_room_o2 >= 12
+  effect:
+    emit "warning:o2_critical"

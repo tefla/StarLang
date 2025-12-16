@@ -1,0 +1,22 @@
+# Workstation Desk - Metal desk with four legs
+# Surface at 75cm height, 1.2m x 0.6m
+
+asset desk
+  name: "Workstation Desk"
+  anchor: (24, 0, 12)
+
+  geometry:
+    # Desk surface (47x1x23 voxels)
+    box (0, 30, 0) to (47, 31, 23) as DESK
+
+    # Front-left leg
+    box (0, 0, 0) to (1, 29, 1) as DESK
+
+    # Front-right leg
+    box (46, 0, 0) to (47, 29, 1) as DESK
+
+    # Back-left leg
+    box (0, 0, 22) to (1, 29, 23) as DESK
+
+    # Back-right leg
+    box (46, 0, 22) to (47, 29, 23) as DESK

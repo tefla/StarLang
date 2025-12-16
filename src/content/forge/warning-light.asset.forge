@@ -1,0 +1,60 @@
+# Warning Light - Wall-mounted indicator with multiple modes
+# Panel surround with animated LED bulb
+
+asset warning-light
+  name: "Warning Light"
+  anchor: (0, 0, 0)
+
+  params:
+    mode: enum(OFF, WARNING, CRITICAL, STANDBY) = OFF
+
+  geometry:
+    # Panel surround (ring shape)
+    voxel (0, 0, 0) as PANEL
+    voxel (1, 0, 0) as PANEL
+    voxel (2, 0, 0) as PANEL
+    voxel (0, 1, 0) as PANEL
+    voxel (2, 1, 0) as PANEL
+    voxel (0, 2, 0) as PANEL
+    voxel (1, 2, 0) as PANEL
+    voxel (2, 2, 0) as PANEL
+
+  parts:
+    bulb:
+      voxel (0, 0, 0) as LED_RED
+      at: (1, 1, 1)
+
+  states:
+    off:
+      bulb.emissive: #330000 @ 0.1
+
+    on:
+      bulb.emissive: #ff0000 @ 1.0
+
+    dim:
+      bulb.emissive: #ff0000 @ 0.2
+
+  animations:
+    blink-slow: 2000ms loop
+      0% -> on
+      25% -> off using easeInOut
+      50% -> off
+      75% -> on using easeInOut
+      100% -> on
+
+    blink-fast: 400ms loop
+      0% -> on
+      50% -> off
+      100% -> on
+
+    pulse: 1500ms loop
+      0% -> dim
+      50% -> on using easeInOutQuad
+      100% -> dim using easeInOutQuad
+
+  when $mode:
+    match $mode:
+      OFF -> setState(off)
+      WARNING -> setState(on), play(blink-slow)
+      CRITICAL -> setState(on), play(blink-fast)
+      STANDBY -> setState(dim), play(pulse)

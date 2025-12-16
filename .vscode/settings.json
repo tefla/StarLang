@@ -1,0 +1,11 @@
+{
+  "files.associations": {
+    "*.forge": "forge"
+  },
+  "editor.tabSize": 2,
+  "[forge]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.autoIndent": "full"
+  }
+}

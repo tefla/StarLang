@@ -6,15 +6,7 @@
  */
 
 import * as THREE from 'three'
-import { VoxelType, VOXEL_SIZE } from './VoxelTypes'
-
-/**
- * Color palette for door panel voxels.
- */
-const VOXEL_COLORS: Record<number, number> = {
-  [VoxelType.DOOR_PANEL]: 0x4a5a6a,
-  [VoxelType.DOOR_FRAME]: 0x3a4a5a,
-}
+import { VoxelType, VOXEL_SIZE, getVoxelColor } from './VoxelTypes'
 
 /**
  * Generate a voxel mesh for a rectangular panel.
@@ -43,7 +35,7 @@ export function createVoxelPanelMesh(
   const colors: number[] = []
   const indices: number[] = []
 
-  const color = new THREE.Color(VOXEL_COLORS[voxelType] ?? 0x888888)
+  const color = new THREE.Color(getVoxelColor(voxelType))
   let vertexIndex = 0
 
   // Helper to add a quad face

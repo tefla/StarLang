@@ -5,11 +5,13 @@ import { ShipScene } from './scene/ShipScene'
 import { PlayerController } from './player/PlayerController'
 import { InteractionSystem } from './player/Interaction'
 import { Runtime } from '../runtime/Runtime'
+import { RuntimeForgeBridge } from '../runtime/RuntimeForgeBridge'
 import { GALLEY_SHIP } from '../content/ship/galley'
 import GALLEY_LAYOUT from '../content/ship/galley.layout.json'
 import type { ShipLayout } from '../types/layout'
 import { audioSystem } from './audio/AudioSystem'
 import { VOXEL_SIZE } from '../voxel/VoxelTypes'
+import { Config } from '../forge/ConfigRegistry'
 
 export class Game {
   private container: HTMLElement
@@ -18,6 +20,7 @@ export class Game {
   private player: PlayerController
   private interaction: InteractionSystem
   private runtime: Runtime
+  private bridge: RuntimeForgeBridge
 
   private clock = new THREE.Clock()
   private running = false
@@ -48,6 +51,9 @@ export class Game {
     // Create runtime
     this.runtime = new Runtime()
 
+    // Create RuntimeForgeBridge (wraps ForgeVM)
+    this.bridge = new RuntimeForgeBridge(this.runtime)
+
     // Create scene
     this.scene = new ShipScene(this.runtime)
 
@@ -71,6 +77,15 @@ export class Game {
       console.error('Failed to compile ship:', result.errors)
       throw new Error('Ship compilation failed: ' + result.errors.map(e => e.message).join(', '))
     }
+
+    // Load Forge entity definitions
+    await this.scene.loadForgeEntities()
+
+    // Load Forge scripting files (configs, rules, scenarios, behaviors)
+    await this.bridge.loadForgeFiles()
+
+    // Set scene reference for VM callbacks (animations, state changes)
+    this.bridge.setScene(this.scene)
 
     // Build voxel world from layout (tries pre-built mesh first)
     await this.scene.buildFromLayout(GALLEY_LAYOUT as ShipLayout, 'galley')
@@ -98,10 +113,19 @@ export class Game {
     this.player.debugCollision('SPAWN')
 
     // Set initial O2 levels (start slightly low to create urgency)
-    this.runtime.setProperty('galley.o2_level', 19.5, 'SYSTEM')
+    // Note: This is also set by the scenario, but kept for fallback
+    this.runtime.setProperty('galley.o2_level', Config.gameRules.initialO2Level, 'SYSTEM')
 
     // Set initial player room
     this.runtime.setPlayerRoom('galley')
+
+    // Start the galley escape scenario (ForgeVM handles victory conditions, O2 rules)
+    this.bridge.startScenario('galley_escape')
+
+    // Listen for ForgeVM victory event
+    this.bridge.vm.on('game:victory', () => {
+      this.showVictory()
+    })
 
     // Subscribe to atmosphere events
     this.setupAtmosphereEvents()
@@ -214,7 +238,7 @@ export class Game {
     if (!critical) {
       setTimeout(() => {
         if (this.warningOverlay) this.warningOverlay.style.display = 'none'
-      }, 5000)
+      }, Config.ui.warning.displayDuration)
     }
   }
 
@@ -227,7 +251,7 @@ export class Game {
   private restartGame() {
     // Reset game state
     this.runtime.resetGame()
-    this.runtime.setProperty('galley.o2_level', 19.5, 'SYSTEM')
+    this.runtime.setProperty('galley.o2_level', Config.gameRules.initialO2Level, 'SYSTEM')
     this.hasReachedCorridor = false
 
     // Hide overlays
@@ -325,7 +349,11 @@ export class Game {
     this.player.update(deltaTime)
     this.scene.update(deltaTime)
     this.interaction.update()
-    this.runtime.tick(deltaTime)
+
+    // Use bridge.tick() instead of runtime.tick()
+    // Bridge handles ForgeVM execution (O2 depletion, victory conditions)
+    // and syncs state between Runtime and ForgeVM
+    this.bridge.tick(deltaTime)
 
     // Render
     this.renderer.render(this.scene.scene, this.player.camera)
@@ -378,6 +406,7 @@ export class Game {
 
   dispose() {
     this.running = false
+    this.bridge.dispose()
     this.scene.dispose()
     this.player.dispose()
     this.interaction.dispose()

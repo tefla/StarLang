@@ -1,0 +1,16 @@
+# Player Configuration
+# Movement, collision, and interaction parameters
+
+config player
+  movement:
+    walk_speed: 5                # Walking speed (m/s)
+    look_sensitivity: 0.002      # Mouse look sensitivity
+
+  collision:
+    height: 1.7                  # Player eye height (meters)
+    radius: 0.3                  # Collision capsule radius (meters)
+    check_heights: [0.1, 0.5, 1.0, 1.6]  # Heights for collision checks
+
+  interaction:
+    range: 2.5                   # Interaction reach distance (meters)
+    switch_height_offset: 48     # Switch height in voxels (1.2m at 2.5cm)

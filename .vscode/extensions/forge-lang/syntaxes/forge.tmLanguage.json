@@ -1,0 +1,200 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Forge",
+  "scopeName": "source.forge",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#colors" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#operators" },
+    { "include": "#reactive" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.forge",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.forge",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.forge",
+              "match": "\\\\."
+            },
+            {
+              "name": "variable.other.interpolated.forge",
+              "match": "\\{\\$[a-zA-Z_][a-zA-Z0-9_.]*\\}"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.forge",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.forge",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.forge",
+          "match": "\\b\\d+\\.\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.forge",
+          "match": "\\b\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.percentage.forge",
+          "match": "\\b\\d+%"
+        }
+      ]
+    },
+    "colors": {
+      "patterns": [
+        {
+          "name": "constant.other.color.hex.forge",
+          "match": "#[0-9a-fA-F]{6}\\b"
+        },
+        {
+          "name": "constant.other.color.hex.forge",
+          "match": "#[0-9a-fA-F]{3}\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.definition.forge",
+          "match": "\\b(asset|entity|layout|machine)\\b"
+        },
+        {
+          "name": "keyword.control.block.forge",
+          "match": "\\b(params|geometry|parts|states|animations|screen|render|styles|events|rooms|doors|terminals|switches|assets|wallLights)\\b"
+        },
+        {
+          "name": "keyword.control.flow.forge",
+          "match": "\\b(when|on|match|if|else)\\b"
+        },
+        {
+          "name": "keyword.control.geometry.forge",
+          "match": "\\b(voxel|box|repeat|child|fill)\\b"
+        },
+        {
+          "name": "keyword.control.animation.forge",
+          "match": "\\b(animate|spin|bob|pulse|using)\\b"
+        },
+        {
+          "name": "keyword.control.layout.forge",
+          "match": "\\b(connects|facing|control)\\b"
+        },
+        {
+          "name": "keyword.control.render.forge",
+          "match": "\\b(text|row|code|spacer|divider|centered|lineNumbers)\\b"
+        },
+        {
+          "name": "keyword.control.event.forge",
+          "match": "\\b(click|focus|blur|keypress|set|emit)\\b"
+        },
+        {
+          "name": "keyword.other.unit.forge",
+          "match": "\\b(ms|px)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.primitive.forge",
+          "match": "\\b(int|float|bool|string|color)\\b"
+        },
+        {
+          "name": "storage.type.compound.forge",
+          "match": "\\b(vec2|vec3|range|list|enum|ref)\\b"
+        },
+        {
+          "name": "support.type.voxel.forge",
+          "match": "\\b(HULL|FLOOR|CEILING|DOOR_PANEL|DUCT|LED_GREEN|LED_RED|LED_AMBER|WALL_LIGHT|GRATE|VENT_BLADE|PANEL|TERMINAL_FRAME|TERMINAL_SCREEN|SWITCH_LEVER|SWITCH_BASE)\\b"
+        },
+        {
+          "name": "support.type.state.forge",
+          "match": "\\b(OPEN|CLOSED|LOCKED|SEALED|OK|FAULT|DAMAGED|STANDBY|STATUS|COMMAND|ENGINEERING)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.position.forge",
+          "match": "\\b(at|size|to|from|step)\\b"
+        },
+        {
+          "name": "keyword.operator.cast.forge",
+          "match": "\\bas\\b"
+        },
+        {
+          "name": "keyword.operator.connection.forge",
+          "match": "<->"
+        },
+        {
+          "name": "keyword.operator.arrow.forge",
+          "match": "->"
+        },
+        {
+          "name": "keyword.operator.intensity.forge",
+          "match": "@"
+        },
+        {
+          "name": "keyword.operator.comparison.forge",
+          "match": "==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.assignment.forge",
+          "match": "="
+        }
+      ]
+    },
+    "reactive": {
+      "patterns": [
+        {
+          "name": "variable.other.reactive.forge",
+          "match": "\\$[a-zA-Z_][a-zA-Z0-9_.]*"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "entity.name.function.forge",
+          "match": "^\\s*(asset|entity|layout|machine)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)",
+          "captures": {
+            "1": { "name": "keyword.control.definition.forge" },
+            "2": { "name": "entity.name.type.forge" }
+          }
+        },
+        {
+          "name": "variable.other.property.forge",
+          "match": "^\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*:"
+        }
+      ]
+    }
+  }
+}

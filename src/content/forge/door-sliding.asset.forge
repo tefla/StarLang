@@ -1,0 +1,52 @@
+# Vertical sliding door with status indicator
+# Panel slides up to open, LED strip shows status
+
+asset door-sliding
+  name: "Sliding Door"
+  anchor: (0, 0, 0)
+
+  params:
+    state: enum(OPEN, CLOSED, LOCKED, SEALED) = CLOSED
+
+  parts:
+    panel:
+      box (0, 0, 0) size (48, 86, 10) as DOOR_PANEL
+      at: (0, 1, 0)
+
+    statusLight:
+      repeat x from -20 to 16 step 4:
+        (x, 0, 0) as LED_GREEN
+      at: (0, 90, 0)
+
+  states:
+    closed:
+      panel.position: (0, 1, 0)
+      statusLight.emissive: #888888 @ 0.5
+
+    open:
+      panel.position: (0, 87, 0)
+      statusLight.emissive: #77dd77 @ 0.8
+
+    locked:
+      panel.position: (0, 1, 0)
+      statusLight.emissive: #ffb347 @ 0.8
+
+    sealed:
+      panel.position: (0, 1, 0)
+      statusLight.emissive: #ff6b6b @ 1.0
+
+  animations:
+    open: 300ms
+      0% -> closed
+      100% -> open using easeOutQuad
+
+    close: 300ms
+      0% -> open
+      100% -> closed using easeInQuad
+
+  when $state:
+    match $state:
+      OPEN -> setState(open), play(open)
+      CLOSED -> setState(closed), play(close)
+      LOCKED -> setState(locked), play(close)
+      SEALED -> setState(sealed), play(close)

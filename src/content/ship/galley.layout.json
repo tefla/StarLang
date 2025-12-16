@@ -28,9 +28,9 @@
     },
     "engineering": {
       "position": {
-        "x": 600,
+        "x": 616,
         "y": 0,
-        "z": 0
+        "z": -24
       },
       "size": {
         "width": 320,
@@ -104,24 +104,12 @@
     },
     "engineering_switch": {
       "position": {
-        "x": 436,
+        "x": 440,
         "y": 0,
         "z": 40
       },
       "rotation": 270,
       "status": "OK"
-    }
-  },
-  "assetInstances": {
-    "engineering_workstation": {
-      "asset": "workstation",
-      "position": { "x": 60, "y": 0, "z": -80 },
-      "rotation": 180
-    },
-    "galley_vent_fan": {
-      "asset": "wall-fan",
-      "position": { "x": -80, "y": 50, "z": 120 },
-      "rotation": 180
     }
   },
   "wallLights": {
@@ -164,6 +152,26 @@
       "rotation": 180,
       "color": "#ffffee",
       "intensity": 1
+    }
+  },
+  "assetInstances": {
+    "engineering_workstation": {
+      "asset": "workstation",
+      "position": {
+        "x": 60,
+        "y": 0,
+        "z": -80
+      },
+      "rotation": 180
+    },
+    "galley_vent_fan": {
+      "asset": "wall-fan",
+      "position": {
+        "x": -80,
+        "y": 50,
+        "z": 120
+      },
+      "rotation": 180
     }
   }
 }

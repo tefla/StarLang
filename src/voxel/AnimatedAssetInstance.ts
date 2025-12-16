@@ -39,6 +39,13 @@ export class AnimatedAssetInstance {
   private currentParams: Record<string, string | number | boolean> = {}
   private instanceId: string
 
+  /** Continuous spin configuration for rotating parts (e.g., fans) */
+  private continuousSpin: {
+    axis: 'x' | 'y' | 'z'
+    speed: number
+    partIds?: string[]  // If specified, only spin these parts
+  } | null = null
+
   constructor(
     definition: AnimatedAssetDef,
     position: { x: number; y: number; z: number },
@@ -186,10 +193,57 @@ export class AnimatedAssetInstance {
   }
 
   /**
-   * Update animations (call each frame).
+   * Update animations and continuous effects (call each frame).
    */
   update(deltaTime: number): void {
     this.animationController.update(deltaTime)
+
+    // Apply continuous spin if enabled
+    if (this.continuousSpin) {
+      const { axis, speed, partIds } = this.continuousSpin
+      const rotation = speed * deltaTime
+
+      for (const [partId, part] of this.parts) {
+        // If partIds specified, only spin those parts
+        if (partIds && !partIds.includes(partId)) continue
+        part.group.rotation[axis] += rotation
+      }
+    }
+  }
+
+  /**
+   * Enable continuous rotation for the asset (e.g., fan blades).
+   * @param axis The axis to rotate around ('x', 'y', or 'z')
+   * @param speed Rotation speed in radians per second
+   * @param partIds Optional array of part IDs to spin (default: all parts)
+   */
+  enableContinuousSpin(
+    axis: 'x' | 'y' | 'z',
+    speed: number,
+    partIds?: string[]
+  ): void {
+    this.continuousSpin = { axis, speed, partIds }
+  }
+
+  /**
+   * Disable continuous rotation.
+   */
+  disableContinuousSpin(): void {
+    this.continuousSpin = null
+  }
+
+  /**
+   * Check if continuous spin is enabled.
+   */
+  isContinuousSpinEnabled(): boolean {
+    return this.continuousSpin !== null
+  }
+
+  /**
+   * Get current spin configuration.
+   */
+  getContinuousSpin(): { axis: 'x' | 'y' | 'z'; speed: number; partIds?: string[] } | null {
+    return this.continuousSpin ? { ...this.continuousSpin } : null
   }
 
   /**
@@ -253,6 +307,13 @@ export class AnimatedAssetInstance {
    */
   seekAnimation(animationName: string, normalizedTime: number): void {
     this.animationController.seekAnimation(animationName, normalizedTime)
+  }
+
+  /**
+   * Set callback for animation completion events.
+   */
+  setAnimationCompleteCallback(callback: ((animationName: string) => void) | undefined): void {
+    this.animationController.onAnimationComplete = callback
   }
 
   /**

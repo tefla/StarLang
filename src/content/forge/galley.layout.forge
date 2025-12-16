@@ -1,0 +1,75 @@
+# Galley Deck Layout
+# Three connected rooms: galley, corridor, engineering
+
+layout galley-deck
+  coordinate: voxel
+
+  rooms:
+    galley at (-16, 0, 0) size (240, 120, 240):
+      name: "Galley"
+
+    corridor at (280, 0, 0) size (320, 120, 240):
+      name: "Corridor"
+
+    engineering at (616, 0, -24) size (320, 120, 320):
+      name: "Engineering"
+
+  doors:
+    galley_exit at (104, 0, 40) facing east:
+      connects: galley <-> corridor
+
+    engineering_door at (440, 0, 0) facing east:
+      connects: corridor <-> engineering
+
+  terminals:
+    galley_status at (-136, 0, 0):
+      rotation: 90
+
+    galley_engineering at (60, 0, -80):
+      rotation: 0
+
+    corridor_status at (280, 0, 60):
+      rotation: 180
+
+  switches:
+    door_switch at (104, 0, -40):
+      rotation: 270
+      status: FAULT
+
+    light_switch at (40, 0, -120):
+      rotation: 0
+      status: OK
+
+    engineering_switch at (440, 0, 40):
+      rotation: 270
+      status: OK
+
+  wallLights:
+    wall-light-1 at (-64, 60, 120):
+      rotation: 180
+      color: #ffffee
+      intensity: 1
+
+    wall-light-2 at (600, 60, -156):
+      rotation: 90
+      color: #ffffee
+      intensity: 1
+
+    wall-light-3 at (600, 60, 156):
+      rotation: 270
+      color: #ffffee
+      intensity: 1
+
+    wall-light-4 at (756, 60, 0):
+      rotation: 180
+      color: #ffffee
+      intensity: 1
+
+  assets:
+    engineering_workstation at (60, 0, -80):
+      asset: workstation
+      rotation: 180
+
+    galley_vent_fan at (-80, 50, 120):
+      asset: wall-fan
+      rotation: 180

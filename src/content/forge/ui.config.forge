@@ -1,0 +1,20 @@
+# UI Configuration
+# Overlay colors, timing, and display settings
+
+config ui
+  warning:
+    display_duration: 5000       # Warning display time (ms)
+    color_normal: "rgba(255, 150, 50, 0.9)"    # Orange warning
+    color_critical: "rgba(200, 0, 0, 0.95)"    # Red critical warning
+
+  gameover:
+    background: "rgba(0, 0, 0, 0.9)"           # Dark overlay
+    button_color: "#ff4444"                     # Red restart button
+
+  victory:
+    background: "rgba(0, 20, 40, 0.95)"        # Dark blue overlay
+    text_color: "#77dd77"                       # Green text
+    button_color: "#77dd77"                     # Green continue button
+
+  message:
+    display_duration: 2000       # Message display time (ms)

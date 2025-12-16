@@ -1,0 +1,28 @@
+{
+  "name": "forge-lang",
+  "displayName": "Forge Language",
+  "description": "Syntax highlighting for Forge DSL (.forge files)",
+  "version": "0.1.0",
+  "publisher": "starlang",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "forge",
+        "aliases": ["Forge", "forge"],
+        "extensions": [".forge"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "forge",
+        "scopeName": "source.forge",
+        "path": "./syntaxes/forge.tmLanguage.json"
+      }
+    ]
+  }
+}

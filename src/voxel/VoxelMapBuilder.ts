@@ -7,7 +7,7 @@
 
 import { VoxelWorld } from './VoxelWorld'
 import { VoxelType, VOXEL_SIZE, type VoxelCoord } from './VoxelTypes'
-import { assetLoader, loadBuiltinAssets, type AnimatedChildInfo } from './VoxelAssetLoader'
+import { assetLoader, loadBuiltinAssets, loadBuiltinAssetsAsync, type AnimatedChildInfo } from './VoxelAssetLoader'
 import type { Rotation90 } from './VoxelAsset'
 import type { ShipLayout, RoomLayout, DoorLayout, AssetInstance } from '../types/layout'
 import type { RoomVolume, EntityPlacement, DoorPlacement, VoxelLayoutV2 } from '../types/layout'
@@ -17,6 +17,16 @@ let assetsLoaded = false
 function ensureAssetsLoaded() {
   if (!assetsLoaded) {
     loadBuiltinAssets()
+    assetsLoaded = true
+  }
+}
+
+/**
+ * Ensure assets are loaded asynchronously (for browser support).
+ */
+export async function ensureAssetsLoadedAsync(): Promise<void> {
+  if (!assetsLoaded) {
+    await loadBuiltinAssetsAsync()
     assetsLoaded = true
   }
 }

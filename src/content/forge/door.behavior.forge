@@ -1,0 +1,36 @@
+# Door Behavior
+# Handles door state changes and visual updates
+
+behavior door_state_display
+  on state_changed:
+    if $new_state == "OPEN":
+      setState(open)
+      play(open)
+    elif $new_state == "CLOSED":
+      setState(closed)
+      play(close)
+    elif $new_state == "LOCKED":
+      setState(locked)
+      emit "door:locked"
+    elif $new_state == "SEALED":
+      setState(sealed)
+      emit "door:sealed"
+
+behavior door_switch
+  on switch_activated when $target_door:
+    if $door_state == "CLOSED":
+      set door_state: "OPEN"
+      emit "state_changed"
+    elif $door_state == "OPEN":
+      set door_state: "CLOSED"
+      emit "state_changed"
+
+behavior door_auto_close
+  on door_opened:
+    set auto_close_timer: 5.0
+
+  on tick when $auto_close_timer > 0:
+    set auto_close_timer: $auto_close_timer - $delta
+    if $auto_close_timer <= 0:
+      set door_state: "CLOSED"
+      emit "state_changed"

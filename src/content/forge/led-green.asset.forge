@@ -1,0 +1,10 @@
+# Green LED - Simple indicator light
+asset led-green
+  name: "Green LED"
+  anchor: (0, 0, 0)
+
+  geometry:
+    voxel (1, 0, 0) as LED_GREEN
+    voxel (1, 0, 1) as LED_GREEN
+    voxel (1, 1, 0) as LED_GREEN
+    voxel (1, 1, 1) as LED_GREEN

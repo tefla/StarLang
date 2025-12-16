@@ -1,6 +1,7 @@
 // Audio System - Spatial sound and procedural audio for the ship environment
 
 import * as THREE from 'three'
+import { Config } from '../../forge/ConfigRegistry'
 
 export class AudioSystem {
   private audioContext: AudioContext | null = null
@@ -13,10 +14,10 @@ export class AudioSystem {
   private ambientGain: GainNode | null = null
   private isAmbientPlaying = false
 
-  // Volume levels
-  private masterVolume = 0.5
-  private ambientVolume = 0.15
-  private sfxVolume = 0.4
+  // Volume levels - loaded from config with defaults
+  private get masterVolume() { return Config.audio.masterVolume }
+  private get ambientVolume() { return Config.audio.ambientVolume }
+  private get sfxVolume() { return Config.audio.sfxVolume }
 
   constructor() {
     // Audio context created on first user interaction
@@ -44,10 +45,11 @@ export class AudioSystem {
   }
 
   // Calculate volume based on distance (simple linear falloff)
-  private calculateSpatialVolume(sourcePosition: THREE.Vector3, maxDistance = 15): number {
+  private calculateSpatialVolume(sourcePosition: THREE.Vector3, maxDistance?: number): number {
+    const range = maxDistance ?? Config.audio.defaultRange
     const distance = this.listener.distanceTo(sourcePosition)
-    if (distance > maxDistance) return 0
-    return 1 - (distance / maxDistance)
+    if (distance > range) return 0
+    return 1 - (distance / range)
   }
 
   // Door whoosh sound - filtered noise sweep
@@ -58,7 +60,9 @@ export class AudioSystem {
     const spatialVolume = this.calculateSpatialVolume(position)
     if (spatialVolume < 0.05) return
 
-    const duration = 0.6
+    const duration = Config.audio.door.duration
+    const freqStart = Config.audio.door.openFreqStart
+    const freqEnd = Config.audio.door.openFreqEnd
     const now = ctx.currentTime
 
     // Create noise buffer
@@ -79,11 +83,11 @@ export class AudioSystem {
 
     // Opening: sweep low to high, Closing: high to low
     if (isOpening) {
-      filter.frequency.setValueAtTime(200, now)
-      filter.frequency.exponentialRampToValueAtTime(2000, now + duration)
+      filter.frequency.setValueAtTime(freqStart, now)
+      filter.frequency.exponentialRampToValueAtTime(freqEnd, now + duration)
     } else {
-      filter.frequency.setValueAtTime(2000, now)
-      filter.frequency.exponentialRampToValueAtTime(200, now + duration)
+      filter.frequency.setValueAtTime(freqEnd, now)
+      filter.frequency.exponentialRampToValueAtTime(freqStart, now + duration)
     }
 
     // Volume envelope
@@ -106,7 +110,7 @@ export class AudioSystem {
     const ctx = this.ensureContext()
     if (!this.masterGain) return
 
-    const spatialVolume = this.calculateSpatialVolume(position, 8)
+    const spatialVolume = this.calculateSpatialVolume(position, Config.audio.switchRange)
     if (spatialVolume < 0.05) return
 
     const now = ctx.currentTime
@@ -115,8 +119,8 @@ export class AudioSystem {
       // Satisfying mechanical click
       const osc = ctx.createOscillator()
       osc.type = 'square'
-      osc.frequency.setValueAtTime(800, now)
-      osc.frequency.exponentialRampToValueAtTime(200, now + 0.05)
+      osc.frequency.setValueAtTime(Config.audio.switch.pressFreq, now)
+      osc.frequency.exponentialRampToValueAtTime(Config.audio.switch.pressEndFreq, now + 0.05)
 
       const gain = ctx.createGain()
       gain.gain.setValueAtTime(this.sfxVolume * spatialVolume * 0.3, now)
@@ -131,8 +135,8 @@ export class AudioSystem {
       setTimeout(() => {
         const osc2 = ctx.createOscillator()
         osc2.type = 'square'
-        osc2.frequency.setValueAtTime(600, ctx.currentTime)
-        osc2.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.03)
+        osc2.frequency.setValueAtTime(Config.audio.switch.releaseFreq, ctx.currentTime)
+        osc2.frequency.exponentialRampToValueAtTime(Config.audio.switch.releaseEndFreq, ctx.currentTime + 0.03)
 
         const gain2 = ctx.createGain()
         gain2.gain.setValueAtTime(this.sfxVolume * spatialVolume * 0.2, ctx.currentTime)
@@ -172,7 +176,12 @@ export class AudioSystem {
     const now = ctx.currentTime
 
     // Multiple short crackles
-    const numCrackles = 3 + Math.floor(Math.random() * 4)
+    const cracklesMin = Config.audio.sparks.numCracklesMin
+    const cracklesMax = Config.audio.sparks.numCracklesMax
+    const numCrackles = cracklesMin + Math.floor(Math.random() * (cracklesMax - cracklesMin + 1))
+
+    const filterFreqMin = Config.audio.sparks.filterFreqMin
+    const filterFreqRange = Config.audio.sparks.filterFreqMax - filterFreqMin
 
     for (let i = 0; i < numCrackles; i++) {
       const delay = i * (0.03 + Math.random() * 0.05)
@@ -191,7 +200,7 @@ export class AudioSystem {
       // High-pass for crackle
       const filter = ctx.createBiquadFilter()
       filter.type = 'highpass'
-      filter.frequency.value = 2000 + Math.random() * 3000
+      filter.frequency.value = filterFreqMin + Math.random() * filterFreqRange
 
       const gain = ctx.createGain()
       gain.gain.value = this.sfxVolume * spatialVolume * (0.2 + Math.random() * 0.2)
@@ -215,12 +224,12 @@ export class AudioSystem {
     // Low frequency hum
     this.ambientOscillator = ctx.createOscillator()
     this.ambientOscillator.type = 'sine'
-    this.ambientOscillator.frequency.value = 60
+    this.ambientOscillator.frequency.value = Config.audio.ambient.baseFreq
 
     // Add subtle modulation
     const lfo = ctx.createOscillator()
     lfo.type = 'sine'
-    lfo.frequency.value = 0.5
+    lfo.frequency.value = Config.audio.ambient.lfoRate
 
     const lfoGain = ctx.createGain()
     lfoGain.gain.value = 5
@@ -231,7 +240,7 @@ export class AudioSystem {
     // Second harmonic
     const harmonic = ctx.createOscillator()
     harmonic.type = 'sine'
-    harmonic.frequency.value = 120
+    harmonic.frequency.value = Config.audio.ambient.harmonicFreq
 
     const harmonicGain = ctx.createGain()
     harmonicGain.gain.value = this.ambientVolume * 0.3
@@ -274,9 +283,9 @@ export class AudioSystem {
     if (!this.masterGain) return
 
     const now = ctx.currentTime
-    const frequency = critical ? 880 : 660
-    const beepDuration = critical ? 0.15 : 0.2
-    const numBeeps = critical ? 3 : 2
+    const frequency = critical ? Config.audio.warning.criticalFreq : Config.audio.warning.normalFreq
+    const beepDuration = critical ? Config.audio.warning.criticalDuration : Config.audio.warning.normalDuration
+    const numBeeps = critical ? Config.audio.warning.criticalBeeps : Config.audio.warning.normalBeeps
 
     for (let i = 0; i < numBeeps; i++) {
       const beepStart = now + i * (beepDuration + 0.1)
@@ -306,7 +315,7 @@ export class AudioSystem {
     const now = ctx.currentTime
 
     // Rising tones
-    const frequencies = [400, 500, 600]
+    const frequencies = Config.audio.terminal.accessTones
     frequencies.forEach((freq, i) => {
       const osc = ctx.createOscillator()
       osc.type = 'sine'
@@ -331,7 +340,7 @@ export class AudioSystem {
     if (!this.masterGain) return
 
     const now = ctx.currentTime
-    const frequencies = [523, 659, 784] // C5, E5, G5 - major chord
+    const frequencies = Config.audio.compile.successTones // C5, E5, G5 - major chord
 
     frequencies.forEach((freq, i) => {
       const osc = ctx.createOscillator()
@@ -360,11 +369,11 @@ export class AudioSystem {
     // Dissonant buzz
     const osc1 = ctx.createOscillator()
     osc1.type = 'sawtooth'
-    osc1.frequency.value = 150
+    osc1.frequency.value = Config.audio.compile.errorFreq1
 
     const osc2 = ctx.createOscillator()
     osc2.type = 'sawtooth'
-    osc2.frequency.value = 155 // Slight detuning for dissonance
+    osc2.frequency.value = Config.audio.compile.errorFreq2 // Slight detuning for dissonance
 
     const gain = ctx.createGain()
     gain.gain.setValueAtTime(this.sfxVolume * 0.2, now)
@@ -386,9 +395,9 @@ export class AudioSystem {
   }
 
   setMasterVolume(volume: number) {
-    this.masterVolume = Math.max(0, Math.min(1, volume))
+    const clampedVolume = Math.max(0, Math.min(1, volume))
     if (this.masterGain) {
-      this.masterGain.gain.value = this.masterVolume
+      this.masterGain.gain.value = clampedVolume
     }
   }
 

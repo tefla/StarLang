@@ -10,34 +10,7 @@
 import * as THREE from 'three'
 import type { VoxelPlacement } from './VoxelAsset'
 import type { PartState, DynamicPartDef, BoxDef } from './AnimatedAsset'
-import { VoxelType, VOXEL_SIZE } from './VoxelTypes'
-
-// Color palette (matching GreedyMesher)
-const VOXEL_COLORS: Record<number, number> = {
-  [VoxelType.AIR]: 0x000000,
-  [VoxelType.HULL]: 0x8888aa,
-  [VoxelType.WALL]: 0x4488ff,
-  [VoxelType.FLOOR]: 0x44aa44,
-  [VoxelType.CEILING]: 0xcccccc,
-  [VoxelType.GLASS]: 0x88ddff,
-  [VoxelType.METAL_GRATE]: 0xaaaaaa,
-  [VoxelType.PANEL]: 0x8899cc,
-  [VoxelType.CONDUIT]: 0x999999,
-  [VoxelType.TRIM]: 0xbbbbbb,
-  [VoxelType.LIGHT_FIXTURE]: 0xffffaa,
-  [VoxelType.SWITCH]: 0x6080a0,
-  [VoxelType.SWITCH_BUTTON]: 0x888888,
-  [VoxelType.LED_GREEN]: 0x00ff00,
-  [VoxelType.LED_RED]: 0xff0000,
-  [VoxelType.DOOR_FRAME]: 0x3a4a5a,
-  [VoxelType.DOOR_PANEL]: 0x4a5a6a,
-  [VoxelType.SCREEN]: 0x1a2744,
-  [VoxelType.DESK]: 0x2a3a4a,
-  [VoxelType.KEYBOARD]: 0x1a2a3a,
-  [VoxelType.DUCT]: 0x5a5a5a,
-  [VoxelType.FAN_HUB]: 0x3a3a3a,
-  [VoxelType.FAN_BLADE]: 0x7a7a7a,
-}
+import { VoxelType, VOXEL_SIZE, getVoxelColor } from './VoxelTypes'
 
 export interface DynamicPartMeshOptions {
   castShadow?: boolean
@@ -128,7 +101,7 @@ export class DynamicPartMesh {
     const d = box.depth * VOXEL_SIZE
 
     const type = VoxelType[box.type as keyof typeof VoxelType]
-    const color = new THREE.Color(VOXEL_COLORS[type] ?? 0x888888)
+    const color = new THREE.Color(getVoxelColor(type))
 
     // Use THREE.js BoxGeometry for efficient rendering
     const geometry = new THREE.BoxGeometry(w, h, d)
@@ -169,7 +142,7 @@ export class DynamicPartMesh {
 
       const type = VoxelType[voxel.type as keyof typeof VoxelType]
       if (type !== undefined) {
-        primaryColor = new THREE.Color(VOXEL_COLORS[type] ?? 0x888888)
+        primaryColor = new THREE.Color(getVoxelColor(type))
       }
 
       // Face definitions: [vertices (4 corners), normal]

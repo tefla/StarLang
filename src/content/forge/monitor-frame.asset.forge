@@ -1,0 +1,25 @@
+# Monitor Frame - Monitor bezel frame with SCREEN interior
+# 90cm x 70cm x 10cm (35x27x3 voxels)
+
+asset monitor-frame
+  name: "Monitor Frame"
+  anchor: (18, 0, 2)
+
+  geometry:
+    # Bottom bezel
+    box (0, 0, 0) to (35, 1, 3) as DESK
+
+    # Top bezel
+    box (0, 26, 0) to (35, 27, 3) as DESK
+
+    # Left bezel
+    box (0, 0, 0) to (1, 27, 3) as DESK
+
+    # Right bezel
+    box (34, 0, 0) to (35, 27, 3) as DESK
+
+    # Back panel
+    box (0, 0, 3) to (35, 27, 4) as DESK
+
+    # Screen surface
+    box (2, 2, 0) to (33, 25, 1) as SCREEN

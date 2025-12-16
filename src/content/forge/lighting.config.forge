@@ -1,0 +1,35 @@
+# Lighting Configuration
+# Scene lighting, colors, and atmosphere settings
+
+config lighting
+  scene:
+    background_color: 0x101520   # Dark blue background
+    fog_color: 0x101520          # Fog matches background
+    fog_near: 30                 # Fog start distance (meters)
+    fog_far: 100                 # Fog end distance (meters)
+
+  ambient:
+    color: 0x404050              # Ambient light color (blue-gray)
+    intensity: 0.4               # Ambient light intensity
+
+  directional:
+    color: 0xffffff              # Main light color (white)
+    intensity: 0.6               # Main light intensity
+    shadow_map_size: 2048        # Shadow map resolution
+    shadow_bounds: 30            # Shadow camera bounds
+
+  ceiling:
+    color: 0xffffee              # Warm white ceiling lights
+    intensity: 1.5               # Ceiling light intensity
+    decay: 1                     # Light falloff exponent
+
+  wall:
+    distance: 8                  # Wall light range (meters)
+    decay: 1.5                   # Wall light falloff
+    offset: 0.12                 # Offset from wall surface (meters)
+
+  door_status:
+    open: 0x77dd77               # Green - door open
+    closed: 0x888888             # Gray - door closed
+    locked: 0xffb347             # Orange - door locked
+    sealed: 0xff6b6b             # Red - door sealed

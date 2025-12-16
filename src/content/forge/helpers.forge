@@ -1,0 +1,33 @@
+# Helper Functions
+# Utility functions for common operations
+
+def clamp(value, min_val, max_val):
+  if value < min_val:
+    return min_val
+  elif value > max_val:
+    return max_val
+  else:
+    return value
+
+def lerp(a, b, t):
+  return a + (b - a) * t
+
+def status_for_o2(level):
+  if level < 12:
+    return "CRITICAL"
+  elif level < 16:
+    return "DANGER"
+  elif level < 19:
+    return "WARNING"
+  else:
+    return "NOMINAL"
+
+def color_for_status(status):
+  if status == "CRITICAL":
+    return "#ff0000"
+  elif status == "DANGER":
+    return "#ff6600"
+  elif status == "WARNING":
+    return "#ffcc00"
+  else:
+    return "#00ff00"
