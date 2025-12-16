@@ -112,6 +112,32 @@ export interface VMInteraction {
 }
 
 /**
+ * Display row in a template.
+ */
+export interface VMDisplayRow {
+  label: string
+  value: string  // Template with {var} substitution
+  colorConditions?: {
+    colorName: string
+    condition: AST.Expression
+  }[]
+}
+
+/**
+ * Registered display template in the VM.
+ * Templates define how terminals/screens render content.
+ */
+export interface VMDisplayTemplate {
+  name: string
+  width?: number
+  height?: number
+  header?: string  // Template with {var} substitution
+  footer?: string  // Template with {var} substitution
+  rows?: VMDisplayRow[]
+  properties?: Record<string, unknown>
+}
+
+/**
  * Registered game definition in the VM.
  * Games define the entry point: what ship/scenario to load and player config.
  */
@@ -147,6 +173,7 @@ export class ForgeVM {
   private conditions: VMCondition[] = []
   private games: VMGame[] = []
   private interactions: VMInteraction[] = []
+  private displayTemplates: VMDisplayTemplate[] = []
   private eventListeners: Map<string, VMEventListener[]> = new Map()
   private activeScenario: VMScenario | null = null
   private activeGame: VMGame | null = null

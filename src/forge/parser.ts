@@ -75,6 +75,8 @@ export class ForgeParser {
         return this.parseGame()
       case 'interaction':
         return this.parseInteraction()
+      case 'display-template':
+        return this.parseDisplayTemplate()
       default:
         throw this.error(`Unexpected keyword '${token.value}'`)
     }
@@ -2588,6 +2590,194 @@ export class ForgeParser {
     }
 
     return target
+  }
+
+  // ============================================================================
+  // Display Template Definition
+  // ============================================================================
+
+  /**
+   * Parse display template:
+   *   display-template status_terminal
+   *     width: 40
+   *     header: "═══ {location} STATUS ═══"
+   *     rows:
+   *       - label: "O2 LEVEL"
+   *         value: "{o2_level}%"
+   *         color:
+   *           nominal when o2_level >= 50
+   */
+  private parseDisplayTemplate(): AST.DisplayTemplateDef {
+    const loc = this.currentLoc()
+    this.expectKeyword('display-template')
+    const name = this.expectIdentifier()
+    this.expectNewline()
+    this.expectIndent()
+
+    const template: AST.DisplayTemplateDef = {
+      kind: 'displayTemplate',
+      name,
+      loc
+    }
+
+    while (!this.checkDedent() && !this.isAtEnd()) {
+      this.skipNewlines()
+      if (this.checkDedent()) break
+
+      const token = this.current()
+
+      if (token.type === 'KEYWORD') {
+        switch (token.value) {
+          case 'width':
+            this.advance()
+            this.expect('COLON')
+            template.width = this.parseExpression()
+            this.expectNewlineOrDedent()
+            break
+          case 'height':
+            this.advance()
+            this.expect('COLON')
+            template.height = this.parseExpression()
+            this.expectNewlineOrDedent()
+            break
+          case 'header':
+            this.advance()
+            this.expect('COLON')
+            template.header = this.parseExpression()
+            this.expectNewlineOrDedent()
+            break
+          case 'footer':
+            this.advance()
+            this.expect('COLON')
+            template.footer = this.parseExpression()
+            this.expectNewlineOrDedent()
+            break
+          case 'rows':
+            this.advance()
+            this.expect('COLON')
+            this.expectNewline()
+            this.expectIndent()
+            template.rows = this.parseDisplayRows()
+            this.consumeDedent()
+            break
+          default:
+            throw this.error(`Unexpected keyword '${token.value}' in display-template`)
+        }
+      } else if (token.type === 'IDENTIFIER') {
+        // Generic property: name: value
+        const propName = token.value
+        this.advance()
+        this.expect('COLON')
+        template.properties = template.properties || {}
+        template.properties[propName] = this.parseExpression()
+        this.expectNewlineOrDedent()
+      } else {
+        throw this.error(`Unexpected token in display-template: ${token.value}`)
+      }
+    }
+
+    this.consumeDedent()
+    return template
+  }
+
+  /**
+   * Parse display rows:
+   *   - label: "O2 LEVEL"
+   *     value: "{o2_level}%"
+   *     color:
+   *       nominal when o2_level >= 50
+   */
+  private parseDisplayRows(): AST.DisplayRow[] {
+    const rows: AST.DisplayRow[] = []
+
+    while (!this.checkDedent() && !this.isAtEnd()) {
+      this.skipNewlines()
+      if (this.checkDedent()) break
+
+      // Expect '-' for list item
+      if (this.current().type !== 'MINUS') {
+        throw this.error(`Expected '-' for row item, got ${this.current().type}`)
+      }
+      this.advance()
+
+      const loc = this.currentLoc()
+      const row: AST.DisplayRow = {
+        kind: 'displayRow',
+        loc
+      }
+
+      // Parse row properties (label, value, color)
+      this.expectKeyword('label')
+      this.expect('COLON')
+      row.label = this.parseExpression()
+      this.expectNewline()
+
+      this.expectIndent()
+
+      // Value
+      this.expectKeyword('value')
+      this.expect('COLON')
+      row.value = this.parseExpression()
+      this.expectNewlineOrDedent()
+
+      // Optional color conditions
+      if (!this.checkDedent() && this.check('KEYWORD') && this.current().value === 'color') {
+        this.advance()
+        this.expect('COLON')
+        this.expectNewline()
+        this.expectIndent()
+
+        row.colorConditions = this.parseColorConditions()
+        this.consumeDedent()
+      }
+
+      this.consumeDedent()
+      rows.push(row)
+    }
+
+    return rows
+  }
+
+  /**
+   * Parse color conditions:
+   *   nominal when o2_level >= 50
+   *   warning when o2_level >= 20
+   *   error when o2_level < 20
+   */
+  private parseColorConditions(): AST.DisplayColorCondition[] {
+    const conditions: AST.DisplayColorCondition[] = []
+
+    while (!this.checkDedent() && !this.isAtEnd()) {
+      this.skipNewlines()
+      if (this.checkDedent()) break
+
+      const loc = this.currentLoc()
+
+      // Color name (nominal, warning, error, or custom)
+      const colorToken = this.current()
+      if (colorToken.type !== 'KEYWORD' && colorToken.type !== 'IDENTIFIER') {
+        throw this.error(`Expected color name, got ${colorToken.type}`)
+      }
+      const colorName = colorToken.value
+      this.advance()
+
+      // 'when' keyword
+      this.expectKeyword('when')
+
+      // Condition expression
+      const condition = this.parseExpression()
+
+      conditions.push({
+        kind: 'displayColorCondition',
+        colorName,
+        condition,
+        loc
+      })
+
+      this.expectNewlineOrDedent()
+    }
+
+    return conditions
   }
 
   // ============================================================================

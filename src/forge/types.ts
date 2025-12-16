@@ -720,6 +720,60 @@ export interface InteractionDef extends ASTNode {
 }
 
 // ============================================================================
+// Display Template Definition (for terminal/screen rendering)
+// ============================================================================
+
+/**
+ * Conditional color definition for display rows.
+ * Example:
+ *   nominal when o2_level >= 50
+ *   warning when o2_level >= 20
+ *   error when o2_level < 20
+ */
+export interface DisplayColorCondition extends ASTNode {
+  kind: 'displayColorCondition'
+  colorName: string  // nominal, warning, error, or custom
+  condition: Expression
+}
+
+/**
+ * Row definition in a display template.
+ */
+export interface DisplayRow extends ASTNode {
+  kind: 'displayRow'
+  label: Expression  // Label text (can include templates like "O2 LEVEL")
+  value: Expression  // Value text (can include templates like "{o2_level}%")
+  colorConditions?: DisplayColorCondition[]  // Conditional coloring
+}
+
+/**
+ * Display template definition - defines how terminals/screens render content.
+ *
+ * Example:
+ *   display-template status_terminal
+ *     width: 40
+ *     header: "═══ {location} STATUS ═══"
+ *
+ *     rows:
+ *       - label: "O2 LEVEL"
+ *         value: "{o2_level}%"
+ *         color:
+ *           nominal when o2_level >= 50
+ *           warning when o2_level >= 20
+ *           error when o2_level < 20
+ */
+export interface DisplayTemplateDef extends ASTNode {
+  kind: 'displayTemplate'
+  name: string
+  width?: Expression  // Display width in characters
+  height?: Expression  // Display height in rows
+  header?: Expression  // Header text (supports templates)
+  footer?: Expression  // Footer text (supports templates)
+  rows?: DisplayRow[]  // Row definitions
+  properties?: Record<string, Expression>  // Additional properties
+}
+
+// ============================================================================
 // Game Definition (entry point for game content)
 // ============================================================================
 
@@ -785,6 +839,7 @@ export type TopLevelDef =
   | ConditionDef
   | GameDef
   | InteractionDef
+  | DisplayTemplateDef
 
 export interface ForgeModule extends ASTNode {
   kind: 'module'
