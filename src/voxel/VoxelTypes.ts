@@ -6,6 +6,7 @@
  */
 
 import { Config } from '../forge/ConfigRegistry'
+import { VoxelTypeRegistry } from './VoxelTypeRegistry'
 
 // Voxel size in world units (meters)
 // 2.5cm voxels for detailed objects
@@ -75,37 +76,20 @@ export function makeVoxel(type: VoxelType, variant: number = 0): Voxel {
 
 /**
  * Check if a voxel type is solid (blocks movement and light).
- * Uses config values if available, otherwise falls back to hardcoded defaults.
+ * Uses VoxelTypeRegistry which combines enum and config data.
  */
 export function isSolid(voxel: Voxel): boolean {
   const type = getVoxelType(voxel)
-  const typeName = VOXEL_TYPE_NAMES[type]
-  if (typeName) {
-    return Config.voxelTypes.isSolid(typeName)
-  }
-  // Fallback for unknown types
-  return type !== VoxelType.AIR &&
-         type !== VoxelType.GLASS &&
-         type !== VoxelType.METAL_GRATE
+  return VoxelTypeRegistry.isSolid(type)
 }
 
 /**
  * Check if a voxel type is transparent (allows light through).
- * Uses config values if available, otherwise falls back to hardcoded defaults.
- * SCREEN and FAN_BLADE voxels are treated as transparent for meshing (rendered dynamically).
+ * Uses VoxelTypeRegistry which combines enum and config data.
  */
 export function isTransparent(voxel: Voxel): boolean {
   const type = getVoxelType(voxel)
-  const typeName = VOXEL_TYPE_NAMES[type]
-  if (typeName) {
-    return Config.voxelTypes.isTransparent(typeName)
-  }
-  // Fallback for unknown types
-  return type === VoxelType.AIR ||
-         type === VoxelType.GLASS ||
-         type === VoxelType.METAL_GRATE ||
-         type === VoxelType.SCREEN ||
-         type === VoxelType.FAN_BLADE
+  return VoxelTypeRegistry.isTransparent(type)
 }
 
 /**
@@ -258,48 +242,34 @@ const VOXEL_TYPE_NAMES: Record<number, string> = {
 
 /**
  * Get the voxel type name from a numeric ID.
- * Uses config if available, falls back to hardcoded mapping.
+ * Uses VoxelTypeRegistry which combines enum and config data.
  */
 export function getVoxelTypeName(id: number): string | undefined {
-  // Try config first
-  const configName = Config.voxelTypes.getNameById(id)
-  if (configName) return configName
-  // Fallback to hardcoded mapping
-  return VOXEL_TYPE_NAMES[id]
+  return VoxelTypeRegistry.getName(id)
 }
 
 /**
  * Get the voxel type ID from a name.
- * Uses config if available, falls back to hardcoded enum.
+ * Uses VoxelTypeRegistry which combines enum and config data.
  */
 export function getVoxelTypeId(name: string): number | undefined {
-  // Try config first
-  const configId = Config.voxelTypes.getIdByName(name)
-  if (configId !== undefined) return configId
-  // Fallback: search hardcoded mapping
-  for (const [id, typeName] of Object.entries(VOXEL_TYPE_NAMES)) {
-    if (typeName === name) return parseInt(id, 10)
-  }
-  return undefined
+  return VoxelTypeRegistry.getId(name)
 }
 
 /**
  * Get voxel type IDs for a named group.
- * Uses config voxel-type-groups if available.
+ * Uses VoxelTypeRegistry.
  */
 export function getVoxelTypeGroup(groupName: string): number[] {
-  return Config.voxelTypes.getTypeGroup(groupName)
+  return VoxelTypeRegistry.getTypeGroup(groupName)
 }
 
 /**
  * Get the color for a voxel type from the configuration.
+ * Uses VoxelTypeRegistry which combines enum and config data.
  * @param voxelType - The voxel type enum value
  * @returns The color as a hex number (e.g., 0x4488ff)
  */
 export function getVoxelColor(voxelType: VoxelType): number {
-  const typeName = VOXEL_TYPE_NAMES[voxelType]
-  if (typeName) {
-    return Config.voxelColors.get(typeName)
-  }
-  return 0x888888 // Default fallback
+  return VoxelTypeRegistry.getColor(voxelType)
 }
