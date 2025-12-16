@@ -1,0 +1,107 @@
+# Display Templates for Terminal/Screen Rendering
+# Define how different types of terminals render their content
+
+# Status terminal - shows room atmosphere and system status
+display-template status_terminal
+  width: 40
+  header: "═══ {location} STATUS ═══"
+
+  rows:
+    - label: "O2 LEVEL"
+      value: "{o2_level}%"
+      color:
+        nominal when o2_level >= 50
+        warning when o2_level >= 20
+        error when o2_level < 20
+
+    - label: "TEMPERATURE"
+      value: "{temperature}°C"
+      color:
+        nominal when temperature >= 18 and temperature <= 24
+        warning when temperature >= 15 and temperature <= 30
+        error when temperature < 15 or temperature > 30
+
+    - label: "PRESSURE"
+      value: "{pressure} kPa"
+      color:
+        nominal when pressure >= 95 and pressure <= 105
+        warning when pressure >= 90 and pressure <= 110
+        error when pressure < 90 or pressure > 110
+
+    - label: "ATMOSPHERE"
+      value: "{atmosphere_status}"
+      color:
+        nominal when atmosphere_status == "NOMINAL"
+        warning when atmosphere_status == "WARNING"
+        error when atmosphere_status == "CRITICAL"
+
+# Engineering terminal - shows system diagnostics
+display-template engineering_terminal
+  width: 45
+  header: "═══ ENGINEERING DIAGNOSTICS ═══"
+
+  rows:
+    - label: "POWER GRID"
+      value: "{power_status}"
+      color:
+        nominal when power_status == "ONLINE"
+        error when power_status == "OFFLINE"
+
+    - label: "LIFE SUPPORT"
+      value: "{life_support_status}"
+      color:
+        nominal when life_support_status == "OPERATIONAL"
+        warning when life_support_status == "DEGRADED"
+        error when life_support_status == "FAILURE"
+
+    - label: "DOOR CONTROL"
+      value: "{door_system_status}"
+      color:
+        nominal when door_system_status == "FUNCTIONAL"
+        warning when door_system_status == "PARTIAL"
+        error when door_system_status == "OFFLINE"
+
+    - label: "ACTIVE ALERTS"
+      value: "{alert_count} warning(s)"
+      color:
+        nominal when alert_count == 0
+        warning when alert_count > 0 and alert_count <= 3
+        error when alert_count > 3
+
+# Command terminal - shows ship-wide systems
+display-template command_terminal
+  width: 50
+  header: "═══ COMMAND TERMINAL - {ship_name} ═══"
+  footer: "Last Update: {last_update}"
+
+  rows:
+    - label: "SHIP STATUS"
+      value: "{ship_status}"
+      color:
+        nominal when ship_status == "OPERATIONAL"
+        warning when ship_status == "DAMAGED"
+        error when ship_status == "CRITICAL"
+
+    - label: "CREW"
+      value: "{crew_count} / {crew_capacity}"
+      color:
+        nominal when crew_count >= crew_capacity
+        warning when crew_count < crew_capacity
+
+    - label: "HULL INTEGRITY"
+      value: "{hull_integrity}%"
+      color:
+        nominal when hull_integrity >= 80
+        warning when hull_integrity >= 50
+        error when hull_integrity < 50
+
+# Simple message template for notifications
+display-template message_display
+  width: 35
+
+  rows:
+    - label: "MESSAGE"
+      value: "{message_text}"
+
+    - label: "FROM"
+      value: "{sender}"

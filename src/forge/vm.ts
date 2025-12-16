@@ -423,6 +423,63 @@ export class ForgeVM {
         this.interactions.push(interaction)
       }
     }
+
+    // Load display templates
+    for (const def of module.definitions) {
+      if (def.kind === 'displayTemplate') {
+        const ctx = this.createContext()
+        const template: VMDisplayTemplate = {
+          name: def.name,
+        }
+
+        // Evaluate width/height
+        if (def.width) {
+          template.width = this.evaluateExpression(def.width, ctx) as number
+        }
+        if (def.height) {
+          template.height = this.evaluateExpression(def.height, ctx) as number
+        }
+
+        // Evaluate header/footer (keep as template strings)
+        if (def.header) {
+          template.header = this.evaluateExpression(def.header, ctx) as string
+        }
+        if (def.footer) {
+          template.footer = this.evaluateExpression(def.footer, ctx) as string
+        }
+
+        // Parse rows
+        if (def.rows) {
+          template.rows = []
+          for (const rowDef of def.rows) {
+            const row: VMDisplayRow = {
+              label: this.evaluateExpression(rowDef.label, ctx) as string,
+              value: this.evaluateExpression(rowDef.value, ctx) as string,
+            }
+
+            // Parse color conditions (keep expressions for runtime evaluation)
+            if (rowDef.colorConditions) {
+              row.colorConditions = rowDef.colorConditions.map(cc => ({
+                colorName: cc.colorName,
+                condition: cc.condition,
+              }))
+            }
+
+            template.rows.push(row)
+          }
+        }
+
+        // Evaluate custom properties
+        if (def.properties) {
+          template.properties = {}
+          for (const [key, expr] of Object.entries(def.properties)) {
+            template.properties[key] = this.evaluateExpression(expr, ctx)
+          }
+        }
+
+        this.displayTemplates.push(template)
+      }
+    }
   }
 
   /**
@@ -443,6 +500,7 @@ export class ForgeVM {
     this.conditions = []
     this.games = []
     this.interactions = []
+    this.displayTemplates = []
     this.activeScenario = null
     this.activeGame = null
     this.eventListeners.clear()
@@ -643,6 +701,104 @@ export class ForgeVM {
     }
 
     return prompt
+  }
+
+  // ============================================================================
+  // Display Template Management
+  // ============================================================================
+
+  /**
+   * Get a display template by name.
+   */
+  getDisplayTemplate(name: string): VMDisplayTemplate | undefined {
+    return this.displayTemplates.find(t => t.name === name)
+  }
+
+  /**
+   * Get all loaded display templates.
+   */
+  getDisplayTemplates(): VMDisplayTemplate[] {
+    return [...this.displayTemplates]
+  }
+
+  /**
+   * Render a display template with variable substitution.
+   * @param templateName Name of the template
+   * @param data Data for variable substitution and color evaluation
+   * @returns Rendered template with substituted values and evaluated colors
+   */
+  renderDisplayTemplate(
+    templateName: string,
+    data: Record<string, unknown>
+  ): {
+    header?: string
+    footer?: string
+    rows: {
+      label: string
+      value: string
+      color: string  // 'nominal', 'warning', 'error', or custom
+    }[]
+  } | null {
+    const template = this.getDisplayTemplate(templateName)
+    if (!template) return null
+
+    const ctx = this.createContext()
+    // Add data to context for evaluation
+    ctx.vars = { ...ctx.vars, ...data }
+
+    const result: {
+      header?: string
+      footer?: string
+      rows: { label: string; value: string; color: string }[]
+    } = {
+      rows: []
+    }
+
+    // Substitute header
+    if (template.header) {
+      result.header = this.substituteTemplate(template.header, data)
+    }
+
+    // Substitute footer
+    if (template.footer) {
+      result.footer = this.substituteTemplate(template.footer, data)
+    }
+
+    // Render rows
+    if (template.rows) {
+      for (const row of template.rows) {
+        const renderedRow = {
+          label: this.substituteTemplate(row.label, data),
+          value: this.substituteTemplate(row.value, data),
+          color: 'nominal'  // Default color
+        }
+
+        // Evaluate color conditions
+        if (row.colorConditions) {
+          for (const colorCond of row.colorConditions) {
+            if (evaluateCondition(colorCond.condition, ctx)) {
+              renderedRow.color = colorCond.colorName
+              break  // Use first matching condition
+            }
+          }
+        }
+
+        result.rows.push(renderedRow)
+      }
+    }
+
+    return result
+  }
+
+  /**
+   * Substitute {var} templates in a string with values from data.
+   */
+  private substituteTemplate(template: string, data: Record<string, unknown>): string {
+    let result = template
+    for (const [key, value] of Object.entries(data)) {
+      result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value))
+    }
+    return result
   }
 
   // ============================================================================
