@@ -673,6 +673,53 @@ export interface ConditionDef extends ASTNode {
 }
 
 // ============================================================================
+// Interaction Definition (player-entity interactions)
+// ============================================================================
+
+/**
+ * Target specification for interactions.
+ * Defines what entities can be interacted with.
+ *
+ * Examples:
+ *   target: entity where type == "switch"
+ *   target: entity where voxel_type in [SWITCH, SWITCH_BUTTON]
+ *   target: entity where interactable == true
+ */
+export interface InteractionTarget extends ASTNode {
+  kind: 'interactionTarget'
+  entityType?: string  // Optional specific entity type
+  condition?: Expression  // Filter condition (e.g., voxel_type in [...])
+}
+
+/**
+ * Interaction definition - defines player-entity interactions.
+ *
+ * Example:
+ *   interaction switch_use
+ *     target: entity where voxel_type in [SWITCH, SWITCH_BUTTON]
+ *     range: 2.0
+ *     prompt: "Press [E] to use {name}"
+ *
+ *     on_interact:
+ *       if $target.status == FAULT:
+ *         emit "sparks" at $target.position
+ *         play_sound "switch_broken"
+ *       else:
+ *         toggle $target.state
+ *         play_sound "switch_click"
+ */
+export interface InteractionDef extends ASTNode {
+  kind: 'interaction'
+  name: string
+  target?: InteractionTarget
+  range?: Expression  // Interaction range in meters
+  prompt?: Expression  // Prompt text template
+  promptBroken?: Expression  // Prompt when target is broken/fault
+  onInteract?: Statement[]  // Statements to execute on interaction
+  properties?: Record<string, Expression>  // Additional properties
+}
+
+// ============================================================================
 // Game Definition (entry point for game content)
 // ============================================================================
 
@@ -737,6 +784,7 @@ export type TopLevelDef =
   | BehaviorDef
   | ConditionDef
   | GameDef
+  | InteractionDef
 
 export interface ForgeModule extends ASTNode {
   kind: 'module'

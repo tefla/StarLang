@@ -95,6 +95,23 @@ interface VMCondition {
 }
 
 /**
+ * Registered interaction in the VM.
+ * Interactions define player-entity interactions.
+ */
+export interface VMInteraction {
+  name: string
+  target?: {
+    entityType?: string
+    condition?: AST.Expression
+  }
+  range?: number
+  prompt?: string
+  promptBroken?: string
+  onInteract?: AST.Statement[]
+  properties?: Record<string, unknown>
+}
+
+/**
  * Registered game definition in the VM.
  * Games define the entry point: what ship/scenario to load and player config.
  */
@@ -129,6 +146,7 @@ export class ForgeVM {
   private behaviors: VMBehavior[] = []
   private conditions: VMCondition[] = []
   private games: VMGame[] = []
+  private interactions: VMInteraction[] = []
   private eventListeners: Map<string, VMEventListener[]> = new Map()
   private activeScenario: VMScenario | null = null
   private activeGame: VMGame | null = null
@@ -336,6 +354,48 @@ export class ForgeVM {
         this.games.push(game)
       }
     }
+
+    // Load interactions
+    for (const def of module.definitions) {
+      if (def.kind === 'interaction') {
+        const ctx = this.createContext()
+        const interaction: VMInteraction = {
+          name: def.name,
+          onInteract: def.onInteract,
+        }
+
+        // Parse target specification
+        if (def.target) {
+          interaction.target = {
+            entityType: def.target.entityType,
+            condition: def.target.condition,
+          }
+        }
+
+        // Evaluate range
+        if (def.range) {
+          interaction.range = this.evaluateExpression(def.range, ctx) as number
+        }
+
+        // Evaluate prompts
+        if (def.prompt) {
+          interaction.prompt = this.evaluateExpression(def.prompt, ctx) as string
+        }
+        if (def.promptBroken) {
+          interaction.promptBroken = this.evaluateExpression(def.promptBroken, ctx) as string
+        }
+
+        // Evaluate custom properties
+        if (def.properties) {
+          interaction.properties = {}
+          for (const [key, expr] of Object.entries(def.properties)) {
+            interaction.properties[key] = this.evaluateExpression(expr, ctx)
+          }
+        }
+
+        this.interactions.push(interaction)
+      }
+    }
   }
 
   /**
@@ -355,6 +415,7 @@ export class ForgeVM {
     this.behaviors = []
     this.conditions = []
     this.games = []
+    this.interactions = []
     this.activeScenario = null
     this.activeGame = null
     this.eventListeners.clear()
@@ -436,6 +497,125 @@ export class ForgeVM {
     }
 
     this.emit('game:gameover', { name: this.activeGame.name })
+  }
+
+  // ============================================================================
+  // Interaction Management
+  // ============================================================================
+
+  /**
+   * Get an interaction definition by name.
+   */
+  getInteraction(name: string): VMInteraction | undefined {
+    return this.interactions.find(i => i.name === name)
+  }
+
+  /**
+   * Get all loaded interaction definitions.
+   */
+  getInteractions(): VMInteraction[] {
+    return [...this.interactions]
+  }
+
+  /**
+   * Find interactions that match a target entity.
+   * @param entityData Data about the entity to match against
+   */
+  findMatchingInteractions(entityData: Record<string, unknown>): VMInteraction[] {
+    const matches: VMInteraction[] = []
+    const ctx = this.createContext()
+
+    // Add entity data to context for condition evaluation
+    // Spread properties directly so `type == "switch"` works (not just `target.type`)
+    ctx.vars = { ...ctx.vars, target: entityData, ...entityData }
+
+    for (const interaction of this.interactions) {
+      if (!interaction.target) {
+        // No target filter - matches everything
+        matches.push(interaction)
+        continue
+      }
+
+      // Check entity type filter (simple target: switch)
+      if (interaction.target.entityType) {
+        const entityType = entityData.type ?? entityData.entityType
+        if (entityType !== interaction.target.entityType) {
+          continue
+        }
+      }
+
+      // Check condition filter (target: entity where type == "switch")
+      if (interaction.target.condition) {
+        if (!evaluateCondition(interaction.target.condition, ctx)) {
+          continue
+        }
+      }
+
+      matches.push(interaction)
+    }
+
+    return matches
+  }
+
+  /**
+   * Execute an interaction's on_interact handler.
+   * @param interactionName Name of the interaction to execute
+   * @param targetData Data about the target entity
+   */
+  executeInteraction(interactionName: string, targetData?: Record<string, unknown>): void {
+    const interaction = this.interactions.find(i => i.name === interactionName)
+    if (!interaction || !interaction.onInteract) return
+
+    const ctx = this.createContext()
+
+    // Add target data to context
+    if (targetData) {
+      ctx.vars = { ...ctx.vars, target: targetData }
+
+      // Also set target in state for reactive access ($target.name becomes target.name)
+      this.setStateValue('target', targetData)
+    }
+
+    // Execute on_interact statements
+    executeStatements(interaction.onInteract, ctx, this.createExecutionCallbacks())
+
+    // Emit interaction event
+    this.emit('interaction:execute', {
+      interaction: interactionName,
+      target: targetData,
+    })
+  }
+
+  /**
+   * Get the prompt text for an interaction.
+   * Supports template substitution with {name} syntax.
+   * @param interactionName Name of the interaction
+   * @param targetData Data to use for template substitution
+   * @param isBroken Whether to use the broken prompt
+   */
+  getInteractionPrompt(
+    interactionName: string,
+    targetData?: Record<string, unknown>,
+    isBroken = false
+  ): string | null {
+    const interaction = this.interactions.find(i => i.name === interactionName)
+    if (!interaction) return null
+
+    const promptTemplate = isBroken && interaction.promptBroken
+      ? interaction.promptBroken
+      : interaction.prompt
+
+    if (!promptTemplate) return null
+
+    // Substitute {key} templates with target data
+    let prompt = promptTemplate
+    if (targetData) {
+      for (const [key, value] of Object.entries(targetData)) {
+        prompt = prompt.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value))
+      }
+    }
+
+    return prompt
   }
 
   // ============================================================================

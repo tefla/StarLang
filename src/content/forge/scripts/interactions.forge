@@ -1,0 +1,56 @@
+# Player Interaction Definitions
+# Define what happens when the player interacts with entities
+
+# Switch interaction - handles both working and broken switches
+interaction switch_use
+  target: entity where voxel_type == "SWITCH" or voxel_type == "SWITCH_BUTTON"
+  range: 2.0
+  prompt: "Press [E] to use {name}"
+  prompt_broken: "{name} is broken"
+
+  on_interact:
+    if $target.status == "FAULT":
+      emit "particles:sparks"
+      emit "audio:switch_broken"
+    else:
+      emit "switch:toggle"
+      emit "audio:switch_click"
+
+# Terminal interaction - different behavior based on terminal type
+interaction terminal_use
+  target: terminal
+  range: 1.5
+  prompt: "{name} - Press [E]"
+  prompt_broken: "{name} - OFFLINE"
+
+  on_interact:
+    if $target.status == "FAULT":
+      emit "audio:terminal_denied"
+    elif $target.terminal_type == "ENGINEERING":
+      emit "editor:open"
+    else:
+      emit "audio:terminal_beep"
+
+# Door interaction - manual door opening when automatic fails
+interaction door_manual
+  target: door
+  range: 1.5
+  prompt: "Press [E] to open {name}"
+  prompt_broken: "{name} is jammed"
+
+  on_interact:
+    if $target.status == "FAULT":
+      emit "audio:door_jammed"
+    else:
+      emit "door:toggle"
+      emit "audio:door_whoosh"
+
+# Generic asset interaction - for inspectable objects
+interaction inspect_asset
+  target: entity where interactable == true
+  range: 2.0
+  prompt: "Inspect {name}"
+
+  on_interact:
+    emit "ui:inspect"
+    set inspecting: $target.id

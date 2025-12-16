@@ -73,6 +73,8 @@ export class ForgeParser {
         return this.parseCondition()
       case 'game':
         return this.parseGame()
+      case 'interaction':
+        return this.parseInteraction()
       default:
         throw this.error(`Unexpected keyword '${token.value}'`)
     }
@@ -2453,6 +2455,139 @@ export class ForgeParser {
     }
 
     throw this.error(`Expected collision type, got ${typeToken.type}`)
+  }
+
+  // ============================================================================
+  // Interaction Definition (Phase 2 - Engine/Game Separation)
+  // ============================================================================
+
+  /**
+   * Parse an interaction definition:
+   *   interaction switch_use
+   *     target: entity where voxel_type in [SWITCH, SWITCH_BUTTON]
+   *     range: 2.0
+   *     prompt: "Press [E] to use {name}"
+   *     prompt_broken: "{name} [DAMAGED]"
+   *
+   *     on_interact:
+   *       if $target.status == FAULT:
+   *         emit "sparks"
+   *       else:
+   *         toggle $target.state
+   */
+  private parseInteraction(): AST.InteractionDef {
+    const loc = this.currentLoc()
+    this.expectKeyword('interaction')
+    const name = this.expectIdentifier()
+    this.expectNewline()
+    this.expectIndent()
+
+    const interaction: AST.InteractionDef = {
+      kind: 'interaction',
+      name,
+      loc
+    }
+
+    while (!this.checkDedent() && !this.isAtEnd()) {
+      this.skipNewlines()
+      if (this.checkDedent()) break
+
+      const token = this.current()
+
+      if (token.type === 'KEYWORD') {
+        switch (token.value) {
+          case 'target':
+            this.advance()
+            this.expect('COLON')
+            interaction.target = this.parseInteractionTarget()
+            this.expectNewlineOrDedent()
+            break
+          case 'range':
+            this.advance()
+            this.expect('COLON')
+            interaction.range = this.parseExpression()
+            this.expectNewlineOrDedent()
+            break
+          case 'prompt':
+            this.advance()
+            this.expect('COLON')
+            interaction.prompt = this.parseExpression()
+            this.expectNewlineOrDedent()
+            break
+          case 'prompt_broken':
+            this.advance()
+            this.expect('COLON')
+            interaction.promptBroken = this.parseExpression()
+            this.expectNewlineOrDedent()
+            break
+          case 'on_interact':
+            this.advance()
+            this.expect('COLON')
+            this.expectNewline()
+            this.expectIndent()
+
+            const handlers: AST.Statement[] = []
+            while (!this.checkDedent() && !this.isAtEnd()) {
+              this.skipNewlines()
+              if (this.checkDedent()) break
+              handlers.push(this.parseStatement())
+              this.expectNewlineOrDedent()
+            }
+            this.consumeDedent()
+            interaction.onInteract = handlers
+            break
+          default:
+            throw this.error(`Unexpected keyword '${token.value}' in interaction`)
+        }
+      } else if (token.type === 'IDENTIFIER') {
+        // Generic property: name: value
+        const propName = token.value
+        this.advance()
+        this.expect('COLON')
+        interaction.properties = interaction.properties || {}
+        interaction.properties[propName] = this.parseExpression()
+        this.expectNewlineOrDedent()
+      } else {
+        throw this.error(`Unexpected token in interaction: ${token.value}`)
+      }
+    }
+
+    this.consumeDedent()
+    return interaction
+  }
+
+  /**
+   * Parse interaction target:
+   *   target: entity where voxel_type in [SWITCH, SWITCH_BUTTON]
+   *   target: entity where type == "terminal"
+   *   target: switch
+   */
+  private parseInteractionTarget(): AST.InteractionTarget {
+    const loc = this.currentLoc()
+    const target: AST.InteractionTarget = {
+      kind: 'interactionTarget',
+      loc
+    }
+
+    // Check for "entity" keyword followed by optional "where" clause
+    const token = this.current()
+    if (token.type === 'KEYWORD' && token.value === 'entity') {
+      this.advance()
+
+      // Check for "where" condition
+      if (this.check('KEYWORD') && this.current().value === 'where') {
+        this.advance()
+        target.condition = this.parseExpression()
+      }
+    } else if (token.type === 'IDENTIFIER') {
+      // Simple entity type: target: switch
+      target.entityType = token.value
+      this.advance()
+    } else {
+      throw this.error(`Expected entity type or 'entity where', got ${token.type}`)
+    }
+
+    return target
   }
 
   // ============================================================================

@@ -590,6 +590,102 @@ describe('Forge Error Formatting', () => {
   })
 })
 
+describe('Interaction Definition', () => {
+  test('parses minimal interaction', () => {
+    const ast = parse(`interaction test_interact
+  target: switch
+  range: 2.0`)
+
+    expect(ast.definitions.length).toBe(1)
+    expect(ast.definitions[0]!.kind).toBe('interaction')
+
+    const interaction = ast.definitions[0]!
+    if (interaction.kind === 'interaction') {
+      expect(interaction.name).toBe('test_interact')
+      expect(interaction.target).toBeDefined()
+      expect(interaction.target!.entityType).toBe('switch')
+      expect(interaction.range).toBeDefined()
+    }
+  })
+
+  test('parses interaction with entity where clause', () => {
+    const ast = parse(`interaction switch_use
+  target: entity where voxel_type == SWITCH
+  range: 2.0
+  prompt: "Press [E] to use"`)
+
+    const interaction = ast.definitions[0]!
+    if (interaction.kind === 'interaction') {
+      expect(interaction.target).toBeDefined()
+      expect(interaction.target!.condition).toBeDefined()
+      expect(interaction.target!.condition!.kind).toBe('binary')
+      expect(interaction.prompt).toBeDefined()
+    }
+  })
+
+  test('parses interaction with on_interact block', () => {
+    const ast = parse(`interaction door_use
+  target: entity where type == "door"
+  range: 1.5
+
+  on_interact:
+    emit "door:toggle"
+    set door_used: true`)
+
+    const interaction = ast.definitions[0]!
+    if (interaction.kind === 'interaction') {
+      expect(interaction.onInteract).toBeDefined()
+      expect(interaction.onInteract!.length).toBe(2)
+      expect(interaction.onInteract![0]!.kind).toBe('emit')
+      expect(interaction.onInteract![1]!.kind).toBe('set')
+    }
+  })
+
+  test('parses interaction with conditional on_interact', () => {
+    const ast = parse(`interaction switch_toggle
+  target: switch
+  range: 2.0
+  prompt: "Press [E] to use {name}"
+  prompt_broken: "{name} [DAMAGED]"
+
+  on_interact:
+    if $target.status == FAULT:
+      emit "sparks"
+    else:
+      emit "switch:toggle"`)
+
+    const interaction = ast.definitions[0]!
+    if (interaction.kind === 'interaction') {
+      expect(interaction.prompt).toBeDefined()
+      expect(interaction.promptBroken).toBeDefined()
+      expect(interaction.onInteract).toBeDefined()
+      expect(interaction.onInteract!.length).toBe(1)
+      expect(interaction.onInteract![0]!.kind).toBe('if')
+    }
+  })
+
+  test('parses multiple interactions', () => {
+    const ast = parse(`interaction switch_use
+  target: switch
+  range: 2.0
+
+interaction terminal_use
+  target: entity where type == "terminal"
+  range: 1.5`)
+
+    expect(ast.definitions.length).toBe(2)
+    expect(ast.definitions[0]!.kind).toBe('interaction')
+    expect(ast.definitions[1]!.kind).toBe('interaction')
+
+    if (ast.definitions[0]!.kind === 'interaction') {
+      expect(ast.definitions[0]!.name).toBe('switch_use')
+    }
+    if (ast.definitions[1]!.kind === 'interaction') {
+      expect(ast.definitions[1]!.name).toBe('terminal_use')
+    }
+  })
+})
+
 describe('Game Definition', () => {
   test('parses minimal game block', () => {
     const ast = parse(`game test_game

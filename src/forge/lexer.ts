@@ -60,11 +60,12 @@ export class LexerError extends Error {
 
 // Keywords organized by category
 const STRUCTURE_KEYWORDS = new Set([
-  'asset', 'entity', 'layout', 'machine', 'config', 'rule', 'scenario', 'behavior', 'condition', 'game',
+  'asset', 'entity', 'layout', 'machine', 'config', 'rule', 'scenario', 'behavior', 'condition', 'game', 'interaction',
   'params', 'geometry', 'parts', 'states', 'animations',
   'when', 'on', 'match', 'extends', 'base',
   'def', 'return', 'trigger', 'effect', 'initial', 'type', 'message',
-  'player', 'ship', 'controller', 'collision', 'spawn_room', 'spawn_position'
+  'player', 'ship', 'controller', 'collision', 'spawn_room', 'spawn_position',
+  'target', 'range', 'prompt', 'on_interact', 'where', 'prompt_broken'
 ])
 
 const GEOMETRY_KEYWORDS = new Set([

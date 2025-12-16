@@ -831,3 +831,191 @@ game clear_test
     expect(vm.getActiveGame()).toBeNull()
   })
 })
+
+// ============================================================================
+// Interaction Tests
+// ============================================================================
+
+describe('Interactions', () => {
+  test('loads basic interaction definition', () => {
+    vm.loadSource(`
+interaction test_interact
+  range: 2.0
+  prompt: "Press [E] to use"
+`)
+
+    const interactions = vm.getInteractions()
+    expect(interactions.length).toBe(1)
+    expect(interactions[0]!.name).toBe('test_interact')
+    expect(interactions[0]!.range).toBe(2.0)
+    expect(interactions[0]!.prompt).toBe('Press [E] to use')
+  })
+
+  test('loads interaction with target filter', () => {
+    vm.loadSource(`
+interaction switch_use
+  target: entity where type == "switch"
+  range: 1.5
+`)
+
+    const interaction = vm.getInteraction('switch_use')
+    expect(interaction).toBeDefined()
+    expect(interaction!.target).toBeDefined()
+    // entityType is undefined when using "entity where" syntax - the condition handles filtering
+    expect(interaction!.target!.entityType).toBeUndefined()
+    expect(interaction!.target!.condition).toBeDefined()
+    expect(interaction!.range).toBe(1.5)
+  })
+
+  test('loads interaction with simple entity type', () => {
+    vm.loadSource(`
+interaction simple_target
+  target: switch
+`)
+
+    const interaction = vm.getInteraction('simple_target')
+    expect(interaction).toBeDefined()
+    expect(interaction!.target).toBeDefined()
+    expect(interaction!.target!.entityType).toBe('switch')
+    expect(interaction!.target!.condition).toBeUndefined()
+  })
+
+  test('loads interaction with prompts', () => {
+    vm.loadSource(`
+interaction door_open
+  prompt: "Open door"
+  prompt_broken: "Door is broken"
+`)
+
+    const interaction = vm.getInteraction('door_open')
+    expect(interaction!.prompt).toBe('Open door')
+    expect(interaction!.promptBroken).toBe('Door is broken')
+  })
+
+  test('getInteraction returns undefined for nonexistent', () => {
+    expect(vm.getInteraction('nonexistent')).toBeUndefined()
+  })
+
+  test('executeInteraction runs on_interact handlers', () => {
+    let interacted = false
+    vm.on('test:interact', () => { interacted = true })
+
+    vm.loadSource(`
+interaction execute_test
+  on_interact:
+    emit "test:interact"
+    set interacted: true
+`)
+
+    vm.executeInteraction('execute_test')
+    expect(interacted).toBe(true)
+    expect(vm.getStateValue('interacted')).toBe(true)
+  })
+
+  test('executeInteraction sets target data in context', () => {
+    vm.loadSource(`
+interaction with_target
+  on_interact:
+    set target_name: $target.name
+    set target_type: $target.type
+`)
+
+    vm.executeInteraction('with_target', { name: 'test_switch', type: 'switch' })
+    expect(vm.getStateValue('target_name')).toBe('test_switch')
+    expect(vm.getStateValue('target_type')).toBe('switch')
+  })
+
+  test('executeInteraction emits interaction:execute event', () => {
+    let eventData: Record<string, unknown> | undefined
+    vm.on('interaction:execute', (e) => { eventData = e.data })
+
+    vm.loadSource(`
+interaction event_test
+  on_interact:
+    set x: 1
+`)
+
+    vm.executeInteraction('event_test', { id: 'target1' })
+    expect(eventData?.interaction).toBe('event_test')
+    expect((eventData?.target as Record<string, unknown>)?.id).toBe('target1')
+  })
+
+  test('getInteractionPrompt returns formatted prompt', () => {
+    vm.loadSource(`
+interaction prompt_test
+  prompt: "Use {name}"
+  prompt_broken: "{name} is broken"
+`)
+
+    const prompt = vm.getInteractionPrompt('prompt_test', { name: 'Terminal' })
+    expect(prompt).toBe('Use Terminal')
+
+    const brokenPrompt = vm.getInteractionPrompt('prompt_test', { name: 'Terminal' }, true)
+    expect(brokenPrompt).toBe('Terminal is broken')
+  })
+
+  test('getInteractionPrompt returns null for unknown interaction', () => {
+    expect(vm.getInteractionPrompt('nonexistent')).toBeNull()
+  })
+
+  test('findMatchingInteractions returns all without filters', () => {
+    vm.loadSource(`
+interaction any1
+  prompt: "Use"
+
+interaction any2
+  prompt: "Activate"
+`)
+
+    const matches = vm.findMatchingInteractions({ type: 'anything' })
+    expect(matches.length).toBe(2)
+  })
+
+  test('findMatchingInteractions filters by simple entity type', () => {
+    vm.loadSource(`
+interaction switch_only
+  target: switch
+
+interaction door_only
+  target: door
+`)
+
+    const switchMatches = vm.findMatchingInteractions({ type: 'switch' })
+    expect(switchMatches.length).toBe(1)
+    expect(switchMatches[0]!.name).toBe('switch_only')
+
+    const doorMatches = vm.findMatchingInteractions({ type: 'door' })
+    expect(doorMatches.length).toBe(1)
+    expect(doorMatches[0]!.name).toBe('door_only')
+  })
+
+  test('findMatchingInteractions filters by condition', () => {
+    vm.loadSource(`
+interaction switch_with_condition
+  target: entity where type == "switch"
+
+interaction door_with_condition
+  target: entity where type == "door"
+`)
+
+    // Both have conditions that check target.type, so we need to match by condition evaluation
+    const switchMatches = vm.findMatchingInteractions({ type: 'switch' })
+    expect(switchMatches.length).toBe(1)
+    expect(switchMatches[0]!.name).toBe('switch_with_condition')
+
+    const doorMatches = vm.findMatchingInteractions({ type: 'door' })
+    expect(doorMatches.length).toBe(1)
+    expect(doorMatches[0]!.name).toBe('door_with_condition')
+  })
+
+  test('clear removes all interactions', () => {
+    vm.loadSource(`
+interaction clear_test
+  prompt: "Test"
+`)
+
+    expect(vm.getInteractions().length).toBe(1)
+    vm.clear()
+    expect(vm.getInteractions().length).toBe(0)
+  })
+})
