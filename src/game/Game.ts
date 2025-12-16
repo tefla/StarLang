@@ -195,7 +195,7 @@ export class Game {
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.9);
+      background: ${Config.ui.gameover.background};
       color: white;
       display: none;
       justify-content: center;
@@ -205,10 +205,10 @@ export class Game {
       z-index: 2000;
     `
     this.gameOverOverlay.innerHTML = `
-      <h1 style="font-size: 48px; color: #ff4444; margin-bottom: 20px;">OXYGEN DEPLETED</h1>
-      <p style="font-size: 20px; color: #888; margin-bottom: 40px;">You succumbed to hypoxia.</p>
+      <h1 style="font-size: 48px; color: ${Config.ui.gameover.titleColor}; margin-bottom: 20px;">${Config.ui.gameover.title}</h1>
+      <p style="font-size: 20px; color: #888; margin-bottom: 40px;">${Config.ui.gameover.subtitle}</p>
       <button id="restart-btn" style="
-        background: #ff4444;
+        background: ${Config.ui.gameover.buttonColor};
         border: none;
         padding: 15px 40px;
         font-size: 18px;
@@ -216,7 +216,7 @@ export class Game {
         cursor: pointer;
         font-family: 'JetBrains Mono', monospace;
         border-radius: 4px;
-      ">RESTART</button>
+      ">${Config.ui.gameover.buttonText}</button>
     `
     document.body.appendChild(this.gameOverOverlay)
 
@@ -231,8 +231,8 @@ export class Game {
     this.warningOverlay.textContent = message
     this.warningOverlay.style.display = 'block'
     this.warningOverlay.style.background = critical
-      ? 'rgba(200, 0, 0, 0.95)'
-      : 'rgba(255, 150, 50, 0.9)'
+      ? Config.ui.warning.colorCritical
+      : Config.ui.warning.colorNormal
 
     // Hide after a few seconds (unless critical)
     if (!critical) {
@@ -272,7 +272,7 @@ export class Game {
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 20, 40, 0.95);
+      background: ${Config.ui.victory.background};
       color: white;
       display: none;
       justify-content: center;
@@ -282,15 +282,15 @@ export class Game {
       z-index: 2000;
     `
     this.victoryOverlay.innerHTML = `
-      <h1 style="font-size: 48px; color: #77dd77; margin-bottom: 20px;">ESCAPE SUCCESSFUL</h1>
+      <h1 style="font-size: 48px; color: ${Config.ui.victory.titleColor}; margin-bottom: 20px;">${Config.ui.victory.title}</h1>
       <p style="font-size: 20px; color: #9ca3af; margin-bottom: 10px; max-width: 600px; text-align: center;">
-        You've escaped the galley and reached the corridor.
+        ${Config.ui.victory.subtitle}
       </p>
       <p style="font-size: 16px; color: #666; margin-bottom: 40px;">
-        Act 1 Complete - More to explore ahead...
+        ${Config.ui.victory.note}
       </p>
       <button id="continue-btn" style="
-        background: #77dd77;
+        background: ${Config.ui.victory.buttonColor};
         border: none;
         padding: 15px 40px;
         font-size: 18px;
@@ -298,7 +298,7 @@ export class Game {
         cursor: pointer;
         font-family: 'JetBrains Mono', monospace;
         border-radius: 4px;
-      ">CONTINUE EXPLORING</button>
+      ">${Config.ui.victory.buttonText}</button>
     `
     document.body.appendChild(this.victoryOverlay)
 
@@ -385,11 +385,7 @@ export class Game {
         const previousRoom = this.runtime.getPlayerRoom()
         if (previousRoom !== roomId) {
           this.runtime.setPlayerRoom(roomId)
-
-          // Victory condition: entered corridor from galley
-          if (roomId === 'corridor' && previousRoom === 'galley' && !this.hasReachedCorridor) {
-            this.showVictory()
-          }
+          // Victory is now handled by ForgeVM conditions (galley_escape.condition.forge)
         }
         return
       }

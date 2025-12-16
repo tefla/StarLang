@@ -75,9 +75,15 @@ export function makeVoxel(type: VoxelType, variant: number = 0): Voxel {
 
 /**
  * Check if a voxel type is solid (blocks movement and light).
+ * Uses config values if available, otherwise falls back to hardcoded defaults.
  */
 export function isSolid(voxel: Voxel): boolean {
   const type = getVoxelType(voxel)
+  const typeName = VOXEL_TYPE_NAMES[type]
+  if (typeName) {
+    return Config.voxelTypes.isSolid(typeName)
+  }
+  // Fallback for unknown types
   return type !== VoxelType.AIR &&
          type !== VoxelType.GLASS &&
          type !== VoxelType.METAL_GRATE
@@ -85,10 +91,16 @@ export function isSolid(voxel: Voxel): boolean {
 
 /**
  * Check if a voxel type is transparent (allows light through).
+ * Uses config values if available, otherwise falls back to hardcoded defaults.
  * SCREEN and FAN_BLADE voxels are treated as transparent for meshing (rendered dynamically).
  */
 export function isTransparent(voxel: Voxel): boolean {
   const type = getVoxelType(voxel)
+  const typeName = VOXEL_TYPE_NAMES[type]
+  if (typeName) {
+    return Config.voxelTypes.isTransparent(typeName)
+  }
+  // Fallback for unknown types
   return type === VoxelType.AIR ||
          type === VoxelType.GLASS ||
          type === VoxelType.METAL_GRATE ||
@@ -216,8 +228,9 @@ export function oppositeFace(face: Face): Face {
 
 /**
  * VoxelType enum value to string name mapping for config lookups.
+ * This is a hardcoded fallback - prefer using Config.voxelTypes for dynamic lookups.
  */
-const VOXEL_TYPE_NAMES: Record<VoxelType, string> = {
+const VOXEL_TYPE_NAMES: Record<number, string> = {
   [VoxelType.AIR]: 'AIR',
   [VoxelType.HULL]: 'HULL',
   [VoxelType.WALL]: 'WALL',
@@ -241,6 +254,41 @@ const VOXEL_TYPE_NAMES: Record<VoxelType, string> = {
   [VoxelType.DUCT]: 'DUCT',
   [VoxelType.FAN_HUB]: 'FAN_HUB',
   [VoxelType.FAN_BLADE]: 'FAN_BLADE',
+}
+
+/**
+ * Get the voxel type name from a numeric ID.
+ * Uses config if available, falls back to hardcoded mapping.
+ */
+export function getVoxelTypeName(id: number): string | undefined {
+  // Try config first
+  const configName = Config.voxelTypes.getNameById(id)
+  if (configName) return configName
+  // Fallback to hardcoded mapping
+  return VOXEL_TYPE_NAMES[id]
+}
+
+/**
+ * Get the voxel type ID from a name.
+ * Uses config if available, falls back to hardcoded enum.
+ */
+export function getVoxelTypeId(name: string): number | undefined {
+  // Try config first
+  const configId = Config.voxelTypes.getIdByName(name)
+  if (configId !== undefined) return configId
+  // Fallback: search hardcoded mapping
+  for (const [id, typeName] of Object.entries(VOXEL_TYPE_NAMES)) {
+    if (typeName === name) return parseInt(id, 10)
+  }
+  return undefined
+}
+
+/**
+ * Get voxel type IDs for a named group.
+ * Uses config voxel-type-groups if available.
+ */
+export function getVoxelTypeGroup(groupName: string): number[] {
+  return Config.voxelTypes.getTypeGroup(groupName)
 }
 
 /**

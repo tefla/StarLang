@@ -522,3 +522,182 @@ behavior test
     expect(animationPlayed).toBe('slide')
   })
 })
+
+// ============================================================================
+// Condition Tests
+// ============================================================================
+
+describe('Conditions', () => {
+  test('victory condition fires when trigger is true', () => {
+    let victoryFired = false
+    let conditionData: Record<string, unknown> | undefined
+
+    vm.on('game:victory', (e) => {
+      victoryFired = true
+      conditionData = e.data
+    })
+
+    vm.loadSource(`
+condition win_game
+  type: victory
+  trigger: $score >= 100
+  message: "You win!"
+`)
+
+    vm.setStateValue('score', 50)
+    vm.tick()
+    expect(victoryFired).toBe(false)
+
+    vm.setStateValue('score', 100)
+    vm.tick()
+    expect(victoryFired).toBe(true)
+    expect(conditionData?.condition).toBe('win_game')
+    expect(conditionData?.message).toBe('You win!')
+  })
+
+  test('defeat condition fires when trigger is true', () => {
+    let gameOverFired = false
+
+    vm.on('game:over', () => { gameOverFired = true })
+
+    vm.loadSource(`
+condition out_of_health
+  type: defeat
+  trigger: $health <= 0
+  message: "Game Over"
+`)
+
+    vm.setStateValue('health', 50)
+    vm.tick()
+    expect(gameOverFired).toBe(false)
+
+    vm.setStateValue('health', 0)
+    vm.tick()
+    expect(gameOverFired).toBe(true)
+  })
+
+  test('condition only fires once', () => {
+    let fireCount = 0
+
+    vm.on('game:victory', () => { fireCount++ })
+
+    vm.loadSource(`
+condition test_once
+  type: victory
+  trigger: $triggered == true
+`)
+
+    vm.setStateValue('triggered', true)
+    vm.tick()
+    vm.tick()
+    vm.tick()
+
+    expect(fireCount).toBe(1)
+  })
+
+  test('condition executes effects when triggered', () => {
+    vm.loadSource(`
+condition with_effects
+  type: checkpoint
+  trigger: $flag == true
+  effect:
+    set effect_ran: true
+    emit "checkpoint:reached"
+`)
+
+    let checkpointReached = false
+    vm.on('checkpoint:reached', () => { checkpointReached = true })
+
+    vm.setStateValue('flag', true)
+    vm.tick()
+
+    expect(vm.getStateValue('effect_ran')).toBe(true)
+    expect(checkpointReached).toBe(true)
+  })
+
+  test('resetConditions allows condition to fire again', () => {
+    let fireCount = 0
+
+    vm.on('condition:victory', () => { fireCount++ })
+
+    vm.loadSource(`
+condition repeatable
+  type: victory
+  trigger: $go == true
+`)
+
+    vm.setStateValue('go', true)
+    vm.tick()
+    expect(fireCount).toBe(1)
+
+    vm.resetConditions()
+    vm.tick()
+    expect(fireCount).toBe(2)
+  })
+
+  test('resetState also resets conditions', () => {
+    let fireCount = 0
+
+    vm.on('game:victory', () => { fireCount++ })
+
+    vm.loadSource(`
+condition on_reset
+  type: victory
+  trigger: $ready == true
+`)
+
+    vm.setStateValue('ready', true)
+    vm.tick()
+    expect(fireCount).toBe(1)
+
+    vm.resetState()
+    vm.setStateValue('ready', true)
+    vm.tick()
+    expect(fireCount).toBe(2)
+  })
+
+  test('multiple conditions can be defined', () => {
+    const events: string[] = []
+
+    vm.on('game:victory', (e) => events.push(`victory:${e.data?.condition}`))
+    vm.on('game:over', (e) => events.push(`defeat:${e.data?.condition}`))
+
+    vm.loadSource(`
+condition cond1
+  type: victory
+  trigger: $a == true
+
+condition cond2
+  type: defeat
+  trigger: $b == true
+`)
+
+    vm.setStateValue('a', true)
+    vm.setStateValue('b', true)
+    vm.tick()
+
+    expect(events).toContain('victory:cond1')
+    expect(events).toContain('defeat:cond2')
+  })
+
+  test('condition with complex trigger expression', () => {
+    let fired = false
+    vm.on('game:victory', () => { fired = true })
+
+    vm.loadSource(`
+condition complex
+  type: victory
+  trigger: $player_room == "corridor" and $previous_room == "galley"
+`)
+
+    vm.setStateValue('player_room', 'galley')
+    vm.setStateValue('previous_room', 'start')
+    vm.tick()
+    expect(fired).toBe(false)
+
+    vm.setStateValue('player_room', 'corridor')
+    vm.setStateValue('previous_room', 'galley')
+    vm.tick()
+    expect(fired).toBe(true)
+  })
+})

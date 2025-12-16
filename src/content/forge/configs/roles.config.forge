@@ -1,0 +1,35 @@
+# Role Catalog
+# Defines crew roles and their access levels
+
+config roles
+  CAPTAIN:
+    level: 5
+    description: "Ship commander"
+    inherits: ["OFFICER"]
+    access_all: true
+
+  OFFICER:
+    level: 4
+    description: "Senior crew member"
+    inherits: ["ENGINEERING", "MEDICAL"]
+
+  ENGINEERING:
+    level: 3
+    description: "Engineering crew"
+    departments: ["engine", "systems", "maintenance"]
+
+  MEDICAL:
+    level: 3
+    description: "Medical crew"
+    departments: ["medbay", "lab"]
+
+  COOK:
+    level: 2
+    description: "Galley staff"
+    departments: ["galley", "storage"]
+
+  CREW:
+    level: 1
+    description: "General crew"
+    departments: ["common"]
+

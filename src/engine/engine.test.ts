@@ -160,7 +160,7 @@ describe('Integration: Terminal Entity', () => {
   test('loads terminal entity from Forge', async () => {
     const loader = new ForgeLoader()
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const result = loader.loadSource(source)
@@ -178,7 +178,7 @@ describe('Integration: Terminal Entity', () => {
   test('creates screen renderer from terminal definition', async () => {
     const loader = new ForgeLoader()
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const result = loader.loadSource(source)

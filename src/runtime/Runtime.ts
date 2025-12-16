@@ -86,27 +86,27 @@ export class Runtime {
   private initializeStates() {
     if (!this.structure) return
 
-    // Initialize room states
+    // Initialize room states from config defaults
     for (const [id, room] of this.structure.rooms) {
       this.states.set(id, {
         id,
         values: {
-          o2_level: 21.0,
-          temperature: 22.0,
-          pressure: 1.0,
-          powered: true
+          o2_level: Config.gameRules.defaults.room.o2Level,
+          temperature: Config.gameRules.defaults.room.temperature,
+          pressure: Config.gameRules.defaults.room.pressure,
+          powered: Config.gameRules.defaults.room.powered
         },
         lastModified: Date.now(),
         modifiedBy: 'SYSTEM'
       })
     }
 
-    // Initialize door states - doors start CLOSED (controlled by switches)
+    // Initialize door states from config defaults
     for (const [id, door] of this.structure.doors) {
       this.states.set(id, {
         id,
         values: {
-          state: 'CLOSED'
+          state: Config.gameRules.defaults.door.state
         },
         lastModified: Date.now(),
         modifiedBy: 'SYSTEM'

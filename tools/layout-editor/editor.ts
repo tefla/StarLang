@@ -24,7 +24,7 @@ interface SwitchData {
   id: string
   position: Position3D
   rotation: number
-  status: 'OK' | 'FAULT'
+  status: string  // 'OK' | 'FAULT' - validated against interactions.entity_statuses config
 }
 
 interface TerminalData {
@@ -1366,7 +1366,7 @@ class LayoutEditor {
 
     if (this.selected.type === 'switch') {
       document.getElementById('prop-status')?.addEventListener('change', (e) => {
-        (this.selected!.data as SwitchData).status = (e.target as HTMLSelectElement).value as 'OK' | 'FAULT'
+        (this.selected!.data as SwitchData).status = (e.target as HTMLSelectElement).value
         this.markUnsaved()
         this.render()
       })

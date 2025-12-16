@@ -10,28 +10,10 @@
 
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { VoxelType, VOXEL_SIZE } from '../voxel/VoxelTypes'
+import { VoxelType, VOXEL_SIZE, getVoxelColor } from '../voxel/VoxelTypes'
 import { isAnimatedAsset, type AnimatedAssetDef } from '../voxel/AnimatedAsset'
 import { AnimatedAssetInstance } from '../voxel/AnimatedAssetInstance'
 import { AnimationPreview } from './AnimationPreview'
-
-// Voxel colors for rendering
-const VOXEL_COLORS: Record<number, number> = {
-  [VoxelType.SWITCH]: 0x6080a0,
-  [VoxelType.SWITCH_BUTTON]: 0x888888,
-  [VoxelType.LED_GREEN]: 0x00ff00,
-  [VoxelType.LED_RED]: 0xff0000,
-  [VoxelType.WALL]: 0x4488ff,
-  [VoxelType.PANEL]: 0x8899cc,
-  [VoxelType.DESK]: 0x2a3a4a,
-  [VoxelType.KEYBOARD]: 0x1a2a3a,
-  [VoxelType.DOOR_FRAME]: 0x3a4a5a,
-  [VoxelType.DOOR_PANEL]: 0x5a6a7a,
-  [VoxelType.LIGHT_FIXTURE]: 0xffffaa,
-  [VoxelType.DUCT]: 0x5a5a5a,
-  [VoxelType.FAN_HUB]: 0x3a3a3a,
-  [VoxelType.FAN_BLADE]: 0x7a7a7a,
-}
 
 // Asset voxel definition
 interface AssetVoxel {
@@ -727,7 +709,7 @@ export class AssetEditor {
       if (!this.ghostMesh) {
         const geo = new THREE.BoxGeometry(VOXEL_SIZE * 0.95, VOXEL_SIZE * 0.95, VOXEL_SIZE * 0.95)
         const mat = new THREE.MeshBasicMaterial({
-          color: VOXEL_COLORS[this.currentVoxelType] || 0xffffff,
+          color: getVoxelColor(this.currentVoxelType),
           transparent: true,
           opacity: 0.5,
           wireframe: false,
@@ -738,7 +720,7 @@ export class AssetEditor {
 
       // Update ghost color
       const mat = this.ghostMesh.material as THREE.MeshBasicMaterial
-      mat.color.setHex(VOXEL_COLORS[this.currentVoxelType] || 0xffffff)
+      mat.color.setHex(getVoxelColor(this.currentVoxelType))
 
       this.ghostMesh.position.copy(ghostPos)
     } else if (this.ghostMesh) {
@@ -874,7 +856,7 @@ export class AssetEditor {
     // Create mesh
     const geo = new THREE.BoxGeometry(VOXEL_SIZE * 0.98, VOXEL_SIZE * 0.98, VOXEL_SIZE * 0.98)
     const mat = new THREE.MeshStandardMaterial({
-      color: VOXEL_COLORS[type] || 0xff00ff,
+      color: getVoxelColor(type),
       roughness: 0.7,
       metalness: 0.3,
     })

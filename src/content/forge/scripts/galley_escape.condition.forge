@@ -1,0 +1,24 @@
+# Galley Escape Conditions
+# Defines victory and defeat conditions for the galley escape scenario
+
+condition escape_galley
+  type: victory
+  trigger: $player_room == "corridor" and $previous_room == "galley"
+  message: "You escaped the galley and reached the corridor."
+  effect:
+    set game_state: "ACT_2"
+    emit "victory:act1_complete"
+
+condition oxygen_depleted
+  type: defeat
+  trigger: $galley_o2 <= 12
+  message: "Oxygen depleted. You succumbed to hypoxia."
+  effect:
+    emit "defeat:oxygen"
+
+condition critical_oxygen
+  type: checkpoint
+  trigger: $galley_o2 <= 16 and $galley_o2 > 12
+  message: "CRITICAL: Oxygen levels dangerously low!"
+  effect:
+    emit "warning:critical_oxygen"

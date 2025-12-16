@@ -60,10 +60,10 @@ export class LexerError extends Error {
 
 // Keywords organized by category
 const STRUCTURE_KEYWORDS = new Set([
-  'asset', 'entity', 'layout', 'machine', 'config', 'rule', 'scenario', 'behavior',
+  'asset', 'entity', 'layout', 'machine', 'config', 'rule', 'scenario', 'behavior', 'condition',
   'params', 'geometry', 'parts', 'states', 'animations',
   'when', 'on', 'match', 'extends', 'base',
-  'def', 'return', 'trigger', 'effect', 'initial'
+  'def', 'return', 'trigger', 'effect', 'initial', 'type', 'message'
 ])
 
 const GEOMETRY_KEYWORDS = new Set([
@@ -392,6 +392,24 @@ export class ForgeLexer {
     if (this.source[this.pos] === '-') {
       value += '-'
       this.advance()
+    }
+
+    // Check for hex literal (0x...)
+    if (this.source[this.pos] === '0' && (this.peek(1) === 'x' || this.peek(1) === 'X')) {
+      value += '0x'
+      this.advance() // skip 0
+      this.advance() // skip x
+
+      // Read hex digits
+      while (this.pos < this.source.length && this.isHexDigit(this.source[this.pos]!)) {
+        value += this.source[this.pos]
+        this.advance()
+      }
+
+      // Convert hex to decimal for consistency
+      const hexValue = parseInt(value, 16)
+      this.tokens.push({ type: 'NUMBER', value: hexValue.toString(), line: this.line, column: startColumn })
+      return
     }
 
     // Integer part

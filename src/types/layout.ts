@@ -57,15 +57,16 @@ export interface VoxelRegion {
 
 /**
  * Entity placement in voxel space.
+ * Entity types and statuses are config-driven strings.
  */
 export interface EntityPlacement {
   id: string
-  type: 'door' | 'terminal' | 'switch' | 'sensor' | 'light'
+  type: string  // Validated against interactions.interactable_types config
   voxelPos: VoxelCoord
   rotation: 0 | 90 | 180 | 270  // Rotation in 90-degree increments
   facingAxis: 'x' | 'y' | 'z'   // Which axis the entity faces
   facingDir: -1 | 1             // Positive or negative along facing axis
-  status?: 'OK' | 'FAULT' | 'DAMAGED' | 'STANDBY'
+  status?: string  // Validated against interactions.entity_statuses config
   properties?: Record<string, unknown>  // Type-specific properties
 }
 
@@ -132,7 +133,7 @@ export interface SensorLayout {
 export interface SwitchLayout {
   position: Position3D
   rotation: number
-  status: 'OK' | 'FAULT'  // Physical state - broken switches don't respond
+  status: string  // Physical state - validated against node-types.SWITCH.statuses config
 }
 
 export interface WallLightLayout {

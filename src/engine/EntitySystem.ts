@@ -12,6 +12,7 @@ import { ScreenRenderer, type RenderContext } from './ScreenRenderer'
 import type { Runtime } from '../runtime/Runtime'
 import type { VoxelWorld } from '../voxel/VoxelWorld'
 import { VoxelType, getVoxelType, VOXEL_SIZE } from '../voxel/VoxelTypes'
+import { Config } from '../forge/ConfigRegistry'
 
 /**
  * Base interface for all entities in the game.
@@ -77,7 +78,6 @@ export class ScreenEntity implements Entity {
   private location: string = ''
   private displayName: string = ''
   private updateTimer: number = 0
-  private updateInterval: number = 1.0  // seconds
   private terminalLines: string[] = []
 
   constructor(
@@ -111,7 +111,7 @@ export class ScreenEntity implements Entity {
     // Create screen mesh
     const [width, height] = this.renderer.getSize()
     const aspect = width / height
-    const meshWidth = 0.8  // Base size in world units
+    const meshWidth = Config.entitySystem.terminal.screenWidth
     const meshHeight = meshWidth / aspect
 
     const geometry = new THREE.PlaneGeometry(meshWidth, meshHeight)
@@ -164,7 +164,7 @@ export class ScreenEntity implements Entity {
     // Terminal-specific: periodic state updates for STATUS terminals
     if (this.terminalType === 'STATUS' && this.runtime) {
       this.updateTimer += deltaTime
-      if (this.updateTimer >= this.updateInterval) {
+      if (this.updateTimer >= Config.entitySystem.terminal.updateInterval) {
         this.updateTimer = 0
         this.updateFromState()
         return  // Skip generic render since we just rendered
@@ -343,9 +343,9 @@ export class ScreenEntity implements Entity {
    * Get atmosphere status string based on O2 level.
    */
   private getAtmosphereStatus(o2Level: number): string {
-    if (o2Level >= 19) return 'NOMINAL'
-    if (o2Level >= 16) return 'WARNING'
-    if (o2Level >= 12) return 'CRITICAL'
+    if (o2Level >= Config.gameRules.o2WarningThreshold) return 'NOMINAL'
+    if (o2Level >= Config.gameRules.o2CriticalThreshold) return 'WARNING'
+    if (o2Level >= Config.gameRules.o2GameoverThreshold) return 'CRITICAL'
     return 'DANGER'
   }
 
@@ -390,7 +390,7 @@ export class ScreenEntity implements Entity {
     const centerZ = (bounds.minZ + bounds.maxZ) / 2 * VOXEL_SIZE
 
     // Offset slightly in front of screen voxels based on normal direction
-    const offset = 0.01
+    const offset = Config.entitySystem.terminal.screenOffset
     if (bounds.normalAxis === 'z') {
       this.screenMesh.position.set(centerX, centerY, centerZ + offset * bounds.normalDir)
       this.screenMesh.rotation.y = bounds.normalDir > 0 ? 0 : Math.PI
@@ -408,7 +408,7 @@ export class ScreenEntity implements Entity {
 
     // Search area around entity position
     const pos = this.group.position
-    const searchRadius = 2 // meters
+    const searchRadius = Config.entitySystem.terminal.searchRadius
     const searchVoxels = Math.ceil(searchRadius / VOXEL_SIZE)
 
     const screenVoxels: { x: number; y: number; z: number }[] = []

@@ -1,0 +1,41 @@
+# UI Configuration
+# Overlay colors, timing, text, and display settings
+
+config ui
+  warning:
+    display_duration: 5000       # Warning display time (ms)
+    color_normal: "rgba(255, 150, 50, 0.9)"    # Orange warning
+    color_critical: "rgba(200, 0, 0, 0.95)"    # Red critical warning
+
+  gameover:
+    background: "rgba(0, 0, 0, 0.9)"           # Dark overlay
+    title: "OXYGEN DEPLETED"
+    subtitle: "You succumbed to hypoxia."
+    title_color: "#ff4444"                      # Red title
+    button_text: "RESTART"
+    button_color: "#ff4444"                     # Red restart button
+
+  victory:
+    background: "rgba(0, 20, 40, 0.95)"        # Dark blue overlay
+    title: "ESCAPE SUCCESSFUL"
+    subtitle: "You've escaped the galley and reached the corridor."
+    note: "Act 1 Complete - More to explore ahead..."
+    title_color: "#77dd77"                      # Green title
+    button_text: "CONTINUE EXPLORING"
+    button_color: "#77dd77"                     # Green continue button
+
+  message:
+    display_duration: 2000       # Message display time (ms)
+
+  editor:
+    status_ready: "Ready"
+    status_success: "Compiled successfully!"
+    status_error: "Compile error"
+    color_success: "#77dd77"
+    color_error: "#ff6b6b"
+
+  prompts:
+    switch_normal: "Press [E] to use {name}"
+    switch_broken: "{name} - Not responding"
+    terminal_status: "{name}"
+    terminal_engineering: "Press [E] to use terminal"

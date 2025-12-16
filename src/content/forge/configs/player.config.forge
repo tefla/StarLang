@@ -1,5 +1,5 @@
 # Player Configuration
-# Movement, collision, and interaction parameters
+# Movement, collision, camera, keys, and interaction parameters
 
 config player
   movement:
@@ -10,6 +10,19 @@ config player
     height: 1.7                  # Player eye height (meters)
     radius: 0.3                  # Collision capsule radius (meters)
     check_heights: [0.1, 0.5, 1.0, 1.6]  # Heights for collision checks
+
+  camera:
+    fov: 75                      # Field of view (degrees)
+    near: 0.1                    # Near clipping plane
+    far: 1000                    # Far clipping plane
+    max_pitch: 1.4708            # Max look up/down angle (PI/2 - 0.1)
+
+  keys:
+    forward: ["KeyW", "ArrowUp"]
+    backward: ["KeyS", "ArrowDown"]
+    left: ["KeyA", "ArrowLeft"]
+    right: ["KeyD", "ArrowRight"]
+    interact: ["KeyE"]
 
   interaction:
     range: 2.5                   # Interaction reach distance (meters)

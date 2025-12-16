@@ -2,8 +2,10 @@
 
 import { Lexer } from './lexer'
 import type { Token, TokenType } from './lexer'
+import { Config } from '../forge/ConfigRegistry'
 
-export type ASTNodeType = 'ROOM' | 'DOOR' | 'TERMINAL' | 'SENSOR' | 'SIGNAL' | 'SWITCH'
+/** Node type identifier - validated against config at runtime */
+export type ASTNodeType = string
 
 export interface ASTNode {
   type: ASTNodeType
@@ -79,7 +81,11 @@ export class Parser {
     }
 
     const type = keyword.value.toUpperCase() as ASTNodeType
-    if (!['ROOM', 'DOOR', 'TERMINAL', 'SENSOR', 'SIGNAL', 'SWITCH'].includes(type)) {
+    // Validate against config if available, otherwise use fallback list
+    const validTypes = Config.nodeTypes.getValidTypes()
+    const fallbackTypes = ['ROOM', 'DOOR', 'TERMINAL', 'SENSOR', 'SIGNAL', 'SWITCH', 'WALL_LIGHT', 'ATMO_OUTLET', 'ATMO_INLET']
+    const isValid = validTypes.length > 0 ? validTypes.includes(type) : fallbackTypes.includes(type)
+    if (!isValid) {
       throw new Error(`Unknown definition type: ${keyword.value}`)
     }
 

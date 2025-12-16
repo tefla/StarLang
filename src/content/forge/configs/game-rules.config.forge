@@ -12,3 +12,12 @@ config game-rules
   victory:
     target_room: "corridor"      # Room to reach for victory
     source_room: "galley"        # Must come from this room
+
+  defaults:
+    room:
+      o2_level: 21.0             # Default O2 percentage
+      temperature: 22.0          # Default temperature in Celsius
+      pressure: 1.0              # Default pressure in atmospheres
+      powered: true              # Rooms start powered
+    door:
+      state: "CLOSED"            # Doors start closed

@@ -1,0 +1,25 @@
+# Screen Colors Configuration
+# Terminal/screen UI colors and styling
+
+config screen-colors
+  background: "#1a2744"           # Default terminal background
+  scanline_opacity: 0.1           # Scanline effect opacity (0-1)
+
+  text:
+    normal: "#d0d0d0"             # Default text color
+    muted: "#9ca3af"              # Muted/label text
+    line_numbers: "#6b7280"       # Code line numbers
+
+  # Automatic style colors based on content
+  status:
+    header: "#4a6fa5"             # Header/divider lines
+    success: "#77dd77"            # OK, NOMINAL, checkmarks
+    warning: "#ffb347"            # WARNING, WARN
+    error: "#ff6b6b"              # ERROR, CRITICAL
+    prompt: "#77dd77"             # Command prompt (>)
+
+  # Keywords that trigger automatic coloring
+  keywords:
+    nominal: ["NOMINAL", "OK"]
+    warning: ["WARNING", "WARN"]
+    error: ["ERROR", "CRITICAL"]

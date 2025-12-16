@@ -79,7 +79,7 @@ export class ShipScene {
       await loadAnimatedAssetsAsync()
 
       // Load terminal entity definition
-      const terminalSource = await fetch('/content/forge/terminal.entity.forge')
+      const terminalSource = await fetch('/content/forge/entities/terminal.entity.forge')
         .then(r => r.ok ? r.text() : Promise.reject(r.statusText))
         .catch(() => null)
 
@@ -184,11 +184,11 @@ export class ShipScene {
   private buildVoxelWorldOnly(layout: ShipLayout) {
     console.time('buildVoxelWorldOnly')
     const builder = new VoxelMapBuilder({
-      wallThickness: 8,      // 20cm at 2.5cm voxels
-      floorThickness: 8,
-      ceilingThickness: 8,
-      doorWidth: 48,         // 1.2m at 2.5cm voxels
-      doorHeight: 88         // 2.2m at 2.5cm voxels
+      wallThickness: Config.voxelWorld.construction.wallThickness,
+      floorThickness: Config.voxelWorld.construction.floorThickness,
+      ceilingThickness: Config.voxelWorld.construction.ceilingThickness,
+      doorWidth: Config.voxelWorld.door.width,
+      doorHeight: Config.voxelWorld.door.height
     })
     const result = builder.buildFromLayout(layout)
     this.voxelWorld = result.world
@@ -205,11 +205,11 @@ export class ShipScene {
    */
   private buildVoxelWorldAndMesh(layout: ShipLayout) {
     const builder = new VoxelMapBuilder({
-      wallThickness: 8,      // 20cm at 2.5cm voxels
-      floorThickness: 8,
-      ceilingThickness: 8,
-      doorWidth: 48,         // 1.2m at 2.5cm voxels
-      doorHeight: 88         // 2.2m at 2.5cm voxels
+      wallThickness: Config.voxelWorld.construction.wallThickness,
+      floorThickness: Config.voxelWorld.construction.floorThickness,
+      ceilingThickness: Config.voxelWorld.construction.ceilingThickness,
+      doorWidth: Config.voxelWorld.door.width,
+      doorHeight: Config.voxelWorld.door.height
     })
     const result = builder.buildFromLayout(layout)
 

@@ -30,7 +30,7 @@ export class PlayerController {
 
   private pitch = 0
   private yaw = 0
-  private maxPitch = Math.PI / 2 - 0.1
+  private get maxPitch() { return Config.player.camera.maxPitch }
 
   // Collision
   private raycaster = new THREE.Raycaster()
@@ -41,7 +41,12 @@ export class PlayerController {
   private voxelRaycast: VoxelRaycast | null = null
 
   constructor() {
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+    this.camera = new THREE.PerspectiveCamera(
+      Config.player.camera.fov,
+      window.innerWidth / window.innerHeight,
+      Config.player.camera.near,
+      Config.player.camera.far
+    )
 
     this.state = {
       position: new THREE.Vector3(0, this.playerHeight, 0),
@@ -160,22 +165,26 @@ export class PlayerController {
     }
   }
 
+  private isKeyPressed(keys: string[]): boolean {
+    return keys.some(key => this.keys.get(key))
+  }
+
   update(deltaTime: number) {
     if (!this.enabled) return
 
-    // Get movement direction
+    // Get movement direction using configurable keys
     const moveDirection = new THREE.Vector3()
 
-    if (this.keys.get('KeyW') || this.keys.get('ArrowUp')) {
+    if (this.isKeyPressed(Config.player.keys.forward)) {
       moveDirection.z -= 1
     }
-    if (this.keys.get('KeyS') || this.keys.get('ArrowDown')) {
+    if (this.isKeyPressed(Config.player.keys.backward)) {
       moveDirection.z += 1
     }
-    if (this.keys.get('KeyA') || this.keys.get('ArrowLeft')) {
+    if (this.isKeyPressed(Config.player.keys.left)) {
       moveDirection.x -= 1
     }
-    if (this.keys.get('KeyD') || this.keys.get('ArrowRight')) {
+    if (this.isKeyPressed(Config.player.keys.right)) {
       moveDirection.x += 1
     }
 

@@ -1,29 +1,20 @@
 // StarLang Node Types
+// All types are dynamic strings - validated against config at runtime
 
-export type NodeType =
-  | 'ROOM'
-  | 'DOOR'
-  | 'SENSOR'
-  | 'TERMINAL'
-  | 'SWITCH'
-  | 'WALL_LIGHT'
-  | 'ATMO_OUTLET'
-  | 'ATMO_INLET'
-  | 'SIGNAL'
+/** Node type identifier - validated against node-types config */
+export type NodeType = string
 
-export type Role =
-  | 'CAPTAIN'
-  | 'OFFICER'
-  | 'ENGINEERING'
-  | 'MEDICAL'
-  | 'COOK'
-  | 'CREW'
+/** Crew role identifier - validated against roles config */
+export type Role = string
 
-export type DoorState = 'OPEN' | 'CLOSED' | 'LOCKED' | 'SEALED'
+/** Door state - validated against node-types.DOOR.states config */
+export type DoorState = string
 
-export type TerminalType = 'STATUS' | 'COMMAND' | 'ENGINEERING'
+/** Terminal type - validated against node-types.TERMINAL.terminal_types config */
+export type TerminalType = string
 
-export type SwitchStatus = 'OK' | 'FAULT'
+/** Switch hardware status - validated against node-types.SWITCH.statuses config */
+export type SwitchStatus = string
 
 export interface Position3D {
   x: number

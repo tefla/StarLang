@@ -17,7 +17,8 @@ import {
   type Voxel,
   getVoxelType,
   isTransparent,
-  getVoxelColor
+  getVoxelColor,
+  getVoxelTypeGroup
 } from './VoxelTypes'
 import type { VoxelChunk } from './VoxelChunk'
 import type { VoxelWorld } from './VoxelWorld'
@@ -80,8 +81,8 @@ export class GreedyMesher {
       }
     }
 
-    // Count switch quads
-    const switchTypes = [11, 12, 13, 14]
+    // Count switch quads (using config-driven type group)
+    const switchTypes = getVoxelTypeGroup('switch_components')
     const switchQuads = quads.filter(q => switchTypes.includes(q.voxelType))
     if (switchQuads.length > 0) {
       console.log(`Chunk ${chunk.cx},${chunk.cy},${chunk.cz}: ${switchQuads.length} switch quads`)

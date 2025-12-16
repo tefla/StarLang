@@ -153,7 +153,7 @@ describe('Forge Compiler', () => {
 describe('Door Sliding Integration', () => {
   test('parses door-sliding.asset.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/door-sliding.asset.forge', import.meta.url)
+      new URL('../content/forge/assets/door-sliding.asset.forge', import.meta.url)
     ).text()
 
     const ast = parse(source)
@@ -171,7 +171,7 @@ describe('Door Sliding Integration', () => {
 
   test('compiles door-sliding.asset.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/door-sliding.asset.forge', import.meta.url)
+      new URL('../content/forge/assets/door-sliding.asset.forge', import.meta.url)
     ).text()
 
     const result = compileAsset(source)
@@ -207,7 +207,7 @@ describe('Door Sliding Integration', () => {
 describe('Fan Blades Integration', () => {
   test('parses fan-blades.asset.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/fan-blades.asset.forge', import.meta.url)
+      new URL('../content/forge/assets/fan-blades.asset.forge', import.meta.url)
     ).text()
 
     const ast = parse(source)
@@ -228,7 +228,7 @@ describe('Fan Blades Integration', () => {
 
   test('compiles fan-blades.asset.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/fan-blades.asset.forge', import.meta.url)
+      new URL('../content/forge/assets/fan-blades.asset.forge', import.meta.url)
     ).text()
 
     const result = compileAsset(source)
@@ -258,7 +258,7 @@ describe('Fan Blades Integration', () => {
 describe('Wall Fan Integration', () => {
   test('parses wall-fan.asset.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/wall-fan.asset.forge', import.meta.url)
+      new URL('../content/forge/assets/wall-fan.asset.forge', import.meta.url)
     ).text()
 
     const ast = parse(source)
@@ -276,7 +276,7 @@ describe('Wall Fan Integration', () => {
 
   test('compiles wall-fan.asset.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/wall-fan.asset.forge', import.meta.url)
+      new URL('../content/forge/assets/wall-fan.asset.forge', import.meta.url)
     ).text()
 
     const result = compileAsset(source)
@@ -307,7 +307,7 @@ describe('Wall Fan Integration', () => {
 describe('Galley Layout Integration', () => {
   test('parses galley.layout.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/galley.layout.forge', import.meta.url)
+      new URL('../content/forge/layouts/galley.layout.forge', import.meta.url)
     ).text()
 
     const ast = parse(source)
@@ -328,7 +328,7 @@ describe('Galley Layout Integration', () => {
 
   test('compiles galley.layout.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/galley.layout.forge', import.meta.url)
+      new URL('../content/forge/layouts/galley.layout.forge', import.meta.url)
     ).text()
 
     const result = compileLayout(source)
@@ -371,7 +371,7 @@ describe('Galley Layout Integration', () => {
 describe('Terminal Entity Integration', () => {
   test('parses terminal.entity.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const ast = parse(source)
@@ -391,7 +391,7 @@ describe('Terminal Entity Integration', () => {
 
   test('parses screen block properties', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const ast = parse(source)
@@ -409,7 +409,7 @@ describe('Terminal Entity Integration', () => {
 
   test('parses render block with match statement', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const ast = parse(source)
@@ -423,7 +423,7 @@ describe('Terminal Entity Integration', () => {
 
   test('parses styles block', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const ast = parse(source)
@@ -439,7 +439,7 @@ describe('Terminal Entity Integration', () => {
 
   test('parses on event handlers', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const ast = parse(source)
@@ -467,7 +467,7 @@ describe('Terminal Entity Integration', () => {
 
   test('compiles terminal.entity.forge', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const result = compileEntity(source)
@@ -477,7 +477,7 @@ describe('Terminal Entity Integration', () => {
 
   test('compiles entity params', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const result = compileEntity(source)
@@ -494,7 +494,7 @@ describe('Terminal Entity Integration', () => {
 
   test('compiles entity screen', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const result = compileEntity(source)
@@ -509,7 +509,7 @@ describe('Terminal Entity Integration', () => {
 
   test('compiles entity render block', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const result = compileEntity(source)
@@ -520,7 +520,7 @@ describe('Terminal Entity Integration', () => {
 
   test('compiles entity styles', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const result = compileEntity(source)
@@ -534,7 +534,7 @@ describe('Terminal Entity Integration', () => {
 
   test('compiles entity event handlers', async () => {
     const source = await Bun.file(
-      new URL('../content/forge/terminal.entity.forge', import.meta.url)
+      new URL('../content/forge/entities/terminal.entity.forge', import.meta.url)
     ).text()
 
     const result = compileEntity(source)

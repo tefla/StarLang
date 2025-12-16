@@ -1,0 +1,10 @@
+# Interaction Configuration
+# Defines interactable entity types and their behaviors
+
+config interactions
+  # Types that can be targeted for interaction
+  interactable_types: ["door", "terminal", "door_panel", "switch"]
+
+  # Entity hardware statuses
+  entity_statuses: ["OK", "FAULT", "DAMAGED", "STANDBY"]
+

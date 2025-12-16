@@ -11,6 +11,7 @@
 import { Runtime, type EventType } from './Runtime'
 import { ForgeVM } from '../forge/vm'
 import { forgeLoader } from '../engine/ForgeLoader'
+import { Config } from '../forge/ConfigRegistry'
 import type { ShipScene } from '../game/scene/ShipScene'
 
 /**
@@ -41,7 +42,7 @@ export interface RuntimeForgeBridgeOptions {
   eventRoutes?: EventRoute[]
 }
 
-// Default state mappings
+// Default state mappings (fallback if config not loaded)
 const DEFAULT_STATE_MAPPINGS: StateMapping[] = [
   // Player location
   { runtimePath: 'playerRoomId', forgePath: 'player_room', direction: 'runtime-to-forge' },
@@ -63,7 +64,7 @@ const DEFAULT_STATE_MAPPINGS: StateMapping[] = [
   { runtimePath: 'player_room_powered', forgePath: 'player_room_powered', direction: 'bidirectional' },
 ]
 
-// Default event routes
+// Default event routes (fallback if config not loaded)
 const DEFAULT_EVENT_ROUTES: EventRoute[] = [
   // Runtime → ForgeVM
   { from: 'runtime', sourceName: 'door:open', targetName: 'door_open' },
@@ -77,12 +78,34 @@ const DEFAULT_EVENT_ROUTES: EventRoute[] = [
   { from: 'forge', sourceName: 'game:over', targetName: 'game:over' },
 ]
 
+/**
+ * Get state mappings from config, falling back to defaults.
+ */
+function getStateMappings(): StateMapping[] {
+  const configMappings = Config.bridge.stateMappings
+  if (configMappings.length > 0) {
+    return configMappings as StateMapping[]
+  }
+  return DEFAULT_STATE_MAPPINGS
+}
+
+/**
+ * Get event routes from config, falling back to defaults.
+ */
+function getEventRoutes(): EventRoute[] {
+  const configRoutes = Config.bridge.eventRoutes
+  if (configRoutes.length > 0) {
+    return configRoutes as EventRoute[]
+  }
+  return DEFAULT_EVENT_ROUTES
+}
+
 export class RuntimeForgeBridge {
   public readonly vm: ForgeVM
   private runtime: Runtime
   private scene: ShipScene | null = null
-  private stateMappings: StateMapping[]
-  private eventRoutes: EventRoute[]
+  private _stateMappingsOverride?: StateMapping[]
+  private _eventRoutesOverride?: EventRoute[]
   private forgeFilesLoaded = false
 
   // Track previous room for room change detection
@@ -91,11 +114,20 @@ export class RuntimeForgeBridge {
   // Track warning state to avoid duplicate emissions
   private lastWarningState: 'none' | 'warning' | 'critical' = 'none'
 
+  // Getters that use config values with fallback to defaults
+  private get stateMappings(): StateMapping[] {
+    return this._stateMappingsOverride ?? getStateMappings()
+  }
+
+  private get eventRoutes(): EventRoute[] {
+    return this._eventRoutesOverride ?? getEventRoutes()
+  }
+
   constructor(runtime: Runtime, vm?: ForgeVM, options: RuntimeForgeBridgeOptions = {}) {
     this.runtime = runtime
     this.vm = vm ?? new ForgeVM()
-    this.stateMappings = options.stateMappings ?? DEFAULT_STATE_MAPPINGS
-    this.eventRoutes = options.eventRoutes ?? DEFAULT_EVENT_ROUTES
+    this._stateMappingsOverride = options.stateMappings
+    this._eventRoutesOverride = options.eventRoutes
 
     this.setupEventRouting()
     this.setupVMCallbacks()
@@ -116,13 +148,21 @@ export class RuntimeForgeBridge {
 
     // Config files - loaded via ForgeLoader to register with ConfigRegistry
     const configFiles = [
-      '/content/forge/game-rules.config.forge',
-      '/content/forge/audio.config.forge',
-      '/content/forge/lighting.config.forge',
-      '/content/forge/particles.config.forge',
-      '/content/forge/player.config.forge',
-      '/content/forge/ui.config.forge',
-      '/content/forge/voxel-colors.config.forge',
+      '/content/forge/configs/game-rules.config.forge',
+      '/content/forge/configs/audio.config.forge',
+      '/content/forge/configs/lighting.config.forge',
+      '/content/forge/configs/particles.config.forge',
+      '/content/forge/configs/player.config.forge',
+      '/content/forge/configs/ui.config.forge',
+      '/content/forge/configs/voxel-colors.config.forge',
+      '/content/forge/configs/voxel-types.config.forge',
+      '/content/forge/configs/node-types.config.forge',
+      '/content/forge/configs/roles.config.forge',
+      '/content/forge/configs/screen-colors.config.forge',
+      '/content/forge/configs/entity-system.config.forge',
+      '/content/forge/configs/voxel-world.config.forge',
+      '/content/forge/configs/prefabs.config.forge',
+      '/content/forge/configs/interactions.config.forge',
     ]
 
     // Load configs via ForgeLoader (registers with ConfigRegistry)
@@ -132,14 +172,15 @@ export class RuntimeForgeBridge {
     }
     console.log(`[RuntimeForgeBridge] Loaded ${configResult.configs.length} configs`)
 
-    // Script files - loaded via ForgeVM for rules/scenarios/behaviors
+    // Script files - loaded via ForgeVM for rules/scenarios/behaviors/conditions
     const scriptFiles = [
-      '/content/forge/atmosphere.config.forge',
-      '/content/forge/world.config.forge',
-      '/content/forge/helpers.forge',
-      '/content/forge/atmosphere.rules.forge',
-      '/content/forge/galley_escape.scenario.forge',
-      '/content/forge/door.behavior.forge',
+      '/content/forge/configs/atmosphere.config.forge',
+      '/content/forge/configs/world.config.forge',
+      '/content/forge/scripts/helpers.forge',
+      '/content/forge/scripts/atmosphere.rules.forge',
+      '/content/forge/scripts/galley_escape.scenario.forge',
+      '/content/forge/scripts/galley_escape.condition.forge',
+      '/content/forge/scripts/door.behavior.forge',
     ]
 
     for (const path of scriptFiles) {
@@ -234,9 +275,9 @@ export class RuntimeForgeBridge {
         const roomTemp = this.runtime.getProperty(`${playerRoom}.temperature`)
         const roomPowered = this.runtime.getProperty(`${playerRoom}.powered`)
 
-        this.vm.setStateValue('player_room_o2', roomO2 ?? 21)
-        this.vm.setStateValue('player_room_temp', roomTemp ?? 22)
-        this.vm.setStateValue('player_room_powered', roomPowered ?? true)
+        this.vm.setStateValue('player_room_o2', roomO2 ?? Config.gameRules.defaults.room.o2Level)
+        this.vm.setStateValue('player_room_temp', roomTemp ?? Config.gameRules.defaults.room.temperature)
+        this.vm.setStateValue('player_room_powered', roomPowered ?? Config.gameRules.defaults.room.powered)
       }
     }
   }

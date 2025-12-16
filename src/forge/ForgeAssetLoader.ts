@@ -81,7 +81,7 @@ export function loadForgeAssets(): AnimatedAssetDef[] {
   }
 
   const path = require('path')
-  const contentDir = path.join(__dirname, '../content/forge')
+  const contentDir = path.join(__dirname, '../content/forge/assets')
   return loadForgeAssetsFromDir(contentDir)
 }
 
@@ -96,7 +96,7 @@ export async function loadForgeAssetAsync(filename: string): Promise<AnimatedAss
 
     if (isBrowser) {
       // Fetch via HTTP in browser
-      const response = await fetch(`/content/forge/${filename}`)
+      const response = await fetch(`/content/forge/assets/${filename}`)
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
@@ -105,7 +105,7 @@ export async function loadForgeAssetAsync(filename: string): Promise<AnimatedAss
       // Read from filesystem on server
       const fs = require('fs')
       const path = require('path')
-      const filePath = path.join(__dirname, '../content/forge', filename)
+      const filePath = path.join(__dirname, '../content/forge/assets', filename)
       source = fs.readFileSync(filePath, 'utf-8')
     }
 

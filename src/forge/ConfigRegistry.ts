@@ -107,6 +107,17 @@ export const Config = {
     get initialO2Level() { return configRegistry.getOrDefault('game-rules.atmosphere.initial_o2_level', 19.5) },
     get victoryTargetRoom() { return configRegistry.getOrDefault('game-rules.victory.target_room', 'corridor') },
     get victorySourceRoom() { return configRegistry.getOrDefault('game-rules.victory.source_room', 'galley') },
+    defaults: {
+      room: {
+        get o2Level() { return configRegistry.getOrDefault('game-rules.defaults.room.o2_level', 21.0) },
+        get temperature() { return configRegistry.getOrDefault('game-rules.defaults.room.temperature', 22.0) },
+        get pressure() { return configRegistry.getOrDefault('game-rules.defaults.room.pressure', 1.0) },
+        get powered() { return configRegistry.getOrDefault('game-rules.defaults.room.powered', true) },
+      },
+      door: {
+        get state() { return configRegistry.getOrDefault('game-rules.defaults.door.state', 'CLOSED') },
+      },
+    },
   },
 
   // Audio
@@ -217,6 +228,19 @@ export const Config = {
       get radius() { return configRegistry.getOrDefault('player.collision.radius', 0.3) },
       get checkHeights() { return configRegistry.getOrDefault<number[]>('player.collision.check_heights', [0.1, 0.5, 1.0, 1.6]) },
     },
+    camera: {
+      get fov() { return configRegistry.getOrDefault('player.camera.fov', 75) },
+      get near() { return configRegistry.getOrDefault('player.camera.near', 0.1) },
+      get far() { return configRegistry.getOrDefault('player.camera.far', 1000) },
+      get maxPitch() { return configRegistry.getOrDefault('player.camera.max_pitch', Math.PI / 2 - 0.1) },
+    },
+    keys: {
+      get forward() { return configRegistry.getOrDefault<string[]>('player.keys.forward', ['KeyW', 'ArrowUp']) },
+      get backward() { return configRegistry.getOrDefault<string[]>('player.keys.backward', ['KeyS', 'ArrowDown']) },
+      get left() { return configRegistry.getOrDefault<string[]>('player.keys.left', ['KeyA', 'ArrowLeft']) },
+      get right() { return configRegistry.getOrDefault<string[]>('player.keys.right', ['KeyD', 'ArrowRight']) },
+      get interact() { return configRegistry.getOrDefault<string[]>('player.keys.interact', ['KeyE']) },
+    },
     interaction: {
       get range() { return configRegistry.getOrDefault('player.interaction.range', 2.5) },
       get switchHeightOffset() { return configRegistry.getOrDefault('player.interaction.switch_height_offset', 48) },
@@ -232,22 +256,254 @@ export const Config = {
     },
     gameover: {
       get background() { return configRegistry.getOrDefault('ui.gameover.background', 'rgba(0, 0, 0, 0.9)') },
+      get title() { return configRegistry.getOrDefault('ui.gameover.title', 'OXYGEN DEPLETED') },
+      get subtitle() { return configRegistry.getOrDefault('ui.gameover.subtitle', 'You succumbed to hypoxia.') },
+      get titleColor() { return configRegistry.getOrDefault('ui.gameover.title_color', '#ff4444') },
+      get buttonText() { return configRegistry.getOrDefault('ui.gameover.button_text', 'RESTART') },
       get buttonColor() { return configRegistry.getOrDefault('ui.gameover.button_color', '#ff4444') },
     },
     victory: {
       get background() { return configRegistry.getOrDefault('ui.victory.background', 'rgba(0, 20, 40, 0.95)') },
-      get textColor() { return configRegistry.getOrDefault('ui.victory.text_color', '#77dd77') },
+      get title() { return configRegistry.getOrDefault('ui.victory.title', 'ESCAPE SUCCESSFUL') },
+      get subtitle() { return configRegistry.getOrDefault('ui.victory.subtitle', "You've escaped the galley and reached the corridor.") },
+      get note() { return configRegistry.getOrDefault('ui.victory.note', 'Act 1 Complete - More to explore ahead...') },
+      get titleColor() { return configRegistry.getOrDefault('ui.victory.title_color', '#77dd77') },
+      get buttonText() { return configRegistry.getOrDefault('ui.victory.button_text', 'CONTINUE EXPLORING') },
       get buttonColor() { return configRegistry.getOrDefault('ui.victory.button_color', '#77dd77') },
     },
     message: {
       get displayDuration() { return configRegistry.getOrDefault('ui.message.display_duration', 2000) },
     },
+    editor: {
+      get statusReady() { return configRegistry.getOrDefault('ui.editor.status_ready', 'Ready') },
+      get statusSuccess() { return configRegistry.getOrDefault('ui.editor.status_success', 'Compiled successfully!') },
+      get statusError() { return configRegistry.getOrDefault('ui.editor.status_error', 'Compile error') },
+      get colorSuccess() { return configRegistry.getOrDefault('ui.editor.color_success', '#77dd77') },
+      get colorError() { return configRegistry.getOrDefault('ui.editor.color_error', '#ff6b6b') },
+    },
+    prompts: {
+      get switchNormal() { return configRegistry.getOrDefault('ui.prompts.switch_normal', 'Press [E] to use {name}') },
+      get switchBroken() { return configRegistry.getOrDefault('ui.prompts.switch_broken', '{name} - Not responding') },
+      get terminalStatus() { return configRegistry.getOrDefault('ui.prompts.terminal_status', '{name}') },
+      get terminalEngineering() { return configRegistry.getOrDefault('ui.prompts.terminal_engineering', 'Press [E] to use terminal') },
+    },
   },
 
-  // Voxel colors
+  // Voxel colors (legacy accessor - uses voxel-types config)
   voxelColors: {
     get(type: string): number {
+      // Try new voxel-types config first, fall back to legacy voxel-colors
+      const fromTypes = configRegistry.get<number>(`voxel-types.${type}.color`)
+      if (fromTypes !== undefined) return fromTypes
       return configRegistry.getOrDefault(`voxel-colors.${type}`, 0x888888)
+    },
+  },
+
+  // Voxel type catalog - full type definitions with properties
+  voxelTypes: {
+    getColor(type: string): number {
+      const color = configRegistry.get<number>(`voxel-types.${type}.color`)
+      if (color !== undefined) return color
+      // Fall back to legacy voxel-colors config
+      return configRegistry.getOrDefault(`voxel-colors.${type}`, 0x888888)
+    },
+    isSolid(type: string): boolean {
+      return configRegistry.getOrDefault(`voxel-types.${type}.solid`, true)
+    },
+    isTransparent(type: string): boolean {
+      return configRegistry.getOrDefault(`voxel-types.${type}.transparent`, false)
+    },
+    isPassable(type: string): boolean {
+      return configRegistry.getOrDefault(`voxel-types.${type}.passable`, false)
+    },
+    // Dynamic ID mapping
+    getIdByName(name: string): number | undefined {
+      return configRegistry.get<number>(`voxel-types.${name}.id`)
+    },
+    getNameById(id: number): string | undefined {
+      const config = configRegistry.getNamespace('voxel-types')
+      if (!config) return undefined
+      for (const [name, props] of Object.entries(config)) {
+        if (name === 'type_groups') continue
+        if (typeof props === 'object' && props !== null && (props as { id?: number }).id === id) {
+          return name
+        }
+      }
+      return undefined
+    },
+    getAllTypes(): Array<{ name: string; id: number }> {
+      const config = configRegistry.getNamespace('voxel-types')
+      if (!config) return []
+      const types: Array<{ name: string; id: number }> = []
+      for (const [name, props] of Object.entries(config)) {
+        if (name === 'type_groups') continue
+        if (typeof props === 'object' && props !== null && typeof (props as { id?: number }).id === 'number') {
+          types.push({ name, id: (props as { id: number }).id })
+        }
+      }
+      return types.sort((a, b) => a.id - b.id)
+    },
+    getTypeGroup(groupName: string): number[] {
+      const typeNames = configRegistry.get<string[]>(`voxel-type-groups.${groupName}`)
+      if (!typeNames) return []
+      return typeNames.map(name => this.getIdByName(name)).filter((id): id is number => id !== undefined)
+    },
+    isValid(type: string): boolean {
+      return configRegistry.has(`voxel-types.${type}.id`)
+    },
+  },
+
+  // Entity system
+  entitySystem: {
+    terminal: {
+      get updateInterval() { return configRegistry.getOrDefault('entity-system.terminal.update_interval', 1.0) },
+      get screenWidth() { return configRegistry.getOrDefault('entity-system.terminal.screen_width', 0.8) },
+      get screenOffset() { return configRegistry.getOrDefault('entity-system.terminal.screen_offset', 0.01) },
+      get searchRadius() { return configRegistry.getOrDefault('entity-system.terminal.search_radius', 2.0) },
+    },
+  },
+
+  // Screen/terminal colors
+  screenColors: {
+    get background() { return configRegistry.getOrDefault('screen-colors.background', '#1a2744') },
+    get scanlineOpacity() { return configRegistry.getOrDefault('screen-colors.scanline_opacity', 0.1) },
+    text: {
+      get normal() { return configRegistry.getOrDefault('screen-colors.text.normal', '#d0d0d0') },
+      get muted() { return configRegistry.getOrDefault('screen-colors.text.muted', '#9ca3af') },
+      get lineNumbers() { return configRegistry.getOrDefault('screen-colors.text.line_numbers', '#6b7280') },
+    },
+    status: {
+      get header() { return configRegistry.getOrDefault('screen-colors.status.header', '#4a6fa5') },
+      get success() { return configRegistry.getOrDefault('screen-colors.status.success', '#77dd77') },
+      get warning() { return configRegistry.getOrDefault('screen-colors.status.warning', '#ffb347') },
+      get error() { return configRegistry.getOrDefault('screen-colors.status.error', '#ff6b6b') },
+      get prompt() { return configRegistry.getOrDefault('screen-colors.status.prompt', '#77dd77') },
+    },
+    keywords: {
+      get nominal() { return configRegistry.getOrDefault<string[]>('screen-colors.keywords.nominal', ['NOMINAL', 'OK']) },
+      get warning() { return configRegistry.getOrDefault<string[]>('screen-colors.keywords.warning', ['WARNING', 'WARN']) },
+      get error() { return configRegistry.getOrDefault<string[]>('screen-colors.keywords.error', ['ERROR', 'CRITICAL']) },
+    },
+  },
+
+  // Voxel world construction parameters
+  voxelWorld: {
+    construction: {
+      get wallThickness() { return configRegistry.getOrDefault('voxel-world.construction.wall_thickness', 8) },
+      get floorThickness() { return configRegistry.getOrDefault('voxel-world.construction.floor_thickness', 8) },
+      get ceilingThickness() { return configRegistry.getOrDefault('voxel-world.construction.ceiling_thickness', 8) },
+    },
+    door: {
+      get width() { return configRegistry.getOrDefault('voxel-world.door.width', 48) },
+      get height() { return configRegistry.getOrDefault('voxel-world.door.height', 88) },
+    },
+  },
+
+  // Bridge configuration (state mappings and event routes)
+  bridge: {
+    get stateMappings(): Array<{ runtimePath: string; forgePath: string; direction: string }> {
+      const raw = configRegistry.get<Array<{ runtime: string; forge: string; direction: string }>>('bridge.state_mappings')
+      if (!raw) return []
+      return raw.map(m => ({
+        runtimePath: m.runtime,
+        forgePath: m.forge,
+        direction: m.direction
+      }))
+    },
+    get eventRoutes(): Array<{ from: string; sourceName: string; targetName: string }> {
+      const raw = configRegistry.get<Array<{ from: string; source: string; target: string }>>('bridge.event_routes')
+      if (!raw) return []
+      return raw.map(r => ({
+        from: r.from,
+        sourceName: r.source,
+        targetName: r.target
+      }))
+    },
+  },
+
+  // Node type catalog
+  nodeTypes: {
+    getCategory(type: string): string {
+      return configRegistry.getOrDefault(`node-types.${type}.category`, 'unknown')
+    },
+    getDescription(type: string): string {
+      return configRegistry.getOrDefault(`node-types.${type}.description`, '')
+    },
+    hasAtmosphere(type: string): boolean {
+      return configRegistry.getOrDefault(`node-types.${type}.has_atmosphere`, false)
+    },
+    getStates(type: string): string[] {
+      return configRegistry.getOrDefault<string[]>(`node-types.${type}.states`, [])
+    },
+    getStatuses(type: string): string[] {
+      return configRegistry.getOrDefault<string[]>(`node-types.${type}.statuses`, [])
+    },
+    getTerminalTypes(): string[] {
+      return configRegistry.getOrDefault<string[]>('node-types.TERMINAL.terminal_types', [])
+    },
+    isValid(type: string): boolean {
+      return configRegistry.has(`node-types.${type}.category`)
+    },
+    getValidTypes(): string[] {
+      const config = configRegistry.getNamespace('node-types')
+      if (!config) return []
+      return Object.keys(config).filter(key =>
+        typeof config[key] === 'object' && config[key] !== null && 'category' in (config[key] as object)
+      )
+    },
+  },
+
+  // Role catalog
+  roles: {
+    getLevel(role: string): number {
+      return configRegistry.getOrDefault(`roles.${role}.level`, 0)
+    },
+    getDescription(role: string): string {
+      return configRegistry.getOrDefault(`roles.${role}.description`, '')
+    },
+    getInherits(role: string): string[] {
+      return configRegistry.getOrDefault<string[]>(`roles.${role}.inherits`, [])
+    },
+    getDepartments(role: string): string[] {
+      return configRegistry.getOrDefault<string[]>(`roles.${role}.departments`, [])
+    },
+    hasAccessAll(role: string): boolean {
+      return configRegistry.getOrDefault(`roles.${role}.access_all`, false)
+    },
+    isValid(role: string): boolean {
+      return configRegistry.has(`roles.${role}.level`)
+    },
+    getValidRoles(): string[] {
+      const config = configRegistry.getNamespace('roles')
+      if (!config) return []
+      return Object.keys(config).filter(key =>
+        typeof config[key] === 'object' && config[key] !== null && 'level' in (config[key] as object)
+      )
+    },
+  },
+
+  // Prefab catalog
+  prefabs: {
+    getCategories(): string[] {
+      return configRegistry.getOrDefault<string[]>('prefabs.categories', [])
+    },
+    isValidCategory(category: string): boolean {
+      const categories = this.getCategories()
+      return categories.includes(category)
+    },
+  },
+
+  // Interaction configuration
+  interactions: {
+    getInteractableTypes(): string[] {
+      return configRegistry.getOrDefault<string[]>('interactions.interactable_types', [])
+    },
+    isInteractable(type: string): boolean {
+      const types = this.getInteractableTypes()
+      return types.includes(type)
+    },
+    getEntityStatuses(): string[] {
+      return configRegistry.getOrDefault<string[]>('interactions.entity_statuses', [])
     },
   },
 }

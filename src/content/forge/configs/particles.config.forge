@@ -5,7 +5,7 @@ config particles
   sparks:
     max_count: 50                # Maximum particles in pool
     default_emit: 15             # Default particles per emission
-    colors: [0xffff88, 0xffaa44, 0xff6622]  # White-yellow, orange, red-orange
+    colors: [16777096, 16755268, 16737826]  # White-yellow, orange, red-orange
     color_weights: [0.3, 0.4, 0.3]          # Probability weights
     lifetime_min: 0.3            # Minimum particle life (seconds)
     lifetime_max: 0.7            # Maximum particle life (seconds)

@@ -1,0 +1,195 @@
+# Voxel Type Catalog
+# Defines all voxel material types with their properties
+# Each type has a unique numeric ID for performance-critical operations
+
+# Type groups for bulk operations (separate config to avoid parsing issues)
+config voxel-type-groups
+  switch_components: ["SWITCH", "SWITCH_BUTTON", "LED_GREEN", "LED_RED"]
+  door_components: ["DOOR_FRAME", "DOOR_PANEL"]
+  structural: ["HULL", "WALL", "FLOOR", "CEILING"]
+  transparent: ["AIR", "GLASS", "METAL_GRATE", "SCREEN", "FAN_BLADE"]
+
+config voxel-types
+  # Empty space - always passable
+  AIR:
+    id: 0
+    solid: false
+    transparent: true
+    passable: true
+    color: 0x000000
+
+  # Ship exterior hull
+  HULL:
+    id: 1
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x8888AA
+
+  # Interior wall
+  WALL:
+    id: 2
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x4488FF
+
+  # Floor surface
+  FLOOR:
+    id: 3
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x44A0C4
+
+  # Ceiling surface
+  CEILING:
+    id: 4
+    solid: true
+    transparent: false
+    passable: false
+    color: 0xCCCCCC
+
+  # Transparent glass - blocks movement but not light
+  GLASS:
+    id: 5
+    solid: true
+    transparent: true
+    passable: true
+    color: 0x88BBFF
+
+  # Metal floor grating - semi-transparent, passable
+  METAL_GRATE:
+    id: 6
+    solid: false
+    transparent: true
+    passable: true
+    color: 0xAAAAAA
+
+  # Interactive panel surface
+  PANEL:
+    id: 7
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x888ACC
+
+  # Pipe/cable conduit
+  CONDUIT:
+    id: 8
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x999999
+
+  # Decorative trim
+  TRIM:
+    id: 9
+    solid: true
+    transparent: false
+    passable: false
+    color: 0xBBBBBB
+
+  # Light emission source
+  LIGHT_FIXTURE:
+    id: 10
+    solid: true
+    transparent: false
+    passable: false
+    color: 0xFFFF9A
+
+  # Wall-mounted switch housing
+  SWITCH:
+    id: 11
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x608080
+
+  # Switch button (clickable)
+  SWITCH_BUTTON:
+    id: 12
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x888888
+
+  # Green LED indicator
+  LED_GREEN:
+    id: 13
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x00FF00
+
+  # Red LED indicator
+  LED_RED:
+    id: 14
+    solid: true
+    transparent: false
+    passable: false
+    color: 0xFF0000
+
+  # Door frame (static)
+  DOOR_FRAME:
+    id: 15
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x3A4A5A
+
+  # Door panel (animated)
+  DOOR_PANEL:
+    id: 16
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x4A5A6A
+
+  # Terminal screen (emissive)
+  SCREEN:
+    id: 17
+    solid: true
+    transparent: true
+    passable: false
+    color: 0x1A24C4
+
+  # Desk surface
+  DESK:
+    id: 18
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x2A3A4A
+
+  # Keyboard surface
+  KEYBOARD:
+    id: 19
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x1A28BA
+
+  # Ventilation duct
+  DUCT:
+    id: 20
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x5A5A5A
+
+  # Fan center hub (static)
+  FAN_HUB:
+    id: 21
+    solid: true
+    transparent: false
+    passable: false
+    color: 0x3A4A3A
+
+  # Fan blade (animated) - transparent for meshing
+  FAN_BLADE:
+    id: 22
+    solid: false
+    transparent: true
+    passable: false
+    color: 0x7A7A7A

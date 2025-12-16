@@ -1,0 +1,47 @@
+# Node Type Catalog
+# Defines all StarLang node types with their properties
+
+config node-types
+  ROOM:
+    category: "space"
+    has_atmosphere: true
+    description: "A habitable room or compartment"
+
+  DOOR:
+    category: "passage"
+    description: "Sliding door between rooms"
+    states: ["OPEN", "CLOSED", "LOCKED", "SEALED"]
+
+  SENSOR:
+    category: "device"
+    description: "Environmental sensor"
+    sensor_types: ["O2", "TEMP", "PRESSURE"]
+
+  TERMINAL:
+    category: "interface"
+    description: "Computer terminal"
+    terminal_types: ["STATUS", "COMMAND", "ENGINEERING"]
+
+  SWITCH:
+    category: "interface"
+    description: "Wall-mounted control switch"
+    statuses: ["OK", "FAULT"]
+
+  WALL_LIGHT:
+    category: "fixture"
+    description: "Wall-mounted light"
+    has_color: true
+    has_intensity: true
+
+  ATMO_OUTLET:
+    category: "system"
+    description: "Atmosphere outlet vent"
+
+  ATMO_INLET:
+    category: "system"
+    description: "Atmosphere inlet vent"
+
+  SIGNAL:
+    category: "logic"
+    description: "Signal routing node"
+

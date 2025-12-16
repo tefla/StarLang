@@ -23,6 +23,7 @@ import {
 } from './config'
 import {
   createContext,
+  evaluate,
   evaluateCondition,
   type EvalContext,
 } from './evaluator'
@@ -80,6 +81,19 @@ interface VMBehavior {
   handlers: AST.OnBlock[]
 }
 
+/**
+ * Registered condition in the VM.
+ * Conditions are checked every tick and fire events when triggered.
+ */
+interface VMCondition {
+  name: string
+  conditionType: 'victory' | 'defeat' | 'checkpoint'
+  trigger: AST.Expression
+  message?: AST.Expression
+  effects: AST.Statement[]
+  fired: boolean  // Track if already triggered
+}
+
 // ============================================================================
 // ForgeVM Class
 // ============================================================================
@@ -89,6 +103,7 @@ export class ForgeVM {
   private rules: VMRule[] = []
   private scenarios: VMScenario[] = []
   private behaviors: VMBehavior[] = []
+  private conditions: VMCondition[] = []
   private eventListeners: Map<string, VMEventListener[]> = new Map()
   private activeScenario: VMScenario | null = null
   private tickCount = 0
@@ -167,6 +182,16 @@ export class ForgeVM {
   resetState(): void {
     this.state = {}
     this.tickCount = 0
+    this.resetConditions()
+  }
+
+  /**
+   * Reset all conditions to unfired state.
+   */
+  resetConditions(): void {
+    for (const condition of this.conditions) {
+      condition.fired = false
+    }
   }
 
   // ============================================================================
@@ -215,6 +240,20 @@ export class ForgeVM {
         })
       }
     }
+
+    // Load conditions
+    for (const def of module.definitions) {
+      if (def.kind === 'condition') {
+        this.conditions.push({
+          name: def.name,
+          conditionType: def.conditionType,
+          trigger: def.trigger,
+          message: def.message,
+          effects: def.effects,
+          fired: false,
+        })
+      }
+    }
   }
 
   /**
@@ -232,6 +271,7 @@ export class ForgeVM {
     this.rules = []
     this.scenarios = []
     this.behaviors = []
+    this.conditions = []
     this.activeScenario = null
     this.eventListeners.clear()
     clearFunctions()
@@ -310,6 +350,54 @@ export class ForgeVM {
     if (this.activeScenario) {
       for (const handler of this.activeScenario.handlers) {
         this.executeHandler(handler)
+      }
+    }
+
+    // Check conditions
+    this.checkConditions()
+  }
+
+  /**
+   * Check all conditions and fire events when triggered.
+   */
+  private checkConditions(): void {
+    const context = this.createContext()
+
+    for (const condition of this.conditions) {
+      // Skip already fired conditions
+      if (condition.fired) continue
+
+      // Evaluate trigger expression
+      const triggered = evaluateCondition(condition.trigger, context)
+      if (!triggered) continue
+
+      // Mark as fired
+      condition.fired = true
+
+      // Evaluate message if present
+      let message: string | undefined
+      if (condition.message) {
+        message = String(evaluate(condition.message, context))
+      }
+
+      // Emit condition event
+      const eventName = `condition:${condition.conditionType}`
+      this.emit(eventName, {
+        condition: condition.name,
+        type: condition.conditionType,
+        message,
+      })
+
+      // Also emit game-specific events for backwards compatibility
+      if (condition.conditionType === 'victory') {
+        this.emit('game:victory', { condition: condition.name, message })
+      } else if (condition.conditionType === 'defeat') {
+        this.emit('game:over', { condition: condition.name, message })
+      }
+
+      // Execute effects
+      if (condition.effects.length > 0) {
+        executeStatements(condition.effects, context, this.createExecutionCallbacks())
       }
     }
   }

@@ -8,6 +8,7 @@ import type {
   RenderElement,
   RenderMatchCase
 } from '../types/entity'
+import { Config } from '../forge/ConfigRegistry'
 
 /**
  * Context for rendering - provides access to entity params and runtime state.
@@ -83,11 +84,11 @@ export class ScreenRenderer {
     const height = this.canvas.height
 
     // Clear with background color
-    ctx.fillStyle = this.config.background ?? '#1a2744'
+    ctx.fillStyle = this.config.background ?? Config.screenColors.background
     ctx.fillRect(0, 0, width, height)
 
     // Add subtle scanlines effect
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'
+    ctx.fillStyle = `rgba(0, 0, 0, ${Config.screenColors.scanlineOpacity})`
     for (let y = 0; y < height; y += 2) {
       ctx.fillRect(0, y, width, 1)
     }
@@ -164,7 +165,7 @@ export class ScreenRenderer {
     const content = this.interpolate(element.content, context)
     const style = this.getStyleForContent(content)
 
-    this.ctx.fillStyle = style.color ?? '#d0d0d0'
+    this.ctx.fillStyle = style.color ?? Config.screenColors.text.normal
 
     if (element.centered) {
       const metrics = this.ctx.measureText(content)
@@ -192,12 +193,12 @@ export class ScreenRenderer {
 
     // Render label in muted color
     const labelStyle = this.styles.muted ?? {}
-    this.ctx.fillStyle = labelStyle.color ?? '#9ca3af'
+    this.ctx.fillStyle = labelStyle.color ?? Config.screenColors.text.muted
     this.ctx.fillText(label, x, y + lineHeight)
 
     // Render value - apply style based on content
     const valueStyle = this.getStyleForContent(value)
-    this.ctx.fillStyle = valueStyle.color ?? '#d0d0d0'
+    this.ctx.fillStyle = valueStyle.color ?? Config.screenColors.text.normal
 
     // Position value after label
     const labelWidth = this.ctx.measureText(label).width
@@ -225,14 +226,14 @@ export class ScreenRenderer {
       if (element.lineNumbers) {
         // Line number
         const lineNum = String(i + 1).padStart(3, ' ')
-        this.ctx.fillStyle = '#6b7280'
+        this.ctx.fillStyle = Config.screenColors.text.lineNumbers
         this.ctx.fillText(`${lineNum}│`, x, y + lineHeight)
 
         // Code content
-        this.ctx.fillStyle = '#d0d0d0'
+        this.ctx.fillStyle = Config.screenColors.text.normal
         this.ctx.fillText(line, x + 40, y + lineHeight)
       } else {
-        this.ctx.fillStyle = '#d0d0d0'
+        this.ctx.fillStyle = Config.screenColors.text.normal
         this.ctx.fillText(line, x, y + lineHeight)
       }
 
@@ -331,19 +332,25 @@ export class ScreenRenderer {
   private getStyleForContent(content: string): EntityStyleDef {
     // Check for explicit style markers
     if (content.includes('═') || content.includes('─') || content.includes('───')) {
-      return this.styles.header ?? { color: '#4a6fa5' }
+      return this.styles.header ?? { color: Config.screenColors.status.header }
     }
-    if (content.includes('✓') || content.includes('OK') || content.includes('NOMINAL')) {
-      return this.styles.success ?? { color: '#77dd77' }
+    // Check for nominal/success keywords
+    const nominalKeywords = Config.screenColors.keywords.nominal
+    if (content.includes('✓') || nominalKeywords.some(k => content.includes(k))) {
+      return this.styles.success ?? { color: Config.screenColors.status.success }
     }
-    if (content.includes('⚠') || content.includes('WARNING') || content.includes('WARN')) {
-      return this.styles.warning ?? { color: '#ffb347' }
+    // Check for warning keywords
+    const warningKeywords = Config.screenColors.keywords.warning
+    if (content.includes('⚠') || warningKeywords.some(k => content.includes(k))) {
+      return this.styles.warning ?? { color: Config.screenColors.status.warning }
     }
-    if (content.includes('✗') || content.includes('ERROR') || content.includes('CRITICAL')) {
-      return this.styles.error ?? { color: '#ff6b6b' }
+    // Check for error keywords
+    const errorKeywords = Config.screenColors.keywords.error
+    if (content.includes('✗') || errorKeywords.some(k => content.includes(k))) {
+      return this.styles.error ?? { color: Config.screenColors.status.error }
     }
     if (content.startsWith('>')) {
-      return this.styles.prompt ?? { color: '#77dd77' }
+      return this.styles.prompt ?? { color: Config.screenColors.status.prompt }
     }
 
     return {}
@@ -355,7 +362,7 @@ export class ScreenRenderer {
   createMaterial(): THREE.MeshStandardMaterial {
     return new THREE.MeshStandardMaterial({
       map: this.texture,
-      emissive: new THREE.Color(this.config.background ?? '#1a2744'),
+      emissive: new THREE.Color(this.config.background ?? Config.screenColors.background),
       emissiveIntensity: 0.5,
       emissiveMap: this.texture,
       side: THREE.DoubleSide

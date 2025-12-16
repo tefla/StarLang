@@ -648,6 +648,31 @@ export interface BehaviorDef extends ASTNode {
 }
 
 // ============================================================================
+// Condition Definition (for Phase 11.1)
+// ============================================================================
+
+/**
+ * Game condition that triggers victory, defeat, or checkpoint.
+ * Checked every tick by ForgeVM.
+ *
+ * Example:
+ *   condition escape_galley
+ *     type: victory
+ *     trigger: $player_room == "corridor" and $previous_room == "galley"
+ *     message: "You escaped the galley!"
+ *     effect:
+ *       emit "game:victory"
+ */
+export interface ConditionDef extends ASTNode {
+  kind: 'condition'
+  name: string
+  conditionType: 'victory' | 'defeat' | 'checkpoint'
+  trigger: Expression
+  message?: Expression
+  effects: Statement[]
+}
+
+// ============================================================================
 // Module (file)
 // ============================================================================
 
@@ -661,6 +686,7 @@ export type TopLevelDef =
   | RuleDef
   | ScenarioDef
   | BehaviorDef
+  | ConditionDef
 
 export interface ForgeModule extends ASTNode {
   kind: 'module'

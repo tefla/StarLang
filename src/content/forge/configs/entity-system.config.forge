@@ -1,0 +1,9 @@
+# Entity System Configuration
+# Terminal/screen entity tuning parameters
+
+config entity-system
+  terminal:
+    update_interval: 1.0          # Seconds between state refreshes
+    screen_width: 0.8             # Base screen width in world units
+    screen_offset: 0.01           # Offset from voxel surface
+    search_radius: 2.0            # Meters to search for screen voxels

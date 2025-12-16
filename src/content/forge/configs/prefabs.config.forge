@@ -1,0 +1,6 @@
+# Prefab Configuration
+# Defines prefab categories for asset organization
+
+config prefabs
+  categories: ["furniture", "structure", "equipment", "decoration", "door", "other"]
+

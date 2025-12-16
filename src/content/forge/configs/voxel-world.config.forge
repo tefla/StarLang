@@ -1,0 +1,13 @@
+# Voxel World Configuration
+# Construction parameters for the voxel map builder
+
+config voxel-world
+  construction:
+    wall_thickness: 8        # 20cm at 2.5cm voxels
+    floor_thickness: 8       # 20cm at 2.5cm voxels
+    ceiling_thickness: 8     # 20cm at 2.5cm voxels
+
+  door:
+    width: 48                # 1.2m at 2.5cm voxels
+    height: 88               # 2.2m at 2.5cm voxels
+

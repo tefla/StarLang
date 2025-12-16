@@ -11,7 +11,7 @@ import { VoxelType, VOXEL_SIZE } from '../../voxel/VoxelTypes'
 import { Config } from '../../forge/ConfigRegistry'
 
 export type InteractionTarget = {
-  type: 'door' | 'terminal' | 'door_panel' | 'switch'
+  type: string  // Validated against interactions.interactable_types config
   id: string
   object: THREE.Object3D
   distance: number
@@ -306,7 +306,7 @@ export class InteractionSystem {
 
     this.editorFilename.textContent = this.currentFile
     this.editorTextarea.value = this.currentCode
-    this.editorStatus.textContent = 'Ready'
+    this.editorStatus.textContent = Config.ui.editor.statusReady
     this.editorErrors.textContent = ''
     this.editorOverlay.classList.add('visible')
 
@@ -361,8 +361,8 @@ export class InteractionSystem {
 
       // Update editor status
       if (this.editorStatus) {
-        this.editorStatus.textContent = 'Compiled successfully!'
-        this.editorStatus.style.color = '#77dd77'
+        this.editorStatus.textContent = Config.ui.editor.statusSuccess
+        this.editorStatus.style.color = Config.ui.editor.colorSuccess
       }
       if (this.editorErrors) {
         this.editorErrors.textContent = ''
@@ -380,8 +380,8 @@ export class InteractionSystem {
 
       // Show errors in editor
       if (this.editorStatus) {
-        this.editorStatus.textContent = 'Compile error'
-        this.editorStatus.style.color = '#ff6b6b'
+        this.editorStatus.textContent = Config.ui.editor.statusError
+        this.editorStatus.style.color = Config.ui.editor.colorError
       }
       if (this.editorErrors) {
         const errorText = result.errors.map(e => `Line ${e.line}: ${e.message}`).join('\n')
@@ -399,18 +399,23 @@ export class InteractionSystem {
         const switchDef = this.scene.switchDefs.get(this.currentTarget.id)
         const switchName = switchDef?.properties.display_name ?? 'Switch'
         if (switchDef?.properties.status === 'FAULT') {
-          text = `<span style="color: #ff6b6b;">${switchName}</span> - Not responding`
+          // Use config prompt with {name} placeholder replaced
+          const brokenPrompt = Config.ui.prompts.switchBroken.replace('{name}', switchName)
+          text = `<span style="color: ${Config.ui.editor.colorError};">${brokenPrompt}</span>`
         } else {
-          text = `Press <kbd>E</kbd> to use ${switchName}`
+          // Use config prompt with {name} placeholder and [E] -> <kbd>E</kbd>
+          text = Config.ui.prompts.switchNormal
+            .replace('{name}', switchName)
+            .replace('[E]', '<kbd>E</kbd>')
         }
         break
       case 'terminal':
         const terminal = this.scene.terminals.get(this.currentTarget.id)
         const type = terminal?.getTerminalType() ?? 'STATUS'
         if (type === 'STATUS') {
-          text = `${terminal?.getDisplayName() ?? 'Status Display'}`
+          text = Config.ui.prompts.terminalStatus.replace('{name}', terminal?.getDisplayName() ?? 'Status Display')
         } else {
-          text = `Press <kbd>E</kbd> to use terminal`
+          text = Config.ui.prompts.terminalEngineering.replace('[E]', '<kbd>E</kbd>')
         }
         break
     }
@@ -444,7 +449,7 @@ export class InteractionSystem {
         if (!this.currentTarget) {
           this.prompt?.classList.remove('visible')
         }
-      }, 2000)
+      }, Config.ui.message.displayDuration)
     }
   }
 

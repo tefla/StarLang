@@ -1,0 +1,28 @@
+# Voxel Color Palette
+# Material colors for all voxel types
+
+config voxel-colors
+  AIR: 0                   # Transparent/empty
+  HULL: 8947882                  # Light blue-gray hull
+  WALL: 4491519                  # Bright blue walls
+  FLOOR: 4500036                 # Bright green floor
+  CEILING: 13421772               # Light gray ceiling
+  GLASS: 8969727                 # Cyan glass
+  METAL_GRATE: 11184810           # Gray metal grate
+  PANEL: 8952268                 # Blue-ish panel
+  CONDUIT: 10066329               # Gray conduit
+  TRIM: 12303291                  # Light gray trim
+  LIGHT_FIXTURE: 16777130         # Yellow-ish light fixture
+  SWITCH: 6324384                # Medium blue-gray switch housing
+  SWITCH_BUTTON: 8947848         # Medium gray button
+  LED_GREEN: 65280             # Bright green LED
+  LED_RED: 16711680               # Bright red LED
+  DOOR_FRAME: 3820122            # Dark metallic door frame
+  DOOR_PANEL: 4872810            # Metallic gray door panel
+  SCREEN: 1713988                # Dark blue screen background
+  DESK: 2767434                  # Dark metallic desk surface
+  KEYBOARD: 1714746              # Dark keyboard surface
+  DUCT: 5921370                  # Gray duct metal
+  FAN_HUB: 3815994               # Dark fan hub center
+  FAN_BLADE: 8026746             # Light gray blade
+  WIRE: 11176021                  # Copper wire color

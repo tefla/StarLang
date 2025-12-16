@@ -69,6 +69,8 @@ export class ForgeParser {
         return this.parseScenario()
       case 'behavior':
         return this.parseBehavior()
+      case 'condition':
+        return this.parseCondition()
       default:
         throw this.error(`Unexpected keyword '${token.value}'`)
     }
@@ -2159,6 +2161,90 @@ export class ForgeParser {
 
     this.consumeDedent()
     return { kind: 'on', event, condition, body, loc }
+  }
+
+  // ============================================================================
+  // Condition Definition (Phase 11.1)
+  // ============================================================================
+
+  /**
+   * Parse a condition definition:
+   *   condition escape_galley
+   *     type: victory
+   *     trigger: $player_room == "corridor" and $previous_room == "galley"
+   *     message: "You escaped!"
+   *     effect:
+   *       emit "game:victory"
+   */
+  private parseCondition(): AST.ConditionDef {
+    const loc = this.currentLoc()
+    this.expectKeyword('condition')
+    const name = this.expectIdentifier()
+    this.expectNewline()
+    this.expectIndent()
+
+    let conditionType: 'victory' | 'defeat' | 'checkpoint' = 'victory'
+    let trigger: AST.Expression | undefined
+    let message: AST.Expression | undefined
+    const effects: AST.Statement[] = []
+
+    while (!this.checkDedent() && !this.isAtEnd()) {
+      this.skipNewlines()
+      if (this.checkDedent()) break
+
+      const token = this.current()
+
+      if (token.type === 'KEYWORD' && token.value === 'type') {
+        this.advance()
+        this.expect('COLON')
+        const typeValue = this.expectIdentifier()
+        if (typeValue !== 'victory' && typeValue !== 'defeat' && typeValue !== 'checkpoint') {
+          throw this.error(`Invalid condition type '${typeValue}', expected victory, defeat, or checkpoint`)
+        }
+        conditionType = typeValue
+        this.expectNewlineOrDedent()
+      } else if (token.type === 'KEYWORD' && token.value === 'trigger') {
+        this.advance()
+        this.expect('COLON')
+        trigger = this.parseExpression()
+        this.expectNewlineOrDedent()
+      } else if (token.type === 'KEYWORD' && token.value === 'message') {
+        this.advance()
+        this.expect('COLON')
+        message = this.parseExpression()
+        this.expectNewlineOrDedent()
+      } else if (token.type === 'KEYWORD' && token.value === 'effect') {
+        this.advance()
+        this.expect('COLON')
+        this.expectNewline()
+        this.expectIndent()
+        while (!this.checkDedent() && !this.isAtEnd()) {
+          this.skipNewlines()
+          if (this.checkDedent()) break
+          effects.push(this.parseStatement())
+          this.expectNewlineOrDedent()
+        }
+        this.consumeDedent()
+      } else {
+        throw this.error(`Unexpected token in condition: ${token.value}`)
+      }
+    }
+
+    this.consumeDedent()
+
+    if (!trigger) {
+      throw this.error(`Condition '${name}' must have a trigger`)
+    }
+
+    return {
+      kind: 'condition',
+      name,
+      conditionType,
+      trigger,
+      message,
+      effects,
+      loc
+    }
   }
 
   // ============================================================================

@@ -11,14 +11,9 @@ import type { EntityPlacement } from '../types/layout'
 
 /**
  * Prefab categories for organization.
+ * Validated against prefabs.categories config.
  */
-export type PrefabCategory =
-  | 'furniture'    // Tables, chairs, beds
-  | 'structure'    // Walls, columns, arches
-  | 'equipment'    // Consoles, machinery
-  | 'decoration'   // Plants, artwork
-  | 'door'         // Door frames and mechanisms
-  | 'other'
+export type PrefabCategory = string
 
 /**
  * A connector point for snapping prefabs together.
@@ -38,8 +33,8 @@ export interface PrefabConnector {
  * An entity embedded in a prefab.
  */
 export interface PrefabEntity {
-  /** Entity type */
-  type: 'door' | 'terminal' | 'switch' | 'sensor' | 'light'
+  /** Entity type - validated against interactions.interactable_types config */
+  type: string
   /** Position relative to prefab anchor */
   position: VoxelCoord
   /** Rotation relative to prefab */
