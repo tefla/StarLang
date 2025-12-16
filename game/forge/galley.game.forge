@@ -4,7 +4,7 @@
 game galley_escape
   # What to load
   ship: "galley"
-  layout: "ships/galley/galley.layout.json"
+  layout: "forge/layouts/galley.layout.forge"
   scenario: "galley_escape"
 
   # Player setup

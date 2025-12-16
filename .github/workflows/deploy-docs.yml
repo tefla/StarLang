@@ -2,23 +2,38 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [master]
+    branches: ['*']
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
+# Single concurrency group for all deployments to prevent race conditions
 concurrency:
-  group: pages
+  group: github-pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Get branch name
+        id: branch
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          # Sanitize branch name for URL (replace / with -)
+          SAFE_BRANCH=$(echo "$BRANCH" | sed 's/\//-/g')
+          echo "name=${BRANCH}" >> $GITHUB_OUTPUT
+          echo "safe_name=${SAFE_BRANCH}" >> $GITHUB_OUTPUT
+          if [ "$BRANCH" = "master" ]; then
+            echo "is_master=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_master=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -34,29 +49,145 @@ jobs:
       - name: Build game
         run: bun run build
 
-      - name: Build docs
+      - name: Build docs (master)
+        if: steps.branch.outputs.is_master == 'true'
         run: bun run docs:build
 
-      - name: Combine outputs
+      - name: Build docs (branch)
+        if: steps.branch.outputs.is_master == 'false'
+        run: bun run docs:build
+        env:
+          VITEPRESS_BASE: /StarLang/branches/${{ steps.branch.outputs.safe_name }}/docs/
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+        continue-on-error: true
+
+      - name: Initialize gh-pages if needed
         run: |
+          if [ ! -d "gh-pages" ] || [ ! -f "gh-pages/index.html" ]; then
+            echo "No existing gh-pages, starting fresh"
+            rm -rf gh-pages
+            mkdir -p gh-pages
+          fi
+
+      - name: Prepare deployment (master)
+        if: steps.branch.outputs.is_master == 'true'
+        run: |
+          # Preserve branches folder if it exists
+          if [ -d "gh-pages/branches" ]; then
+            echo "Preserving existing branches folder"
+            cp -r gh-pages/branches dist/branches
+          fi
           # Move docs to /docs subfolder within dist
           mv docs/.vitepress/dist dist/docs
+          echo "Master deployment ready: game at /, docs at /docs/"
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      - name: Prepare deployment (branch)
+        if: steps.branch.outputs.is_master == 'false'
+        run: |
+          SAFE_BRANCH="${{ steps.branch.outputs.safe_name }}"
+          echo "Preparing branch deployment for: ${SAFE_BRANCH}"
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
+          # Start with existing gh-pages content (preserves master + other branches)
+          rm -rf deploy
+          if [ -d "gh-pages" ] && [ -f "gh-pages/index.html" ]; then
+            echo "Copying existing gh-pages content"
+            cp -r gh-pages deploy
+            rm -rf deploy/.git
+          else
+            echo "No existing content, creating minimal structure"
+            mkdir -p deploy
+            # Create placeholder for root until master deploys
+            echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/StarLang/branches/"></head></html>' > deploy/index.html
+          fi
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
+          # Create/update this branch's folder
+          rm -rf "deploy/branches/${SAFE_BRANCH}"
+          mkdir -p "deploy/branches/${SAFE_BRANCH}"
+
+          # Copy game build to branch folder
+          cp -r dist/* "deploy/branches/${SAFE_BRANCH}/" 2>/dev/null || true
+
+          # Copy docs build to branch docs folder
+          mkdir -p "deploy/branches/${SAFE_BRANCH}/docs"
+          cp -r docs/.vitepress/dist/* "deploy/branches/${SAFE_BRANCH}/docs/"
+
+          # Update branches index JSON
+          mkdir -p deploy/branches
+          if [ -f "deploy/branches/index.json" ]; then
+            cat deploy/branches/index.json | jq --arg branch "$SAFE_BRANCH" '.branches = (.branches + [$branch] | unique | sort)' > deploy/branches/index.json.tmp
+            mv deploy/branches/index.json.tmp deploy/branches/index.json
+          else
+            echo "{\"branches\":[\"${SAFE_BRANCH}\"]}" > deploy/branches/index.json
+          fi
+
+          # Create branches index page
+          cat > deploy/branches/index.html << 'INDEXEOF'
+<!DOCTYPE html>
+<html>
+<head>
+  <title>StarLang - Branch Deployments</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; background: #1a1a2e; color: #eee; }
+    h1 { color: #00d4ff; }
+    p { color: #aaa; }
+    ul { list-style: none; padding: 0; }
+    li { margin: 10px 0; }
+    a { color: #00d4ff; text-decoration: none; padding: 12px 20px; background: #16213e; border-radius: 6px; display: inline-block; transition: background 0.2s; }
+    a:hover { background: #1f3460; }
+    .back { margin-bottom: 30px; }
+    .branch-item { display: flex; gap: 10px; align-items: center; margin: 15px 0; flex-wrap: wrap; }
+    .branch-name { font-family: monospace; background: #0f3460; padding: 8px 16px; border-radius: 4px; min-width: 200px; }
+  </style>
+</head>
+<body>
+  <div class="back"><a href="/StarLang/">← Back to Main Site</a></div>
+  <h1>Branch Deployments</h1>
+  <p>Preview builds for feature branches. These are deployed automatically when you push to any branch.</p>
+  <ul id="branches"></ul>
+  <script>
+    fetch('/StarLang/branches/index.json')
+      .then(r => r.json())
+      .then(data => {
+        const ul = document.getElementById('branches');
+        if (data.branches.length === 0) {
+          ul.innerHTML = '<li>No branches deployed yet</li>';
+          return;
+        }
+        data.branches.forEach(branch => {
+          const li = document.createElement('li');
+          li.className = 'branch-item';
+          li.innerHTML = `
+            <span class="branch-name">${branch}</span>
+            <a href="/StarLang/branches/${branch}/">Game</a>
+            <a href="/StarLang/branches/${branch}/docs/">Docs</a>
+          `;
+          ul.appendChild(li);
+        });
+      })
+      .catch(() => {
+        document.getElementById('branches').innerHTML = '<li>No branches deployed yet</li>';
+      });
+  </script>
+</body>
+</html>
+INDEXEOF
+
+          # Move deploy to dist for upload
+          rm -rf dist
+          mv deploy dist
+          echo "Branch deployment ready at /branches/${SAFE_BRANCH}/"
+
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          keep_files: false
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy ${{ steps.branch.outputs.name }}'

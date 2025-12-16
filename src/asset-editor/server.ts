@@ -6,7 +6,8 @@ import html from '../../asset-editor.html'
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const ASSETS_DIR = join(import.meta.dir, '../content/assets')
+// Assets are now in game/forge/assets/ as .asset.forge files
+const ASSETS_DIR = join(import.meta.dir, '../../game/forge/assets')
 
 // Get list of all assets
 async function listAssets(): Promise<string[]> {
@@ -17,8 +18,8 @@ async function listAssets(): Promise<string[]> {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         await scan(join(dir, entry.name), `${prefix}${entry.name}/`)
-      } else if (entry.name.endsWith('.asset.json')) {
-        assets.push(`${prefix}${entry.name.replace('.asset.json', '')}`)
+      } else if (entry.name.endsWith('.asset.forge')) {
+        assets.push(`${prefix}${entry.name.replace('.asset.forge', '')}`)
       }
     }
   }
@@ -46,12 +47,12 @@ Bun.serve({
     // Handle /api/asset/path/to/asset
     if (url.pathname.startsWith('/api/asset/')) {
       const assetPath = url.pathname.replace('/api/asset/', '')
-      const filePath = join(ASSETS_DIR, `${assetPath}.asset.json`)
+      const filePath = join(ASSETS_DIR, `${assetPath}.asset.forge`)
 
       const file = Bun.file(filePath)
       if (await file.exists()) {
         return new Response(file, {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'text/plain' }
         })
       }
       return new Response('Not found', { status: 404 })

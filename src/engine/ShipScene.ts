@@ -1,22 +1,22 @@
 // Ship Scene - Main 3D scene management
 
 import * as THREE from 'three'
-import { Runtime } from '../../runtime/Runtime'
-import type { ShipStructure, SwitchDefinition, WallLightDefinition } from '../../types/nodes'
-import { SparkEffect } from '../../engine/ParticleSystem'
-import { VoxelWorld } from '../../voxel/VoxelWorld'
-import { VoxelRenderer } from '../../voxel/VoxelRenderer'
-import { VoxelMapBuilder } from '../../voxel/VoxelMapBuilder'
-import { VOXEL_SIZE } from '../../voxel/VoxelTypes'
-import { loadVoxelMesh } from '../../voxel/VoxelMeshLoader'
-import type { ShipLayout } from '../../types/layout'
-import { animatedAssetLoader, loadAnimatedAssetsAsync } from '../../voxel/AnimatedAssetLoader'
-import type { AnimatedAssetInstance } from '../../voxel/AnimatedAssetInstance'
-import type { AnimatedChildInfo } from '../../voxel/VoxelAssetLoader'
-import { EntitySystem, ScreenEntity, type Entity } from '../../engine/EntitySystem'
-import { ForgeLoader } from '../../engine/ForgeLoader'
-import { enableClientHotReload, type ForgeHotReloadEvent } from '../../forge'
-import { Config } from '../../forge/ConfigRegistry'
+import { Runtime } from '../runtime/Runtime'
+import type { ShipStructure, SwitchDefinition, WallLightDefinition } from '../types/nodes'
+import { SparkEffect } from './ParticleSystem'
+import { VoxelWorld } from '../voxel/VoxelWorld'
+import { VoxelRenderer } from '../voxel/VoxelRenderer'
+import { VoxelMapBuilder } from '../voxel/VoxelMapBuilder'
+import { VOXEL_SIZE } from '../voxel/VoxelTypes'
+import { loadVoxelMesh } from '../voxel/VoxelMeshLoader'
+import type { ShipLayout } from '../types/layout'
+import { animatedAssetLoader, loadAnimatedAssetsAsync } from '../voxel/AnimatedAssetLoader'
+import type { AnimatedAssetInstance } from '../voxel/AnimatedAssetInstance'
+import type { AnimatedChildInfo } from '../voxel/VoxelAssetLoader'
+import { EntitySystem, ScreenEntity, type Entity } from './EntitySystem'
+import { ForgeLoader } from './ForgeLoader'
+import { enableClientHotReload, type ForgeHotReloadEvent } from '../forge'
+import { Config } from '../forge/ConfigRegistry'
 
 export class ShipScene {
   public scene: THREE.Scene
@@ -79,7 +79,7 @@ export class ShipScene {
       await loadAnimatedAssetsAsync()
 
       // Load terminal entity definition
-      const terminalSource = await fetch('/content/forge/entities/terminal.entity.forge')
+      const terminalSource = await fetch('/game/forge/entities/terminal.entity.forge')
         .then(r => r.ok ? r.text() : Promise.reject(r.statusText))
         .catch(() => null)
 

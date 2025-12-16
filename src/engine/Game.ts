@@ -1,24 +1,23 @@
 // Main Game Class - Orchestrates all game systems
 
 import * as THREE from 'three'
-import { ShipScene } from './scene/ShipScene'
-import { PlayerController } from './player/PlayerController'
-import { InteractionSystem } from './player/Interaction'
+import { ShipScene } from './ShipScene'
+import { PlayerSystem } from './PlayerSystem'
+import { InteractionSystem } from './Interaction'
 import { Runtime } from '../runtime/Runtime'
 import { RuntimeForgeBridge } from '../runtime/RuntimeForgeBridge'
-import { GALLEY_SHIP } from '../content/ship/galley'
-import GALLEY_LAYOUT from '../content/ship/galley.layout.json'
 import type { ShipLayout } from '../types/layout'
-import { audioSystem } from '../engine/AudioSystem'
+import { audioSystem } from './AudioSystem'
 import { VOXEL_SIZE } from '../voxel/VoxelTypes'
 import { Config } from '../forge/ConfigRegistry'
-import { GameRunner, type GameConfig } from '../engine/GameRunner'
+import { compileLayout } from '../forge'
+import { GameRunner, type GameConfig } from './GameRunner'
 
 export class Game {
   private container: HTMLElement
   private renderer: THREE.WebGLRenderer
   private scene: ShipScene
-  private player: PlayerController
+  private player: PlayerSystem
   private interaction: InteractionSystem
   private runtime: Runtime
   private bridge: RuntimeForgeBridge
@@ -63,8 +62,24 @@ export class Game {
     // Create scene
     this.scene = new ShipScene(this.runtime)
 
-    // Create player
-    this.player = new PlayerController()
+    // Create player with config from Forge
+    this.player = new PlayerSystem({
+      moveSpeed: Config.player.movement.walkSpeed,
+      lookSensitivity: Config.player.movement.lookSensitivity,
+      fov: Config.player.camera.fov,
+      near: Config.player.camera.near,
+      far: Config.player.camera.far,
+      maxPitch: Config.player.camera.maxPitch,
+      height: Config.player.collision.height,
+      radius: Config.player.collision.radius,
+      keys: {
+        forward: ['KeyW'],
+        backward: ['KeyS'],
+        left: ['KeyA'],
+        right: ['KeyD'],
+        jump: ['Space'],
+      },
+    })
 
     // Create interaction system
     this.interaction = new InteractionSystem(this.player, this.scene, this.runtime)
@@ -77,7 +92,7 @@ export class Game {
     await this.bridge.loadForgeFiles()
 
     // Load game definition and start the game
-    await this.gameRunner.loadGameFile('/content/forge/galley.game.forge')
+    await this.gameRunner.loadGameFile('/game/forge/galley.game.forge')
 
     // Start the game and get configuration
     this.gameConfig = this.gameRunner.startGame('galley_escape')
@@ -100,12 +115,44 @@ export class Game {
 
     console.log('Game config loaded:', this.gameConfig.name)
 
-    // Set layout data (positions, sizes - hidden from player)
-    // TODO: Load layout from gameConfig.layout path
-    this.runtime.setLayout(GALLEY_LAYOUT as ShipLayout)
+    // Load layout data from game/ directory
+    // Support both .forge (compiled at runtime) and .json (pre-compiled)
+    let layout: ShipLayout
+    const layoutPath = `/game/${this.gameConfig.layout}`
 
-    // Load and compile ship definition (StarLang code player can edit)
-    const result = await this.runtime.init(GALLEY_SHIP)
+    if (layoutPath.endsWith('.forge')) {
+      // Load and compile Forge layout
+      const layoutResponse = await fetch(layoutPath)
+      if (!layoutResponse.ok) {
+        throw new Error(`Failed to load layout: ${layoutPath}`)
+      }
+      const layoutSource = await layoutResponse.text()
+      const compiledLayout = compileLayout(layoutSource, layoutPath)
+      if (!compiledLayout) {
+        throw new Error(`Failed to compile layout: ${layoutPath}`)
+      }
+      layout = compiledLayout
+    } else {
+      // Load pre-compiled JSON layout
+      const layoutResponse = await fetch(layoutPath)
+      if (!layoutResponse.ok) {
+        throw new Error(`Failed to load layout: ${layoutPath}`)
+      }
+      layout = await layoutResponse.json() as ShipLayout
+    }
+
+    this.runtime.setLayout(layout)
+
+    // Load ship definition from game/ directory
+    const shipPath = `/game/ships/${this.gameConfig.ship}/${this.gameConfig.ship}.sl`
+    const shipResponse = await fetch(shipPath)
+    if (!shipResponse.ok) {
+      throw new Error(`Failed to load ship definition: ${shipPath}`)
+    }
+    const shipSource = await shipResponse.text()
+
+    // Compile ship definition (StarLang code player can edit)
+    const result = await this.runtime.init(shipSource)
 
     if (!result.success) {
       console.error('Failed to compile ship:', result.errors)
@@ -119,7 +166,7 @@ export class Game {
     this.bridge.setScene(this.scene)
 
     // Build voxel world from layout (tries pre-built mesh first)
-    await this.scene.buildFromLayout(GALLEY_LAYOUT as ShipLayout, this.gameConfig.ship)
+    await this.scene.buildFromLayout(layout, this.gameConfig.ship)
 
     // Pass voxel world to player for collision
     if (this.scene.voxelWorld) {
@@ -133,7 +180,7 @@ export class Game {
     }
 
     // Load ship files for editing
-    this.runtime.loadFile('galley.sl', GALLEY_SHIP)
+    this.runtime.loadFile('galley.sl', shipSource)
 
     // Set player starting position from game config
     const spawn = this.gameConfig.player.spawnPosition

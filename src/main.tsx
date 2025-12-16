@@ -1,4 +1,4 @@
-import { Game } from './game/Game'
+import { Game } from './engine/Game'
 
 // Hide loading screen when game is ready
 const loading = document.getElementById('loading')

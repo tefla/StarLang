@@ -1,14 +1,14 @@
 // Interaction System - Handles player interactions with objects
 
 import * as THREE from 'three'
-import { PlayerController } from './PlayerController'
-import { ShipScene } from '../scene/ShipScene'
-import { ScreenEntity } from '../../engine/EntitySystem'
-import { Runtime } from '../../runtime/Runtime'
-import { audioSystem } from '../../engine/AudioSystem'
-import { VoxelRaycast } from '../../voxel/VoxelRaycast'
-import { VoxelType, VOXEL_SIZE } from '../../voxel/VoxelTypes'
-import { Config } from '../../forge/ConfigRegistry'
+import { PlayerSystem } from './PlayerSystem'
+import { ShipScene } from './ShipScene'
+import { ScreenEntity } from './EntitySystem'
+import { Runtime } from '../runtime/Runtime'
+import { audioSystem } from './AudioSystem'
+import { VoxelRaycast } from '../voxel/VoxelRaycast'
+import { VoxelType, VOXEL_SIZE } from '../voxel/VoxelTypes'
+import { Config } from '../forge/ConfigRegistry'
 
 export type InteractionTarget = {
   type: string  // Validated against interactions.interactable_types config
@@ -18,7 +18,7 @@ export type InteractionTarget = {
 }
 
 export class InteractionSystem {
-  private player: PlayerController
+  private player: PlayerSystem
   private scene: ShipScene
   private runtime: Runtime
 
@@ -40,7 +40,7 @@ export class InteractionSystem {
   private currentCode = ''
   private currentFile = ''
 
-  constructor(player: PlayerController, scene: ShipScene, runtime: Runtime) {
+  constructor(player: PlayerSystem, scene: ShipScene, runtime: Runtime) {
     this.player = player
     this.scene = scene
     this.runtime = runtime

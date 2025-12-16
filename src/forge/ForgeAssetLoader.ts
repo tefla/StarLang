@@ -1,44 +1,69 @@
 /**
  * ForgeAssetLoader - Loads and compiles .forge assets at runtime.
  *
- * Replaces JSON-based asset loading with Forge DSL compilation.
- * All assets are now defined in .forge files and compiled on load.
- *
- * Supports both server-side (Node/Bun) and browser-side loading.
+ * Loads all .forge files and extracts asset blocks from the parsed AST.
+ * Filename conventions like .asset.forge are purely organizational -
+ * any .forge file can contain asset definitions.
  */
 
-import { compileAsset } from './index'
+import { compileAssets } from './index'
 import type { AnimatedAssetDef } from '../voxel/AnimatedAsset'
 
-// Static list of all asset files (required for browser loading)
-const ASSET_FILES = [
-  'button.asset.forge',
-  'ceiling-light.asset.forge',
-  'desk.asset.forge',
-  'door-frame.asset.forge',
-  'door-panel.asset.forge',
-  'door-sliding.asset.forge',
-  'fan-blades.asset.forge',
-  'keyboard.asset.forge',
-  'led-green.asset.forge',
-  'led-red.asset.forge',
-  'monitor-frame.asset.forge',
-  'monitor-stand.asset.forge',
-  'switch-animated.asset.forge',
-  'switch.asset.forge',
-  'wall-fan.asset.forge',
-  'wall-light.asset.forge',
-  'wall-terminal.asset.forge',
-  'warning-light.asset.forge',
-  'workstation.asset.forge',
+// Static list of forge files to load in browser (all .forge files in assets dir)
+// This list is needed because browsers can't read directories
+const FORGE_FILES = [
+  'assets/button.asset.forge',
+  'assets/ceiling-light.asset.forge',
+  'assets/desk.asset.forge',
+  'assets/door-frame.asset.forge',
+  'assets/door-panel.asset.forge',
+  'assets/door-sliding.asset.forge',
+  'assets/fan-blades.asset.forge',
+  'assets/keyboard.asset.forge',
+  'assets/led-green.asset.forge',
+  'assets/led-red.asset.forge',
+  'assets/monitor-frame.asset.forge',
+  'assets/monitor-stand.asset.forge',
+  'assets/switch-animated.asset.forge',
+  'assets/switch.asset.forge',
+  'assets/wall-fan.asset.forge',
+  'assets/wall-light.asset.forge',
+  'assets/wall-terminal.asset.forge',
+  'assets/warning-light.asset.forge',
+  'assets/workstation.asset.forge',
 ]
 
 // Detect if we're in a browser environment
 const isBrowser = typeof window !== 'undefined'
 
 /**
- * Load all .forge assets from a directory (server-side only).
- * @param dir Directory containing .asset.forge files
+ * Recursively find all .forge files in a directory.
+ */
+function findForgeFiles(dir: string): string[] {
+  const fs = require('fs')
+  const path = require('path')
+  const files: string[] = []
+
+  function scan(currentDir: string) {
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true })
+    for (const entry of entries) {
+      const fullPath = path.join(currentDir, entry.name)
+      if (entry.isDirectory()) {
+        scan(fullPath)
+      } else if (entry.name.endsWith('.forge')) {
+        files.push(fullPath)
+      }
+    }
+  }
+
+  scan(dir)
+  return files
+}
+
+/**
+ * Load all assets from .forge files in a directory (server-side only).
+ * Parses each file and extracts any asset blocks found.
+ * @param dir Directory containing .forge files
  * @returns Array of compiled AnimatedAssetDef
  */
 export function loadForgeAssetsFromDir(dir: string): AnimatedAssetDef[] {
@@ -47,23 +72,22 @@ export function loadForgeAssetsFromDir(dir: string): AnimatedAssetDef[] {
     return []
   }
 
-  // Dynamic import for server-side only
   const fs = require('fs')
-  const path = require('path')
-
   const assets: AnimatedAssetDef[] = []
-  const files = fs.readdirSync(dir).filter((f: string) => f.endsWith('.asset.forge'))
+  const files = findForgeFiles(dir)
 
-  for (const file of files) {
-    const filePath = path.join(dir, file)
+  for (const filePath of files) {
     try {
       const source = fs.readFileSync(filePath, 'utf-8')
-      const asset = compileAsset(source, filePath)
-      if (asset) {
-        assets.push(asset)
-      }
+      // compileAssets extracts all asset blocks from the parsed AST
+      const fileAssets = compileAssets(source, filePath)
+      assets.push(...fileAssets)
     } catch (e) {
-      console.error(`ForgeAssetLoader: Failed to compile ${file}:`, e)
+      // File might not contain assets - that's fine, just skip
+      // Only log actual parse errors
+      if (e instanceof Error && !e.message.includes('No asset')) {
+        console.error(`ForgeAssetLoader: Failed to compile ${filePath}:`, e)
+      }
     }
   }
 
@@ -71,7 +95,7 @@ export function loadForgeAssetsFromDir(dir: string): AnimatedAssetDef[] {
 }
 
 /**
- * Load forge assets from the default content directory (server-side only).
+ * Load forge assets from the default game directory (server-side only).
  * @returns Array of compiled AnimatedAssetDef
  */
 export function loadForgeAssets(): AnimatedAssetDef[] {
@@ -81,22 +105,22 @@ export function loadForgeAssets(): AnimatedAssetDef[] {
   }
 
   const path = require('path')
-  const contentDir = path.join(__dirname, '../content/forge/assets')
-  return loadForgeAssetsFromDir(contentDir)
+  const gameDir = path.join(__dirname, '../../game/forge')
+  return loadForgeAssetsFromDir(gameDir)
 }
 
 /**
- * Load a single .forge asset file via HTTP (browser) or fs (server).
- * @param filename The asset filename (e.g., 'door-sliding.asset.forge')
- * @returns Compiled AnimatedAssetDef or null
+ * Load assets from a single .forge file via HTTP (browser) or fs (server).
+ * @param filename The forge filename relative to game/forge/
+ * @returns Array of compiled AnimatedAssetDef (a file can contain multiple assets)
  */
-export async function loadForgeAssetAsync(filename: string): Promise<AnimatedAssetDef | null> {
+export async function loadForgeFileAsync(filename: string): Promise<AnimatedAssetDef[]> {
   try {
     let source: string
 
     if (isBrowser) {
       // Fetch via HTTP in browser
-      const response = await fetch(`/content/forge/assets/${filename}`)
+      const response = await fetch(`/game/forge/${filename}`)
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
@@ -105,14 +129,14 @@ export async function loadForgeAssetAsync(filename: string): Promise<AnimatedAss
       // Read from filesystem on server
       const fs = require('fs')
       const path = require('path')
-      const filePath = path.join(__dirname, '../content/forge/assets', filename)
+      const filePath = path.join(__dirname, '../../game/forge', filename)
       source = fs.readFileSync(filePath, 'utf-8')
     }
 
-    return compileAsset(source, filename)
+    return compileAssets(source, filename)
   } catch (e) {
-    console.error(`ForgeAssetLoader: Failed to load ${filename}:`, e)
-    return null
+    // File might not contain assets - return empty array
+    return []
   }
 }
 
@@ -122,26 +146,26 @@ export async function loadForgeAssetAsync(filename: string): Promise<AnimatedAss
  */
 export async function loadForgeAssetsAsync(): Promise<AnimatedAssetDef[]> {
   const results = await Promise.all(
-    ASSET_FILES.map(file => loadForgeAssetAsync(file))
+    FORGE_FILES.map(file => loadForgeFileAsync(file))
   )
 
-  return results.filter((asset): asset is AnimatedAssetDef => asset !== null)
+  // Flatten arrays - each file can contain multiple assets
+  return results.flat()
 }
 
 /**
- * Get all forge asset IDs from a directory without fully compiling.
- * Useful for listing available assets.
+ * Get all forge asset IDs.
  */
 export function getForgeAssetIds(dir?: string): string[] {
   if (isBrowser || !dir) {
-    // Return static list in browser
-    return ASSET_FILES.map(f => f.replace('.asset.forge', ''))
+    // In browser, load assets and return their IDs
+    const assets = getAllForgeAssets()
+    return assets.map(a => a.id)
   }
 
-  const fs = require('fs')
-  const path = require('path')
-  const files = fs.readdirSync(dir).filter((f: string) => f.endsWith('.asset.forge'))
-  return files.map((f: string) => path.basename(f, '.asset.forge'))
+  // On server, load and extract IDs
+  const assets = loadForgeAssetsFromDir(dir)
+  return assets.map(a => a.id)
 }
 
 // Cache for compiled assets

@@ -137,9 +137,15 @@ export const animatedAssetLoader = new AnimatedAssetLoader()
  * Note: In browser, use loadAnimatedAssetsAsync() instead.
  */
 export function loadAnimatedAssets(): void {
-  // Import animated assets from content synchronously
-  // to ensure they're available when buildFromStructure runs
-  const { animatedAssets } = require('../content/assets/index')
+  // Import animated assets from Forge files (server-side sync load)
+  const { getAllForgeAssets } = require('../forge/ForgeAssetLoader')
+  const allAssets = getAllForgeAssets()
+  // Filter to only animated assets (have dynamic parts, states, or animations)
+  const animatedAssets = allAssets.filter(
+    (asset: any) => (asset.dynamicParts && asset.dynamicParts.length > 0) ||
+           (asset.states && Object.keys(asset.states).length > 0) ||
+           (asset.animations && Object.keys(asset.animations).length > 0)
+  )
   for (const asset of animatedAssets) {
     animatedAssetLoader.registerAnimated(asset)
   }
@@ -151,10 +157,16 @@ export function loadAnimatedAssets(): void {
  * Use this in browser environment.
  */
 export async function loadAnimatedAssetsAsync(): Promise<void> {
-  const { getAnimatedAssetsAsync } = await import('../content/assets/index')
-  const assets = await getAnimatedAssetsAsync()
-  for (const asset of assets) {
+  const { getAllForgeAssetsAsync } = await import('../forge/ForgeAssetLoader')
+  const allAssets = await getAllForgeAssetsAsync()
+  // Filter to only animated assets (have dynamic parts, states, or animations)
+  const animatedAssets = allAssets.filter(
+    asset => (asset.dynamicParts && asset.dynamicParts.length > 0) ||
+           (asset.states && Object.keys(asset.states).length > 0) ||
+           (asset.animations && Object.keys(asset.animations).length > 0)
+  )
+  for (const asset of animatedAssets) {
     animatedAssetLoader.registerAnimated(asset)
   }
-  console.log(`AnimatedAssetLoader: Loaded ${assets.length} animated assets`)
+  console.log(`AnimatedAssetLoader: Loaded ${animatedAssets.length} animated assets`)
 }

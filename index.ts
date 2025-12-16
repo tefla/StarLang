@@ -8,7 +8,7 @@ import type { ServerWebSocket } from "bun"
 const hotReloadClients = new Set<ServerWebSocket<unknown>>()
 
 // Enable Forge hot reload in development
-const forgeHotReload = enableForgeHotReload('./src/content/forge')
+const forgeHotReload = enableForgeHotReload('./game/forge')
 forgeHotReload.on((event: ForgeHotReloadEvent) => {
   // Broadcast to all connected clients
   const message = JSON.stringify(event)
@@ -48,13 +48,25 @@ Bun.serve({
       return new Response('WebSocket upgrade failed', { status: 400 })
     }
 
-    // Serve .forge files from content directory
-    if (url.pathname.startsWith('/content/forge/') && url.pathname.endsWith('.forge')) {
-      const filePath = `./src${url.pathname}`
+    // Serve .forge files from game directory
+    if (url.pathname.startsWith('/game/forge/') && url.pathname.endsWith('.forge')) {
+      const filePath = `.${url.pathname}`
       const file = Bun.file(filePath)
       if (await file.exists()) {
         return new Response(file, {
           headers: { 'Content-Type': 'text/plain' }
+        })
+      }
+    }
+
+    // Serve ship files (.sl, .json) from game/ships/
+    if (url.pathname.startsWith('/game/ships/')) {
+      const filePath = `.${url.pathname}`
+      const file = Bun.file(filePath)
+      if (await file.exists()) {
+        const contentType = url.pathname.endsWith('.json') ? 'application/json' : 'text/plain'
+        return new Response(file, {
+          headers: { 'Content-Type': contentType }
         })
       }
     }
@@ -94,4 +106,4 @@ Bun.serve({
 console.log("Server running at http://localhost:3000")
 console.log("Voxel Editor at http://localhost:3000/editor")
 console.log("Forge Preview at http://localhost:3000/forge")
-console.log("Forge HMR enabled - watching src/content/forge/")
+console.log("Forge HMR enabled - watching game/forge/")

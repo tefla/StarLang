@@ -12,7 +12,7 @@ import { Runtime, type EventType } from './Runtime'
 import { ForgeVM } from '../forge/vm'
 import { forgeLoader } from '../engine/ForgeLoader'
 import { Config } from '../forge/ConfigRegistry'
-import type { ShipScene } from '../game/scene/ShipScene'
+import type { ShipScene } from '../engine/ShipScene'
 
 /**
  * State mapping configuration.
@@ -141,28 +141,28 @@ export class RuntimeForgeBridge {
   }
 
   /**
-   * Load all .forge files from the content directory.
+   * Load all .forge files from the game directory.
    */
   async loadForgeFiles(): Promise<void> {
     if (this.forgeFilesLoaded) return
 
     // Config files - loaded via ForgeLoader to register with ConfigRegistry
     const configFiles = [
-      '/content/forge/configs/game-rules.config.forge',
-      '/content/forge/configs/audio.config.forge',
-      '/content/forge/configs/lighting.config.forge',
-      '/content/forge/configs/particles.config.forge',
-      '/content/forge/configs/player.config.forge',
-      '/content/forge/configs/ui.config.forge',
-      '/content/forge/configs/voxel-colors.config.forge',
-      '/content/forge/configs/voxel-types.config.forge',
-      '/content/forge/configs/node-types.config.forge',
-      '/content/forge/configs/roles.config.forge',
-      '/content/forge/configs/screen-colors.config.forge',
-      '/content/forge/configs/entity-system.config.forge',
-      '/content/forge/configs/voxel-world.config.forge',
-      '/content/forge/configs/prefabs.config.forge',
-      '/content/forge/configs/interactions.config.forge',
+      '/game/forge/configs/game-rules.config.forge',
+      '/game/forge/configs/audio.config.forge',
+      '/game/forge/configs/lighting.config.forge',
+      '/game/forge/configs/particles.config.forge',
+      '/game/forge/configs/player.config.forge',
+      '/game/forge/configs/ui.config.forge',
+      '/game/forge/configs/voxel-colors.config.forge',
+      '/game/forge/configs/voxel-types.config.forge',
+      '/game/forge/configs/node-types.config.forge',
+      '/game/forge/configs/roles.config.forge',
+      '/game/forge/configs/screen-colors.config.forge',
+      '/game/forge/configs/entity-system.config.forge',
+      '/game/forge/configs/voxel-world.config.forge',
+      '/game/forge/configs/prefabs.config.forge',
+      '/game/forge/configs/interactions.config.forge',
     ]
 
     // Load configs via ForgeLoader (registers with ConfigRegistry)
@@ -174,13 +174,13 @@ export class RuntimeForgeBridge {
 
     // Script files - loaded via ForgeVM for rules/scenarios/behaviors/conditions
     const scriptFiles = [
-      '/content/forge/configs/atmosphere.config.forge',
-      '/content/forge/configs/world.config.forge',
-      '/content/forge/scripts/helpers.forge',
-      '/content/forge/scripts/atmosphere.rules.forge',
-      '/content/forge/scripts/galley_escape.scenario.forge',
-      '/content/forge/scripts/galley_escape.condition.forge',
-      '/content/forge/scripts/door.behavior.forge',
+      '/game/forge/configs/atmosphere.config.forge',
+      '/game/forge/configs/world.config.forge',
+      '/game/forge/scripts/helpers.forge',
+      '/game/forge/scripts/atmosphere.rules.forge',
+      '/game/forge/scripts/galley_escape.scenario.forge',
+      '/game/forge/scripts/galley_escape.condition.forge',
+      '/game/forge/scripts/door.behavior.forge',
     ]
 
     for (const path of scriptFiles) {

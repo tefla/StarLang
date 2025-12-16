@@ -195,7 +195,7 @@ export function getForgeHotReload(): ForgeHotReload {
  * Enable hot reloading for the content directory.
  * Call this during development to automatically reload .forge files.
  */
-export function enableForgeHotReload(contentDir = './src/content/forge'): ForgeHotReload {
+export function enableForgeHotReload(contentDir = './game/forge'): ForgeHotReload {
   const hotReload = getForgeHotReload()
   hotReload.watchDirectory(contentDir)
   return hotReload

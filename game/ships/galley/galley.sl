@@ -1,7 +1,3 @@
-// Galley Section - StarLang ship definition
-// Position/size data is in galley.layout.ts (hidden from player)
-
-export const GALLEY_SHIP = `
 # Ship Configuration - Deck 4, Section 7
 
 room galley {
@@ -70,4 +66,3 @@ terminal corridor_status {
   terminal_type: STATUS
   location: corridor
 }
-`

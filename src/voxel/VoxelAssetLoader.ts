@@ -326,8 +326,13 @@ export const assetLoader = new VoxelAssetLoader()
  * Note: In browser, use loadBuiltinAssetsAsync() instead.
  */
 export function loadBuiltinAssets(): void {
-  // Import assets from JSON files
-  const { builtinAssets } = require('../content/assets')
+  // Import assets from Forge files (server-side sync load)
+  const { getAllForgeAssets } = require('../forge/ForgeAssetLoader')
+  const allAssets = getAllForgeAssets()
+  // Filter to only static assets (no dynamic parts)
+  const builtinAssets = allAssets.filter(
+    (asset: any) => !asset.dynamicParts || asset.dynamicParts.length === 0
+  )
   assetLoader.registerAll(builtinAssets)
 }
 
@@ -336,8 +341,12 @@ export function loadBuiltinAssets(): void {
  * Use this in browser environment.
  */
 export async function loadBuiltinAssetsAsync(): Promise<void> {
-  const { getBuiltinAssetsAsync } = await import('../content/assets/index')
-  const assets = await getBuiltinAssetsAsync()
-  assetLoader.registerAll(assets)
-  console.log(`VoxelAssetLoader: Loaded ${assets.length} builtin assets`)
+  const { getAllForgeAssetsAsync } = await import('../forge/ForgeAssetLoader')
+  const allAssets = await getAllForgeAssetsAsync()
+  // Filter to only static assets (no dynamic parts)
+  const builtinAssets = allAssets.filter(
+    asset => !asset.dynamicParts || asset.dynamicParts.length === 0
+  )
+  assetLoader.registerAll(builtinAssets as unknown as VoxelAssetDef[])
+  console.log(`VoxelAssetLoader: Loaded ${builtinAssets.length} builtin assets`)
 }

@@ -164,7 +164,7 @@ function setupEventListeners() {
 
     setStatus('loading', `Loading ${filename}...`)
     try {
-      const response = await fetch(`/content/forge/${filename}`)
+      const response = await fetch(`/game/forge/${filename}`)
       if (response.ok) {
         editorEl.value = await response.text()
         compile()

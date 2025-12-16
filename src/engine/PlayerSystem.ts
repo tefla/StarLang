@@ -400,6 +400,29 @@ export class PlayerSystem {
   }
 
   /**
+   * Debug: log collision state (useful for debugging spawn positions).
+   */
+  debugCollision(label: string) {
+    if (!this.voxelWorld) {
+      console.log(`[${label}] No voxel world`)
+      return
+    }
+
+    const pos = this.state.position
+    const feetY = pos.y - this.config.height + 0.1
+    const voxelAtFeet = worldToVoxel(pos.x, feetY, pos.z)
+    const voxelAtEye = worldToVoxel(pos.x, pos.y, pos.z)
+
+    const feetVoxel = this.voxelWorld.getVoxel(voxelAtFeet.x, voxelAtFeet.y, voxelAtFeet.z)
+    const eyeVoxel = this.voxelWorld.getVoxel(voxelAtEye.x, voxelAtEye.y, voxelAtEye.z)
+
+    console.log(`[${label}] Position: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`)
+    console.log(`[${label}] Feet voxel at (${voxelAtFeet.x}, ${voxelAtFeet.y}, ${voxelAtFeet.z}) = type ${getVoxelType(feetVoxel)}`)
+    console.log(`[${label}] Eye voxel at (${voxelAtEye.x}, ${voxelAtEye.y}, ${voxelAtEye.z}) = type ${getVoxelType(eyeVoxel)}`)
+    console.log(`[${label}] Collision check: ${this.checkVoxelCollision(pos)}`)
+  }
+
+  /**
    * Raycast from camera center for interaction/targeting.
    */
   raycast(objects: THREE.Object3D[]): THREE.Intersection | null {
