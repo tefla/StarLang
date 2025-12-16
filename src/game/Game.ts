@@ -12,6 +12,7 @@ import type { ShipLayout } from '../types/layout'
 import { audioSystem } from './audio/AudioSystem'
 import { VOXEL_SIZE } from '../voxel/VoxelTypes'
 import { Config } from '../forge/ConfigRegistry'
+import { GameRunner, type GameConfig } from '../engine/GameRunner'
 
 export class Game {
   private container: HTMLElement
@@ -21,6 +22,8 @@ export class Game {
   private interaction: InteractionSystem
   private runtime: Runtime
   private bridge: RuntimeForgeBridge
+  private gameRunner: GameRunner
+  private gameConfig: GameConfig | null = null
 
   private clock = new THREE.Clock()
   private running = false
@@ -54,6 +57,9 @@ export class Game {
     // Create RuntimeForgeBridge (wraps ForgeVM)
     this.bridge = new RuntimeForgeBridge(this.runtime)
 
+    // Create GameRunner (loads game.forge definitions)
+    this.gameRunner = new GameRunner(this.bridge.vm)
+
     // Create scene
     this.scene = new ShipScene(this.runtime)
 
@@ -67,7 +73,35 @@ export class Game {
   async init() {
     console.log('=== GAME INIT START ===')
 
+    // Load Forge scripting files first (configs, rules, scenarios, behaviors, game definitions)
+    await this.bridge.loadForgeFiles()
+
+    // Load game definition and start the game
+    await this.gameRunner.loadGameFile('/content/forge/galley.game.forge')
+
+    // Start the game and get configuration
+    this.gameConfig = this.gameRunner.startGame('galley_escape')
+    if (!this.gameConfig) {
+      console.warn('Game definition not found, using defaults')
+      // Fallback to hardcoded config
+      this.gameConfig = {
+        name: 'galley_escape',
+        ship: 'galley',
+        layout: 'ships/galley/galley.layout.json',
+        scenario: 'galley_escape',
+        player: {
+          controller: 'first_person',
+          spawnRoom: 'galley',
+          spawnPosition: { x: 0, y: 0.1, z: 0 },
+          collision: { type: 'cylinder', height: 1.6, radius: 0.35 },
+        },
+      }
+    }
+
+    console.log('Game config loaded:', this.gameConfig.name)
+
     // Set layout data (positions, sizes - hidden from player)
+    // TODO: Load layout from gameConfig.layout path
     this.runtime.setLayout(GALLEY_LAYOUT as ShipLayout)
 
     // Load and compile ship definition (StarLang code player can edit)
@@ -81,14 +115,11 @@ export class Game {
     // Load Forge entity definitions
     await this.scene.loadForgeEntities()
 
-    // Load Forge scripting files (configs, rules, scenarios, behaviors)
-    await this.bridge.loadForgeFiles()
-
     // Set scene reference for VM callbacks (animations, state changes)
     this.bridge.setScene(this.scene)
 
     // Build voxel world from layout (tries pre-built mesh first)
-    await this.scene.buildFromLayout(GALLEY_LAYOUT as ShipLayout, 'galley')
+    await this.scene.buildFromLayout(GALLEY_LAYOUT as ShipLayout, this.gameConfig.ship)
 
     // Pass voxel world to player for collision
     if (this.scene.voxelWorld) {
@@ -104,10 +135,9 @@ export class Game {
     // Load ship files for editing
     this.runtime.loadFile('galley.sl', GALLEY_SHIP)
 
-    // Set player starting position (inside galley)
-    // Room is centered at (0,0,0) with size 6x3x6m
-    // Spawn at center with small Y offset to ensure above floor
-    this.player.setPosition(0, 0.1, 0)
+    // Set player starting position from game config
+    const spawn = this.gameConfig.player.spawnPosition
+    this.player.setPosition(spawn.x, spawn.y, spawn.z)
 
     // Debug: check spawn collision
     this.player.debugCollision('SPAWN')
@@ -116,13 +146,21 @@ export class Game {
     // Note: This is also set by the scenario, but kept for fallback
     this.runtime.setProperty('galley.o2_level', Config.gameRules.initialO2Level, 'SYSTEM')
 
-    // Set initial player room
-    this.runtime.setPlayerRoom('galley')
+    // Set initial player room from game config
+    this.runtime.setPlayerRoom(this.gameConfig.player.spawnRoom)
 
-    // Start the galley escape scenario (ForgeVM handles victory conditions, O2 rules)
-    this.bridge.startScenario('galley_escape')
+    // Start the scenario from game config
+    if (this.gameConfig.scenario) {
+      this.bridge.startScenario(this.gameConfig.scenario)
+    }
 
-    // Listen for ForgeVM victory event
+    // Set up lifecycle handlers
+    this.gameRunner.setHandlers({
+      onVictory: () => this.showVictory(),
+      onGameover: () => this.showGameOver(),
+    })
+
+    // Also listen for direct VM victory event (from conditions)
     this.bridge.vm.on('game:victory', () => {
       this.showVictory()
     })
@@ -402,6 +440,7 @@ export class Game {
 
   dispose() {
     this.running = false
+    this.gameRunner.stopGame()
     this.bridge.dispose()
     this.scene.dispose()
     this.player.dispose()
