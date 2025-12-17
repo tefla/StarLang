@@ -306,16 +306,27 @@ export class GreedyMesher {
       }
 
       // Indices for two triangles
-      if (dir > 0) {
+      // Corners in u,v space: 0=(0,0), 1=(1,0), 2=(1,1), 3=(0,1)
+      //
+      // The u×v cross product determines winding:
+      // - axis=0 (X): u=Y, v=Z → Y×Z = +X (same as +dir normal)
+      // - axis=1 (Y): u=Z, v=X → Z×X = -Y (OPPOSITE to +dir normal!)
+      // - axis=2 (Z): u=X, v=Y → X×Y = +Z (same as +dir normal)
+      //
+      // For Y-axis faces, we need to flip the winding.
+      const flipWinding = axis === 1
+
+      if ((dir > 0) !== flipWinding) {
+        // Standard CCW winding
         indices.push(
-          vertexIndex, vertexIndex + 1, vertexIndex + 2,
-          vertexIndex, vertexIndex + 2, vertexIndex + 3
+          vertexIndex, vertexIndex + 1, vertexIndex + 2,  // 0,1,2
+          vertexIndex, vertexIndex + 2, vertexIndex + 3   // 0,2,3
         )
       } else {
-        // Reverse winding for back faces
+        // Flipped (CW) winding
         indices.push(
-          vertexIndex, vertexIndex + 2, vertexIndex + 1,
-          vertexIndex, vertexIndex + 3, vertexIndex + 2
+          vertexIndex + 2, vertexIndex + 1, vertexIndex,  // 2,1,0
+          vertexIndex + 3, vertexIndex + 2, vertexIndex   // 3,2,0
         )
       }
 
@@ -373,6 +384,7 @@ export class GreedyMesher {
 
 /**
  * Create a mesh from a chunk using greedy meshing.
+ * Note: Prefer using VoxelRenderer for proper material handling.
  */
 export function createChunkMesh(
   chunk: VoxelChunk,
@@ -385,7 +397,8 @@ export function createChunkMesh(
     vertexColors: true,
     roughness: 0.8,
     metalness: 0.2,
-    side: THREE.DoubleSide
+    flatShading: true,
+    side: THREE.FrontSide  // Single-sided for proper back-face culling
   })
 
   const mesh = new THREE.Mesh(geometry, material)
@@ -394,8 +407,8 @@ export function createChunkMesh(
   const [wx, wy, wz] = chunk.getWorldPosition()
   mesh.position.set(wx, wy, wz)
 
-  mesh.castShadow = true
-  mesh.receiveShadow = true
+  mesh.castShadow = false
+  mesh.receiveShadow = false
 
   return mesh
 }

@@ -21,6 +21,9 @@
 import * as THREE from 'three'
 import { ForgeVM, EngineBridge, RenderBridge } from '../forge2'
 import type { ForgeMap } from '../forge2/types'
+import { VoxelWorld } from '../voxel/VoxelWorld'
+import { VoxelRenderer } from '../voxel/VoxelRenderer'
+import { VoxelTypeRegistry } from '../voxel/VoxelTypeRegistry'
 
 export interface Forge2GameModeConfig {
   /** Camera setup for the game */
@@ -41,19 +44,43 @@ export class Forge2GameMode {
   private eventListeners: Array<{ type: string; listener: EventListener }> = []
   private isInitialized: boolean = false
 
+  // Voxel system
+  private voxelWorld: VoxelWorld
+  private voxelRenderer: VoxelRenderer
+
   constructor(scene: THREE.Scene, container?: HTMLElement) {
     this.scene = scene
     this.container = container ?? null
     this.vm = new ForgeVM()
 
+    // Create voxel world and renderer
+    // Note: VoxelRenderer constructor already adds group to scene
+    this.voxelWorld = new VoxelWorld()
+    this.voxelRenderer = new VoxelRenderer(scene, this.voxelWorld)
+
     // Create render bridge with the scene
     const renderBridge = new RenderBridge({ scene })
 
-    // Create engine bridge with input and UI enabled
+    // Create wrapper for VoxelTypeRegistry (static methods -> instance methods)
+    const voxelTypeRegistryWrapper = {
+      getId: (name: string) => VoxelTypeRegistry.getId(name),
+      getName: (id: number) => VoxelTypeRegistry.getName(id),
+      getColor: (id: number) => VoxelTypeRegistry.getColor(id),
+      isSolid: (id: number) => VoxelTypeRegistry.isSolid(id),
+      isTransparent: (id: number) => VoxelTypeRegistry.isTransparent(id),
+      isPassable: (id: number) => VoxelTypeRegistry.isPassable(id),
+      getTypeGroup: (groupName: string) => VoxelTypeRegistry.getTypeGroup(groupName),
+      getAllTypeNames: () => VoxelTypeRegistry.getAllTypes().map(t => t.name),
+    }
+
+    // Create engine bridge with input, UI, and voxel support
     this.engineBridge = new EngineBridge({
       scene,
       inputEnabled: true,
       uiContainer: container,
+      voxelWorld: this.voxelWorld,
+      voxelRenderer: this.voxelRenderer,
+      voxelTypeRegistry: voxelTypeRegistryWrapper,
     })
 
     // Attach engine bindings to VM
@@ -117,6 +144,9 @@ export class Forge2GameMode {
 
     // Emit tick event to VM (runs all tick handlers)
     this.vm.tick(deltaTime)
+
+    // Update voxel renderer (remeshes dirty chunks)
+    this.voxelRenderer.update()
   }
 
   /**
@@ -197,7 +227,25 @@ export class Forge2GameMode {
     // Dispose engine bridge (cleans up render objects)
     this.engineBridge.dispose()
 
+    // Dispose voxel renderer
+    this.voxelRenderer.dispose()
+    this.scene.remove(this.voxelRenderer.group)
+
     this.isInitialized = false
+  }
+
+  /**
+   * Get the voxel world for direct manipulation.
+   */
+  getVoxelWorld(): VoxelWorld {
+    return this.voxelWorld
+  }
+
+  /**
+   * Get the voxel renderer.
+   */
+  getVoxelRenderer(): VoxelRenderer {
+    return this.voxelRenderer
   }
 }
 

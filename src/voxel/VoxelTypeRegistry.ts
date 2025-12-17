@@ -65,6 +65,26 @@ export class VoxelTypeRegistry {
     const errors: string[] = []
     const warnings: string[] = []
 
+    // Fallback colors for when config isn't loaded
+    // Pong3 uses: 1=floor, 2=wall, 3=ball, 4=paddle_left, 5=paddle_right, 6=center_line
+    const fallbackColors: Record<number, number> = {
+      0: 0x000000,    // AIR
+      1: 0x2a2a4e,    // floor (dark purple-blue)
+      2: 0x5a5a8e,    // wall (medium purple-blue)
+      3: 0xffffff,    // ball (white)
+      4: 0x00ff88,    // paddle_left - player (bright green)
+      5: 0xff4466,    // paddle_right - AI (bright red)
+      6: 0x444488,    // center line (purple)
+      7: 0x4488ff,    // PANEL
+      8: 0x888888,    // CONDUIT
+      9: 0xcccccc,    // TRIM
+      10: 0xffffaa,   // LIGHT_FIXTURE
+      11: 0x445566,   // SWITCH
+      12: 0x888899,   // SWITCH_BUTTON
+      13: 0x00ff00,   // LED_GREEN
+      14: 0xff0000,   // LED_RED
+    }
+
     // First, register all types from the TypeScript enum
     const enumValues = Object.entries(VoxelType)
       .filter(([key, value]) => typeof value === 'number')
@@ -74,10 +94,10 @@ export class VoxelTypeRegistry {
       this.types.set(id, {
         id,
         name,
-        color: 0x888888,  // Default, will be overwritten by config
-        solid: true,
-        transparent: false,
-        passable: false,
+        color: fallbackColors[id] ?? 0x888888,  // Use fallback color, will be overwritten by config if loaded
+        solid: id !== 0,  // AIR is not solid
+        transparent: id === 0 || id === 5,  // AIR and GLASS are transparent
+        passable: id === 0,  // Only AIR is passable by default
         isCustom: false
       })
       this.nameToId.set(name, id)

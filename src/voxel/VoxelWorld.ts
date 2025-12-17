@@ -93,6 +93,13 @@ export class VoxelWorld {
   }
 
   /**
+   * Alias for getVoxel - used by VoxelBridge interface.
+   */
+  get(vx: number, vy: number, vz: number): Voxel {
+    return this.getVoxel(vx, vy, vz)
+  }
+
+  /**
    * Get voxel at world voxel coordinates.
    * Returns AIR if no chunk exists at that position.
    */
@@ -103,6 +110,13 @@ export class VoxelWorld {
 
     const { x: lx, y: ly, z: lz } = voxelToLocal(vx, vy, vz)
     return chunk.get(lx, ly, lz)
+  }
+
+  /**
+   * Alias for setVoxel - used by VoxelBridge interface.
+   */
+  set(vx: number, vy: number, vz: number, voxel: Voxel): void {
+    this.setVoxel(vx, vy, vz, voxel)
   }
 
   /**
@@ -175,6 +189,17 @@ export class VoxelWorld {
       chunk.dirty = true
       this.notifyChunkModified(chunk)
     }
+  }
+
+  /**
+   * Alias for fillBox - used by VoxelBridge interface.
+   */
+  fill(
+    minX: number, minY: number, minZ: number,
+    maxX: number, maxY: number, maxZ: number,
+    voxel: Voxel
+  ): void {
+    this.fillBox(minX, minY, minZ, maxX, maxY, maxZ, voxel)
   }
 
   /**

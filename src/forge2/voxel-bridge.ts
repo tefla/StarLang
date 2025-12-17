@@ -3,8 +3,12 @@
  *
  * Connects Forge scripts to the voxel rendering system.
  * Provides a `voxel` namespace for voxel manipulation.
+ *
+ * Also provides dynamic voxel objects - voxel shapes compiled to meshes
+ * that can be moved around without rebuilding.
  */
 
+import * as THREE from 'three'
 import type { ForgeValue, ForgeMap } from './types'
 
 // Types that will be imported from the voxel system when integrated
@@ -46,8 +50,19 @@ export interface VoxelBridgeConfig {
   world: VoxelWorldLike
   renderer?: VoxelRendererLike
   registry?: VoxelTypeRegistryLike
+  scene?: THREE.Scene  // Required for dynamic voxel objects
   voxelSize?: number
   chunkSize?: number
+}
+
+/**
+ * A dynamic voxel object - voxels compiled to a mesh that can be moved.
+ */
+interface VoxelObject {
+  id: string
+  mesh: THREE.Mesh
+  geometry: THREE.BufferGeometry
+  voxelData: Map<string, number>  // voxel positions and types
 }
 
 // ============================================================================
@@ -58,15 +73,32 @@ export class VoxelBridge {
   private world: VoxelWorldLike
   private renderer: VoxelRendererLike | null
   private registry: VoxelTypeRegistryLike | null
+  private scene: THREE.Scene | null
   private voxelSize: number
   private chunkSize: number
+
+  // Dynamic voxel objects
+  private objects: Map<string, VoxelObject> = new Map()
+  private nextObjectId: number = 1
+
+  // Shared material for voxel objects
+  private objectMaterial: THREE.MeshStandardMaterial
 
   constructor(config: VoxelBridgeConfig) {
     this.world = config.world
     this.renderer = config.renderer ?? null
     this.registry = config.registry ?? null
+    this.scene = config.scene ?? null
     this.voxelSize = config.voxelSize ?? 0.025
     this.chunkSize = config.chunkSize ?? 16
+
+    // Create shared material for dynamic objects
+    this.objectMaterial = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.8,
+      metalness: 0.2,
+      flatShading: true,
+    })
   }
 
   // ==========================================================================
@@ -117,6 +149,14 @@ export class VoxelBridge {
       // Type groups
       getTypeGroup: this.getTypeGroup.bind(this),
       getAllTypes: this.getAllTypes.bind(this),
+
+      // Dynamic voxel objects (movable, compiled-once meshes)
+      createBoxObject: this.createBoxObject.bind(this),
+      createSphereObject: this.createSphereObject.bind(this),
+      setObjectPosition: this.setObjectPosition.bind(this),
+      setObjectRotation: this.setObjectRotation.bind(this),
+      destroyObject: this.destroyObject.bind(this),
+      objectExists: this.objectExists.bind(this),
 
       // Constants
       VOXEL_SIZE: this.voxelSize,
@@ -438,6 +478,305 @@ export class VoxelBridge {
       return this.registry.getAllTypeNames()
     }
     return []
+  }
+
+  // ==========================================================================
+  // Dynamic Voxel Objects
+  // ==========================================================================
+
+  /**
+   * Create a box-shaped voxel object that can be moved without rebuilding.
+   * @param width Width in voxels
+   * @param height Height in voxels
+   * @param depth Depth in voxels
+   * @param voxelType Voxel type ID
+   * @returns Object ID string, or null if scene not available
+   */
+  private createBoxObject(
+    width: number,
+    height: number,
+    depth: number,
+    voxelType: number
+  ): string | null {
+    if (!this.scene) {
+      console.warn('VoxelBridge: Cannot create object without scene')
+      return null
+    }
+
+    const w = Math.max(1, Math.floor(width))
+    const h = Math.max(1, Math.floor(height))
+    const d = Math.max(1, Math.floor(depth))
+
+    // Build voxel data centered on origin
+    const voxelData = new Map<string, number>()
+    const halfW = Math.floor(w / 2)
+    const halfH = Math.floor(h / 2)
+    const halfD = Math.floor(d / 2)
+
+    for (let x = -halfW; x < w - halfW; x++) {
+      for (let y = -halfH; y < h - halfH; y++) {
+        for (let z = -halfD; z < d - halfD; z++) {
+          voxelData.set(`${x},${y},${z}`, voxelType)
+        }
+      }
+    }
+
+    return this.createObjectFromVoxels(voxelData)
+  }
+
+  /**
+   * Create a sphere-shaped voxel object that can be moved without rebuilding.
+   * @param radius Radius in voxels
+   * @param voxelType Voxel type ID
+   * @returns Object ID string, or null if scene not available
+   */
+  private createSphereObject(
+    radius: number,
+    voxelType: number
+  ): string | null {
+    if (!this.scene) {
+      console.warn('VoxelBridge: Cannot create object without scene')
+      return null
+    }
+
+    const r = Math.max(1, Math.floor(radius))
+    const r2 = r * r
+
+    // Build voxel data centered on origin
+    const voxelData = new Map<string, number>()
+
+    for (let x = -r; x <= r; x++) {
+      for (let y = -r; y <= r; y++) {
+        for (let z = -r; z <= r; z++) {
+          const dist2 = x * x + y * y + z * z
+          if (dist2 <= r2) {
+            voxelData.set(`${x},${y},${z}`, voxelType)
+          }
+        }
+      }
+    }
+
+    return this.createObjectFromVoxels(voxelData)
+  }
+
+  /**
+   * Create a mesh from voxel data using greedy-style meshing.
+   */
+  private createObjectFromVoxels(voxelData: Map<string, number>): string | null {
+    if (!this.scene || voxelData.size === 0) return null
+
+    // Generate geometry from voxels
+    const geometry = this.meshVoxelData(voxelData)
+
+    // Create mesh
+    const mesh = new THREE.Mesh(geometry, this.objectMaterial)
+    mesh.castShadow = false
+    mesh.receiveShadow = false
+
+    // Generate ID and store object
+    const id = `vobj_${this.nextObjectId++}`
+    mesh.name = id
+
+    this.objects.set(id, {
+      id,
+      mesh,
+      geometry,
+      voxelData,
+    })
+
+    // Add to scene
+    this.scene.add(mesh)
+
+    return id
+  }
+
+  /**
+   * Simple greedy-style meshing for voxel object data.
+   * Creates one quad per exposed face.
+   */
+  private meshVoxelData(voxelData: Map<string, number>): THREE.BufferGeometry {
+    const positions: number[] = []
+    const normals: number[] = []
+    const colors: number[] = []
+    const indices: number[] = []
+    let vertexIndex = 0
+
+    // Face directions: [dx, dy, dz, nx, ny, nz]
+    const faces = [
+      [-1, 0, 0, -1, 0, 0],  // -X
+      [1, 0, 0, 1, 0, 0],    // +X
+      [0, -1, 0, 0, -1, 0],  // -Y
+      [0, 1, 0, 0, 1, 0],    // +Y
+      [0, 0, -1, 0, 0, -1],  // -Z
+      [0, 0, 1, 0, 0, 1],    // +Z
+    ]
+
+    for (const [key, voxelType] of voxelData) {
+      const [x, y, z] = key.split(',').map(Number)
+
+      // Get color for this voxel type
+      const colorHex = this.registry?.getColor(voxelType) ?? 0x888888
+      const color = new THREE.Color(colorHex)
+
+      // Check each face
+      for (const [dx, dy, dz, nx, ny, nz] of faces) {
+        const neighborKey = `${x + dx},${y + dy},${z + dz}`
+
+        // Only add face if neighbor is empty (not in voxelData)
+        if (!voxelData.has(neighborKey)) {
+          this.addFace(
+            positions, normals, colors, indices,
+            x, y, z,
+            nx, ny, nz,
+            color,
+            vertexIndex
+          )
+          vertexIndex += 4
+        }
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+    geometry.setIndex(indices)
+
+    return geometry
+  }
+
+  /**
+   * Add a face (quad) to the geometry arrays.
+   */
+  private addFace(
+    positions: number[],
+    normals: number[],
+    colors: number[],
+    indices: number[],
+    x: number, y: number, z: number,
+    nx: number, ny: number, nz: number,
+    color: THREE.Color,
+    vertexIndex: number
+  ): void {
+    const s = this.voxelSize
+
+    // Determine the two axes perpendicular to the normal
+    let u1: [number, number, number], u2: [number, number, number]
+    if (nx !== 0) {
+      u1 = [0, 1, 0]
+      u2 = [0, 0, 1]
+    } else if (ny !== 0) {
+      u1 = [1, 0, 0]
+      u2 = [0, 0, 1]
+    } else {
+      u1 = [1, 0, 0]
+      u2 = [0, 1, 0]
+    }
+
+    // Calculate face center position
+    const cx = (x + 0.5 + nx * 0.5) * s
+    const cy = (y + 0.5 + ny * 0.5) * s
+    const cz = (z + 0.5 + nz * 0.5) * s
+
+    // Generate 4 corners
+    const corners: [number, number, number][] = [
+      [cx - u1[0] * s / 2 - u2[0] * s / 2, cy - u1[1] * s / 2 - u2[1] * s / 2, cz - u1[2] * s / 2 - u2[2] * s / 2],
+      [cx + u1[0] * s / 2 - u2[0] * s / 2, cy + u1[1] * s / 2 - u2[1] * s / 2, cz + u1[2] * s / 2 - u2[2] * s / 2],
+      [cx + u1[0] * s / 2 + u2[0] * s / 2, cy + u1[1] * s / 2 + u2[1] * s / 2, cz + u1[2] * s / 2 + u2[2] * s / 2],
+      [cx - u1[0] * s / 2 + u2[0] * s / 2, cy - u1[1] * s / 2 + u2[1] * s / 2, cz - u1[2] * s / 2 + u2[2] * s / 2],
+    ]
+
+    // Add vertices
+    for (const corner of corners) {
+      positions.push(corner[0], corner[1], corner[2])
+      normals.push(nx, ny, nz)
+      colors.push(color.r, color.g, color.b)
+    }
+
+    // Add indices (two triangles)
+    // Flip winding based on normal direction for correct face culling
+    const isPositiveNormal = nx > 0 || ny > 0 || nz > 0
+    if (isPositiveNormal) {
+      indices.push(
+        vertexIndex, vertexIndex + 1, vertexIndex + 2,
+        vertexIndex, vertexIndex + 2, vertexIndex + 3
+      )
+    } else {
+      indices.push(
+        vertexIndex + 2, vertexIndex + 1, vertexIndex,
+        vertexIndex + 3, vertexIndex + 2, vertexIndex
+      )
+    }
+  }
+
+  /**
+   * Set the position of a dynamic voxel object.
+   */
+  private setObjectPosition(id: string, x: number, y: number, z: number): boolean {
+    const obj = this.objects.get(id)
+    if (!obj) return false
+
+    obj.mesh.position.set(x, y, z)
+    return true
+  }
+
+  /**
+   * Set the rotation of a dynamic voxel object.
+   */
+  private setObjectRotation(id: string, x: number, y: number, z: number): boolean {
+    const obj = this.objects.get(id)
+    if (!obj) return false
+
+    obj.mesh.rotation.set(x, y, z)
+    return true
+  }
+
+  /**
+   * Check if a dynamic voxel object exists.
+   */
+  private objectExists(id: string): boolean {
+    return this.objects.has(id)
+  }
+
+  /**
+   * Destroy a dynamic voxel object.
+   */
+  private destroyObject(id: string): boolean {
+    const obj = this.objects.get(id)
+    if (!obj) return false
+
+    // Remove from scene
+    if (this.scene) {
+      this.scene.remove(obj.mesh)
+    }
+
+    // Dispose geometry
+    obj.geometry.dispose()
+
+    // Remove from map
+    this.objects.delete(id)
+
+    return true
+  }
+
+  /**
+   * Get the number of dynamic voxel objects.
+   */
+  getObjectCount(): number {
+    return this.objects.size
+  }
+
+  /**
+   * Dispose all dynamic voxel objects.
+   */
+  disposeObjects(): void {
+    for (const obj of this.objects.values()) {
+      if (this.scene) {
+        this.scene.remove(obj.mesh)
+      }
+      obj.geometry.dispose()
+    }
+    this.objects.clear()
   }
 }
 

@@ -1,0 +1,350 @@
+# Pong - Forge 2.0 (Voxel Edition)
+# Pong rendered using the voxel engine for that blocky aesthetic
+# Same game mechanics as pong2, but rendered with voxels
+
+# =============================================================================
+# Game Configuration (same as pong2)
+# =============================================================================
+
+let config = {
+  arena_width: 20,
+  arena_depth: 12,
+  paddle_speed: 8,
+  paddle_height: 2.5,
+  ball_max_speed: 15,
+  win_score: 5
+}
+
+# Voxel rendering scale - larger = fewer voxels, blockier look
+# VOXEL_SCALE is for game-to-voxel conversion (0.2 = 8x larger voxels)
+# VOXEL_SIZE is the actual world-space size of each voxel (0.025m)
+let VOXEL_SCALE = 0.2
+let VOXEL_SIZE = 0.025
+let WORLD_SCALE = VOXEL_SIZE / VOXEL_SCALE  # 0.125 - converts game coords to world coords
+
+let PADDLE_VOXELS_X = 2
+let PADDLE_VOXELS_Y = 2
+let PADDLE_VOXELS_Z = 10
+let BALL_RADIUS = 2  # Radius 1 makes a plus shape, radius 2 makes a ball
+
+# Voxel types (IDs match VoxelTypeRegistry fallback colors)
+let FLOOR_TYPE = 1       # dark purple-blue
+let WALL_TYPE = 2        # medium purple-blue
+let BALL_TYPE = 3        # white
+let PADDLE_LEFT_TYPE = 4 # bright green
+let PADDLE_RIGHT_TYPE = 5 # bright red
+
+# =============================================================================
+# Game State (same as pong2)
+# =============================================================================
+
+let ball = {
+  x: 0,
+  y: 0.5,
+  z: 0,
+  vx: 5,
+  vz: 3
+}
+
+
+let paddle_left = {
+  x: -9,
+  y: 0.5,
+  z: 0
+}
+
+let paddle_right = {
+  x: 9,
+  y: 0.5,
+  z: 0
+}
+
+let score = {
+  left: 0,
+  right: 0
+}
+
+let game = {
+  active: false,
+  paused: false,
+  started: false,
+  initialized: false
+}
+
+# =============================================================================
+# UI Elements (created in init)
+# =============================================================================
+
+let ui_score = null
+let ui_start_screen = null
+let ui_gameover_screen = null
+let ui_gameover_text = null
+let ui_pause_text = null
+
+# Mesh IDs for dynamic objects (created via render bridge)
+let paddle_left_mesh = null
+let paddle_right_mesh = null
+let ball_mesh = null
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+fn toVoxel(world_pos):
+  return math.floor(world_pos / VOXEL_SCALE)
+
+fn clamp_paddle(z):
+  let limit = config.arena_depth / 2 - 1.5
+  return math.clamp(z, -limit, limit)
+
+fn clamp_ball_speed(v):
+  return math.clamp(v, -config.ball_max_speed, config.ball_max_speed)
+
+fn reset_ball(direction):
+  set ball.x: 0
+  set ball.z: 0
+  set ball.vx: direction * 5
+  set ball.vz: (random.float(-1, 1)) * 3
+  set paddle_left.z: 0
+  set paddle_right.z: 0
+
+
+# =============================================================================
+# Ball Physics (same as pong2)
+# =============================================================================
+
+on "tick" when game.active and not game.paused:
+  let dt = event.dt
+
+  # Move ball
+  set ball.x: ball.x + ball.vx * dt
+  set ball.z: ball.z + ball.vz * dt
+
+# Wall bounces
+on "tick" when ball.z < -config.arena_depth / 2 + 0.3 and ball.vz < 0:
+  set ball.vz: abs(ball.vz)
+  emit "sound:bounce"
+
+on "tick" when ball.z > config.arena_depth / 2 - 0.3 and ball.vz > 0:
+  set ball.vz: -abs(ball.vz)
+  emit "sound:bounce"
+
+# =============================================================================
+# Paddle Collision (same as pong2)
+# =============================================================================
+
+# Left paddle hit
+on "tick" when ball.x < -8.5 and ball.x > -9.5 and ball.vx < 0:
+  if abs(ball.z - paddle_left.z) < 1.5:
+    set ball.vx: clamp_ball_speed(abs(ball.vx) * 1.05)
+    set ball.vz: clamp_ball_speed(ball.vz + (ball.z - paddle_left.z) * 2)
+    emit "sound:hit"
+
+# Right paddle hit
+on "tick" when ball.x > 8.5 and ball.x < 9.5 and ball.vx > 0:
+  if abs(ball.z - paddle_right.z) < 1.5:
+    set ball.vx: clamp_ball_speed(-abs(ball.vx) * 1.05)
+    set ball.vz: clamp_ball_speed(ball.vz + (ball.z - paddle_right.z) * 2)
+    emit "sound:hit"
+
+# =============================================================================
+# Player Input (Left Paddle)
+# =============================================================================
+
+on "tick" when game.active and (input.isKeyDown("W") or input.isKeyDown("ArrowUp")):
+  set paddle_left.z: clamp_paddle(paddle_left.z - config.paddle_speed * event.dt)
+
+on "tick" when game.active and (input.isKeyDown("S") or input.isKeyDown("ArrowDown")):
+  set paddle_left.z: clamp_paddle(paddle_left.z + config.paddle_speed * event.dt)
+
+# =============================================================================
+# AI Control (Right Paddle)
+# =============================================================================
+
+on "tick" when game.active:
+  let dt = event.dt
+
+  # AI tracks ball when it's coming towards it, returns to center otherwise
+  if ball.vx > 0:
+    set paddle_right.z: math.lerp(paddle_right.z, ball.z, 3 * dt)
+  else:
+    set paddle_right.z: math.lerp(paddle_right.z, 0, 1 * dt)
+
+  set paddle_right.z: clamp_paddle(paddle_right.z)
+
+# =============================================================================
+# Scoring (same as pong2)
+# =============================================================================
+
+# Right scores (ball passed left boundary)
+on "tick" when ball.x < -config.arena_width / 2 - 0.5:
+  set score.right: score.right + 1
+  ui.setText(ui_score, score.left + " - " + score.right)
+  emit "sound:score"
+  emit "ui:score_update" { left: score.left, right: score.right }
+  reset_ball(-1)
+
+# Left scores (ball passed right boundary)
+on "tick" when ball.x > config.arena_width / 2 + 0.5:
+  set score.left: score.left + 1
+  ui.setText(ui_score, score.left + " - " + score.right)
+  emit "sound:score"
+  emit "ui:score_update" { left: score.left, right: score.right }
+  reset_ball(1)
+
+# =============================================================================
+# Victory Conditions (same as pong2)
+# =============================================================================
+
+on "tick" when score.left >= config.win_score and game.active:
+  set game.active: false
+  ui.setText(ui_gameover_text, "YOU WIN!")
+  ui.setStyle(ui_gameover_text, "color", "#00ff88")
+  ui.show(ui_gameover_screen)
+  emit "sound:victory"
+  emit "game:victory" { winner: "player", message: "YOU WIN!" }
+
+on "tick" when score.right >= config.win_score and game.active:
+  set game.active: false
+  ui.setText(ui_gameover_text, "AI WINS!")
+  ui.setStyle(ui_gameover_text, "color", "#ff4466")
+  ui.show(ui_gameover_screen)
+  emit "sound:defeat"
+  emit "game:defeat" { winner: "ai", message: "AI WINS!" }
+
+# =============================================================================
+# Game Controls (same as pong2)
+# =============================================================================
+
+on "keydown:Escape" when game.started:
+  set game.paused: not game.paused
+  if game.paused:
+    ui.show(ui_pause_text)
+  else:
+    ui.hide(ui_pause_text)
+
+on "keydown: " when not game.started:
+  # Space to start game from start screen
+  ui.hide(ui_start_screen)
+  set game.started: true
+  set game.active: true
+  reset_ball(1)
+
+on "keydown:R" when game.started and not game.active:
+  # Restart game after game over
+  ui.hide(ui_gameover_screen)
+  set score.left: 0
+  set score.right: 0
+  set game.active: true
+  set game.paused: false
+  reset_ball(1)
+  ui.setText(ui_score, "0 - 0")
+  emit "game:restart"
+
+# =============================================================================
+# Initialization - Build Arena with Voxels
+# =============================================================================
+
+on "init":
+  # Configure camera for voxel pong
+  # Arena is ~2.5 render units wide (paddles at ±1.1m)
+  # viewSize controls vertical extent; horizontal = viewSize * aspect
+  # With 16:9 aspect and viewSize=2, horizontal view is ~3.5m (±1.75m)
+  camera.ortho(2)
+
+  # Build static arena elements using larger voxel scale
+
+  # Floor - a flat platform (3 voxels thick at y=0)
+  let floor_vx1 = toVoxel(-config.arena_width / 2 - 1)
+  let floor_vx2 = toVoxel(config.arena_width / 2 + 1)
+  let floor_vz1 = toVoxel(-config.arena_depth / 2 - 1)
+  let floor_vz2 = toVoxel(config.arena_depth / 2 + 1)
+  voxel.fill(floor_vx1, -2, floor_vz1, floor_vx2, 0, floor_vz2, FLOOR_TYPE)
+
+  # Top wall
+  let wall_y1 = 1
+  let wall_y2 = 3
+  let wall_top_z = toVoxel(-config.arena_depth / 2 - 0.15)
+  voxel.fill(floor_vx1, wall_y1, wall_top_z - 1, floor_vx2, wall_y2, wall_top_z + 1, WALL_TYPE)
+
+  # Bottom wall
+  let wall_bottom_z = toVoxel(config.arena_depth / 2 + 0.15)
+  voxel.fill(floor_vx1, wall_y1, wall_bottom_z - 1, floor_vx2, wall_y2, wall_bottom_z + 1, WALL_TYPE)
+
+  # Center line removed for now - 3D voxel blocks look like diamonds from camera angle
+  # TODO: Add center line as flat floor marking or use render bridge for 2D line
+
+  # Rebuild all static voxels (arena only)
+  voxel.rebuildAll()
+
+  # Create REAL voxel objects for dynamic elements (ball and paddles)
+  # These are actual voxels compiled to meshes - created once, moved each frame
+  # No per-frame voxel operations or mesh rebuilds!
+
+  # Create left paddle (real voxel object)
+  set paddle_left_mesh: voxel.createBoxObject(PADDLE_VOXELS_X, PADDLE_VOXELS_Y, PADDLE_VOXELS_Z, PADDLE_LEFT_TYPE)
+  voxel.setObjectPosition(paddle_left_mesh, paddle_left.x * WORLD_SCALE, paddle_left.y * WORLD_SCALE, paddle_left.z * WORLD_SCALE)
+
+  # Create right paddle (real voxel object)
+  set paddle_right_mesh: voxel.createBoxObject(PADDLE_VOXELS_X, PADDLE_VOXELS_Y, PADDLE_VOXELS_Z, PADDLE_RIGHT_TYPE)
+  voxel.setObjectPosition(paddle_right_mesh, paddle_right.x * WORLD_SCALE, paddle_right.y * WORLD_SCALE, paddle_right.z * WORLD_SCALE)
+
+  # Create ball (real voxel sphere object)
+  set ball_mesh: voxel.createSphereObject(BALL_RADIUS, BALL_TYPE)
+  voxel.setObjectPosition(ball_mesh, ball.x * WORLD_SCALE, ball.y * WORLD_SCALE, ball.z * WORLD_SCALE)
+
+  set game.initialized: true
+
+  # =========================================================================
+  # UI Setup (same as pong2)
+  # =========================================================================
+
+  # Score display (always visible during game)
+  set ui_score: ui.text("0 - 0", {
+    anchor: "top-center",
+    y: 30,
+    fontSize: 36,
+    color: "#ffffff"
+  })
+
+  # Pause text (hidden by default)
+  set ui_pause_text: ui.text("PAUSED", {
+    anchor: "center",
+    fontSize: 48,
+    color: "#ffcc00"
+  })
+  ui.hide(ui_pause_text)
+
+  # Start screen
+  set ui_start_screen: ui.screen("start", { background: "rgba(0, 0, 0, 0.85)" })
+  let title = ui.text("VOXEL PONG", { fontSize: 72, color: "#00ff88" })
+  let subtitle = ui.text("W/S or Arrow Keys to move paddle", { fontSize: 18, color: "#888888" })
+  let start_hint = ui.text("Press SPACE to Start", { fontSize: 24, color: "#ffffff" })
+  let win_info = ui.text("First to 5 wins!", { fontSize: 16, color: "#666666" })
+  ui.add(ui_start_screen, title)
+  ui.add(ui_start_screen, subtitle)
+  ui.add(ui_start_screen, start_hint)
+  ui.add(ui_start_screen, win_info)
+  ui.show(ui_start_screen)
+
+  # Game over screen
+  set ui_gameover_screen: ui.screen("gameover", { background: "rgba(0, 0, 0, 0.9)" })
+  set ui_gameover_text: ui.text("GAME OVER", { fontSize: 56, color: "#ff4466" })
+  let restart_hint = ui.text("Press R to Restart", { fontSize: 20, color: "#888888" })
+  ui.add(ui_gameover_screen, ui_gameover_text)
+  ui.add(ui_gameover_screen, restart_hint)
+
+  emit "game:ready" {
+    title: "VOXEL PONG",
+    instructions: "W/S or Arrow Keys to move. First to 5 wins!"
+  }
+
+# =============================================================================
+# Mesh Rendering (update render mesh positions from state)
+# =============================================================================
+
+on "tick" when game.initialized:
+  # Update voxel object positions - just GPU transforms, no mesh rebuilds!
+  voxel.setObjectPosition(paddle_left_mesh, paddle_left.x * WORLD_SCALE, paddle_left.y * WORLD_SCALE, paddle_left.z * WORLD_SCALE)
+  voxel.setObjectPosition(paddle_right_mesh, paddle_right.x * WORLD_SCALE, paddle_right.y * WORLD_SCALE, paddle_right.z * WORLD_SCALE)
+  voxel.setObjectPosition(ball_mesh, ball.x * WORLD_SCALE, ball.y * WORLD_SCALE, ball.z * WORLD_SCALE)

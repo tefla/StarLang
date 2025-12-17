@@ -119,6 +119,7 @@ export class EngineBridge {
         world: config.voxelWorld,
         renderer: config.voxelRenderer,
         registry: config.voxelTypeRegistry,
+        scene: config.scene,  // Pass scene for dynamic voxel objects
         voxelSize: this.voxelSize,
         chunkSize: this.chunkSize,
       })
@@ -192,6 +193,9 @@ export class EngineBridge {
 
     // Add engine namespace (meta functions)
     vm.set('engine', this.createEngineNamespace())
+
+    // Add camera namespace (emits events for Game.ts to handle)
+    vm.set('camera', this.createCameraNamespace())
   }
 
   /**
@@ -449,6 +453,52 @@ export class EngineBridge {
           }
         }
         return null
+      },
+    }
+  }
+
+  // ==========================================================================
+  // Camera Namespace
+  // ==========================================================================
+
+  private createCameraNamespace(): ForgeMap {
+    return {
+      // Configure orthographic camera
+      // viewSize: vertical size in world units (smaller = more zoomed in)
+      ortho: (viewSize: number, x?: number, y?: number, z?: number) => {
+        if (this.runtime) {
+          this.runtime.emit('camera:config', {
+            type: 'orthographic',
+            viewSize,
+            position: { x: x ?? 0, y: y ?? 15, z: z ?? 0 },
+          })
+        }
+      },
+
+      // Configure perspective camera
+      // fov: field of view in degrees
+      perspective: (fov: number, x?: number, y?: number, z?: number) => {
+        if (this.runtime) {
+          this.runtime.emit('camera:config', {
+            type: 'perspective',
+            fov,
+            position: { x: x ?? 0, y: y ?? 5, z: z ?? 10 },
+          })
+        }
+      },
+
+      // Set camera position
+      setPosition: (x: number, y: number, z: number) => {
+        if (this.runtime) {
+          this.runtime.emit('camera:position', { x, y, z })
+        }
+      },
+
+      // Set camera look-at target
+      lookAt: (x: number, y: number, z: number) => {
+        if (this.runtime) {
+          this.runtime.emit('camera:lookAt', { x, y, z })
+        }
       },
     }
   }

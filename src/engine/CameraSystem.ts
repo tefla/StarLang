@@ -146,6 +146,24 @@ export class CameraSystem {
   }
 
   /**
+   * Update orthographic view size (zoom level).
+   */
+  setViewSize(viewSize: number): void {
+    this.config.viewSize = viewSize
+
+    if (this.camera instanceof THREE.OrthographicCamera) {
+      const halfWidth = (viewSize * this.aspect) / 2
+      const halfHeight = viewSize / 2
+
+      this.camera.left = -halfWidth
+      this.camera.right = halfWidth
+      this.camera.top = halfHeight
+      this.camera.bottom = -halfHeight
+      this.camera.updateProjectionMatrix()
+    }
+  }
+
+  /**
    * Handle window resize.
    */
   resize(width: number, height: number): void {

@@ -7,8 +7,8 @@ import { InteractionSystem } from './Interaction'
 import { CameraSystem } from './CameraSystem'
 import { InputEventSystem } from './InputEventSystem'
 import { PositionSyncSystem } from './PositionSyncSystem'
-import { Runtime } from '../runtime/Runtime'
-import { RuntimeForgeBridge } from '../runtime/RuntimeForgeBridge'
+import { Runtime } from '../../archive/src/runtime/Runtime'
+import { RuntimeForgeBridge } from '../../archive/src/runtime/RuntimeForgeBridge'
 import type { ShipLayout } from '../types/layout'
 import { audioSystem } from './AudioSystem'
 import { VOXEL_SIZE } from '../voxel/VoxelTypes'
@@ -222,21 +222,47 @@ export class Game {
     // Set up input listeners
     this.forge2Mode.setupInputListeners(this.container)
 
-    // Create camera (orthographic, top-down for Pong-style games)
+    // Create camera with defaults (game can override via camera.ortho/camera.perspective)
     this.cameraSystem = new CameraSystem({
       type: 'orthographic',
       position: { x: 0, y: 15, z: 0 },
       lookAt: { x: 0, y: 0, z: 0 },
-      viewSize: 14,
+      viewSize: 10,  // Default, game should override
     }, aspect)
 
-    // Add basic lighting
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.5)
+    // Set up camera event handlers (before loadGame so game's init can configure)
+    this.forge2Mode.on('camera:config', (data: any) => {
+      console.log('[Game] Camera config:', data)
+      if (data.type === 'orthographic' && data.viewSize && this.cameraSystem) {
+        this.cameraSystem.setViewSize(data.viewSize)
+      }
+      if (data.position && this.cameraSystem) {
+        this.cameraSystem.setPosition(data.position.x, data.position.y, data.position.z)
+        // Re-apply lookAt after position change
+        this.cameraSystem.setLookAt(0, 0, 0)
+      }
+    })
+
+    this.forge2Mode.on('camera:position', (data: any) => {
+      if (this.cameraSystem && data.x !== undefined) {
+        this.cameraSystem.setPosition(data.x, data.y, data.z)
+      }
+    })
+
+    this.forge2Mode.on('camera:lookAt', (data: any) => {
+      if (this.cameraSystem && data.x !== undefined) {
+        this.cameraSystem.setLookAt(data.x, data.y, data.z)
+      }
+    })
+
+    // Add lighting optimized for top-down voxel games
+    // Brighter ambient for cleaner look, no shadows for simplicity
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
     this.scene.scene.add(ambientLight)
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
-    directionalLight.position.set(5, 10, 5)
-    directionalLight.castShadow = true
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+    directionalLight.position.set(0, 20, 0)  // Directly above for even lighting
+    directionalLight.castShadow = false  // Disable shadows for cleaner voxel look
     this.scene.scene.add(directionalLight)
 
     // Load the game

@@ -45,12 +45,13 @@ export class VoxelRenderer {
     this.scene.add(this.group)
 
     // Create shared material
+    // Use flat shading for voxels - each face should have uniform lighting
     this.material = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: config.roughness ?? 0.8,
       metalness: config.metalness ?? 0.2,
-      flatShading: config.flatShading ?? false,  // Smooth shading to avoid visible triangle edges
-      side: THREE.FrontSide  // Single-sided to avoid z-fighting
+      flatShading: true,  // Flat shading for crisp voxel look
+      side: THREE.FrontSide  // Single-sided for proper rendering
     })
 
     // Subscribe to chunk modifications
@@ -103,8 +104,8 @@ export class VoxelRenderer {
       const worldZ = chunk.cz * CHUNK_SIZE * VOXEL_SIZE
       mesh.position.set(worldX, worldY, worldZ)
 
-      mesh.castShadow = true
-      mesh.receiveShadow = true
+      mesh.castShadow = false
+      mesh.receiveShadow = false
 
       this.chunkMeshes.set(key, mesh)
       this.group.add(mesh)
@@ -133,16 +134,56 @@ export class VoxelRenderer {
    * Force rebuild all chunk meshes.
    */
   rebuildAll(debug = false): void {
+    const allChunks = this.world.getAllChunks()
+    console.log(`[VoxelRenderer] rebuildAll: ${allChunks.length} chunks to process`)
+
     // Mark all chunks dirty
-    for (const chunk of this.world.getAllChunks()) {
+    for (const chunk of allChunks) {
       chunk.dirty = true
     }
 
     // Process all at once
     let first = true
-    for (const chunk of this.world.getAllChunks()) {
+    let processedCount = 0
+    for (const chunk of allChunks) {
       this.updateChunkMesh(chunk, debug && first)
       first = false
+      processedCount++
+    }
+
+    console.log(`[VoxelRenderer] rebuildAll: processed ${processedCount} chunks, ${this.chunkMeshes.size} meshes created`)
+    console.log(`[VoxelRenderer] group has ${this.group.children.length} children, group.parent: ${this.group.parent?.type}`)
+
+    // Debug: check first mesh geometry
+    if (this.chunkMeshes.size > 0) {
+      const firstMesh = this.chunkMeshes.values().next().value
+      if (firstMesh) {
+        const geom = firstMesh.geometry
+        const posAttr = geom.getAttribute('position')
+        const colorAttr = geom.getAttribute('color')
+        console.log(`[VoxelRenderer] First mesh: vertices=${posAttr?.count ?? 0}, colors=${colorAttr?.count ?? 0}, position=${firstMesh.position.toArray()}`)
+      }
+    }
+  }
+
+  /**
+   * Rebuild dirty chunks immediately (alias for update).
+   * Use this when you need all dirty chunks processed in one frame.
+   */
+  rebuildDirty(): void {
+    const dirtyChunks = this.world.getDirtyChunks()
+    for (const chunk of dirtyChunks) {
+      this.updateChunkMesh(chunk)
+    }
+  }
+
+  /**
+   * Rebuild a specific chunk by chunk coordinates.
+   */
+  rebuildChunk(cx: number, cy: number, cz: number): void {
+    const chunk = this.world.getChunk(cx, cy, cz)
+    if (chunk) {
+      this.updateChunkMesh(chunk)
     }
   }
 
