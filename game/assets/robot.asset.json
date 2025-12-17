@@ -1,0 +1,45 @@
+{
+  "name": "Robot",
+  "description": "A friendly robot character",
+  "anchor": { "x": 3, "y": 0, "z": 3 },
+  "shapes": [
+    {
+      "type": "box",
+      "from": { "x": 1, "y": 0, "z": 2 },
+      "to": { "x": 5, "y": 6, "z": 4 },
+      "voxelType": 2,
+      "color": "#888888"
+    },
+    {
+      "type": "box",
+      "from": { "x": 2, "y": 6, "z": 2 },
+      "to": { "x": 4, "y": 10, "z": 4 },
+      "voxelType": 3,
+      "color": "#aaaaaa"
+    },
+    {
+      "type": "box",
+      "from": { "x": 0, "y": 3, "z": 2 },
+      "to": { "x": 1, "y": 6, "z": 4 },
+      "voxelType": 2,
+      "color": "#666666"
+    },
+    {
+      "type": "box",
+      "from": { "x": 5, "y": 3, "z": 2 },
+      "to": { "x": 6, "y": 6, "z": 4 },
+      "voxelType": 2,
+      "color": "#666666"
+    }
+  ],
+  "voxels": [
+    { "x": 2, "y": 8, "z": 2, "type": 4, "color": "#00ff00" },
+    { "x": 3, "y": 8, "z": 2, "type": 4, "color": "#00ff00" },
+    { "x": 2, "y": 7, "z": 2, "type": 5, "color": "#ff0000" }
+  ],
+  "metadata": {
+    "author": "Claude",
+    "created": "2025-12-17",
+    "tags": ["character", "sci-fi"]
+  }
+}

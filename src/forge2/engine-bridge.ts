@@ -33,6 +33,7 @@ import { RenderBridge, type RenderBridgeConfig } from './render-bridge'
 import { VoxelBridge, type VoxelBridgeConfig, type VoxelWorldLike, type VoxelRendererLike, type VoxelTypeRegistryLike } from './voxel-bridge'
 import { AssetBridge, type AssetBridgeConfig, type AnimatedAssetLoaderLike } from './asset-bridge'
 import { UIBridge, type UIBridgeConfig } from './ui-bridge'
+import { JsonAssetBridge } from './json-asset-bridge'
 
 // Re-export for convenience
 export type {
@@ -69,6 +70,12 @@ export interface EngineBridgeConfig {
 
   // Optional UI system
   uiContainer?: HTMLElement
+
+  // Enable JSON asset loading
+  enableJsonAssets?: boolean
+
+  // Init parameters (passed from URL)
+  initParams?: Record<string, string>
 }
 
 export interface InputState {
@@ -94,6 +101,10 @@ export class EngineBridge {
   private voxelBridge: VoxelBridge | null = null
   private assetBridge: AssetBridge | null = null
   private uiBridge: UIBridge | null = null
+  private jsonAssetBridge: JsonAssetBridge | null = null
+
+  // Init parameters (from URL)
+  private initParams: Record<string, string>
 
   // Input state
   private inputEnabled: boolean
@@ -140,6 +151,17 @@ export class EngineBridge {
       })
     }
 
+    // Create JSON asset bridge if enabled
+    if (config.enableJsonAssets !== false) {
+      this.jsonAssetBridge = new JsonAssetBridge({
+        scene: this.scene,
+        voxelSize: this.voxelSize,
+      })
+    }
+
+    // Store init parameters
+    this.initParams = config.initParams ?? {}
+
     // Input handling
     this.inputEnabled = config.inputEnabled ?? false
     this.inputState = {
@@ -185,6 +207,12 @@ export class EngineBridge {
       this.uiBridge.attachRuntime(this.runtime)
     }
 
+    // Add JSON asset namespace if available
+    if (this.jsonAssetBridge) {
+      vm.set('jsonAsset', this.jsonAssetBridge.createNamespace())
+      this.jsonAssetBridge.attachRuntime(this.runtime)
+    }
+
     // Add input namespace
     vm.set('input', this.createInputNamespace())
 
@@ -196,6 +224,9 @@ export class EngineBridge {
 
     // Add camera namespace (emits events for Game.ts to handle)
     vm.set('camera', this.createCameraNamespace())
+
+    // Add asset API namespace (for loading/saving assets via server API)
+    vm.set('assetApi', this.createAssetApiNamespace())
   }
 
   /**
@@ -216,6 +247,10 @@ export class EngineBridge {
 
     if (this.uiBridge) {
       bindings.set('ui', this.uiBridge.createNamespace())
+    }
+
+    if (this.jsonAssetBridge) {
+      bindings.set('jsonAsset', this.jsonAssetBridge.createNamespace())
     }
 
     bindings.set('input', this.createInputNamespace())
@@ -254,28 +289,28 @@ export class EngineBridge {
   // ==========================================================================
 
   private setupInputHandlers(): void {
-    // Keyboard
+    // Keyboard - use e.code for physical key position (layout-independent)
     window.addEventListener('keydown', (e) => {
-      const key = this.normalizeKey(e.key)
-      if (!this.inputState.keysDown.has(key)) {
-        this.inputState.keysPressed.add(key)
+      const code = e.code  // Physical key: "KeyW", "ShiftLeft", etc.
+      if (!this.inputState.keysDown.has(code)) {
+        this.inputState.keysPressed.add(code)
       }
-      this.inputState.keysDown.add(key)
+      this.inputState.keysDown.add(code)
 
       if (this.runtime) {
-        this.runtime.emit('keydown', { key, code: e.code, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey })
-        this.runtime.emit(`keydown:${key}`, { key, code: e.code })
+        this.runtime.emit('keydown', { key: e.key, code, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey })
+        this.runtime.emit(`keydown:${code}`, { key: e.key, code })
       }
     })
 
     window.addEventListener('keyup', (e) => {
-      const key = this.normalizeKey(e.key)
-      this.inputState.keysDown.delete(key)
-      this.inputState.keysReleased.add(key)
+      const code = e.code
+      this.inputState.keysDown.delete(code)
+      this.inputState.keysReleased.add(code)
 
       if (this.runtime) {
-        this.runtime.emit('keyup', { key, code: e.code })
-        this.runtime.emit(`keyup:${key}`, { key, code: e.code })
+        this.runtime.emit('keyup', { key: e.key, code })
+        this.runtime.emit(`keyup:${code}`, { key: e.key, code })
       }
     })
 
@@ -330,9 +365,8 @@ export class EngineBridge {
   }
 
   private normalizeKey(key: string): string {
-    // Normalize common key names
-    if (key.length === 1) return key.toUpperCase()
-    return key
+    // Normalize all keys to uppercase for consistent matching
+    return key.toUpperCase()
   }
 
   private processInputEvents(): void {
@@ -346,10 +380,10 @@ export class EngineBridge {
 
   private createInputNamespace(): ForgeMap {
     return {
-      // Key state
-      isKeyDown: (key: string) => this.inputState.keysDown.has(key.toUpperCase()),
-      isKeyPressed: (key: string) => this.inputState.keysPressed.has(key.toUpperCase()),
-      isKeyReleased: (key: string) => this.inputState.keysReleased.has(key.toUpperCase()),
+      // Key state - uses e.code (physical key codes like "KeyW", "ShiftLeft")
+      isKeyDown: (code: string) => this.inputState.keysDown.has(code),
+      isKeyPressed: (code: string) => this.inputState.keysPressed.has(code),
+      isKeyReleased: (code: string) => this.inputState.keysReleased.has(code),
       getKeysDown: () => Array.from(this.inputState.keysDown),
 
       // Mouse state
@@ -359,14 +393,15 @@ export class EngineBridge {
       isMouseDown: (button: number = 0) => this.inputState.mouseButtons.has(button),
       isMouseClicked: (button: number = 0) => this.inputState.mouseClicked.has(button),
 
-      // Common key aliases
-      isUp: () => this.inputState.keysDown.has('W') || this.inputState.keysDown.has('ArrowUp'),
-      isDown: () => this.inputState.keysDown.has('S') || this.inputState.keysDown.has('ArrowDown'),
-      isLeft: () => this.inputState.keysDown.has('A') || this.inputState.keysDown.has('ArrowLeft'),
-      isRight: () => this.inputState.keysDown.has('D') || this.inputState.keysDown.has('ArrowRight'),
-      isSpace: () => this.inputState.keysDown.has(' '),
+      // Common key aliases (using physical key codes)
+      isUp: () => this.inputState.keysDown.has('KeyW') || this.inputState.keysDown.has('ArrowUp'),
+      isDown: () => this.inputState.keysDown.has('KeyS') || this.inputState.keysDown.has('ArrowDown'),
+      isLeft: () => this.inputState.keysDown.has('KeyA') || this.inputState.keysDown.has('ArrowLeft'),
+      isRight: () => this.inputState.keysDown.has('KeyD') || this.inputState.keysDown.has('ArrowRight'),
+      isSpace: () => this.inputState.keysDown.has('Space'),
       isEscape: () => this.inputState.keysDown.has('Escape'),
       isEnter: () => this.inputState.keysDown.has('Enter'),
+      isShift: () => this.inputState.keysDown.has('ShiftLeft') || this.inputState.keysDown.has('ShiftRight'),
     }
   }
 
@@ -426,6 +461,11 @@ export class EngineBridge {
 
       // Scene access
       getSceneChildren: () => this.scene.children.length,
+
+      // Init parameters (from URL)
+      getParam: (name: string): string | null => {
+        return this.initParams[name] ?? null
+      },
 
       // Debug helpers
       log: (...args: ForgeValue[]) => {
@@ -504,6 +544,94 @@ export class EngineBridge {
   }
 
   // ==========================================================================
+  // Asset API Namespace
+  // ==========================================================================
+
+  private createAssetApiNamespace(): ForgeMap {
+    return {
+      // Request list of all available assets (emits assetApi:list event with results)
+      list: (): void => {
+        fetch('/api/assets')
+          .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch assets')
+            return response.json()
+          })
+          .then(data => {
+            if (this.runtime) {
+              this.runtime.emit('assetApi:list', { assets: data.assets })
+            }
+          })
+          .catch(error => {
+            console.error('[AssetApi] Error listing assets:', error)
+            if (this.runtime) {
+              this.runtime.emit('assetApi:list', { assets: [], error: error.message })
+            }
+          })
+      },
+
+      // Request a specific asset definition (emits assetApi:loaded event with result)
+      get: (name: string): void => {
+        fetch(`/api/assets/${name}`)
+          .then(response => {
+            if (!response.ok) throw new Error('Asset not found')
+            return response.json()
+          })
+          .then(data => {
+            if (this.runtime) {
+              this.runtime.emit('assetApi:loaded', { name, asset: data })
+            }
+          })
+          .catch(error => {
+            console.error('[AssetApi] Error loading asset:', error)
+            if (this.runtime) {
+              this.runtime.emit('assetApi:loaded', { name, asset: null, error: error.message })
+            }
+          })
+      },
+
+      // Save an asset (create or update) - emits assetApi:saved event on success
+      save: (name: string, assetDef: ForgeValue): void => {
+        fetch(`/api/assets/${name}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(assetDef),
+        })
+          .then(response => {
+            if (!response.ok) throw new Error('Failed to save asset')
+            if (this.runtime) {
+              this.runtime.emit('assetApi:saved', { name, success: true })
+            }
+          })
+          .catch(error => {
+            console.error('[AssetApi] Error saving asset:', error)
+            if (this.runtime) {
+              this.runtime.emit('assetApi:saved', { name, success: false, error: error.message })
+            }
+          })
+      },
+
+      // Delete an asset - emits assetApi:deleted event on success
+      delete: (name: string): void => {
+        fetch(`/api/assets/${name}`, {
+          method: 'DELETE',
+        })
+          .then(response => {
+            if (!response.ok) throw new Error('Failed to delete asset')
+            if (this.runtime) {
+              this.runtime.emit('assetApi:deleted', { name, success: true })
+            }
+          })
+          .catch(error => {
+            console.error('[AssetApi] Error deleting asset:', error)
+            if (this.runtime) {
+              this.runtime.emit('assetApi:deleted', { name, success: false, error: error.message })
+            }
+          })
+      },
+    }
+  }
+
+  // ==========================================================================
   // Bridge Access
   // ==========================================================================
 
@@ -535,6 +663,13 @@ export class EngineBridge {
     return this.uiBridge
   }
 
+  /**
+   * Get the JSON asset bridge for direct manipulation.
+   */
+  getJsonAssetBridge(): JsonAssetBridge | null {
+    return this.jsonAssetBridge
+  }
+
   // ==========================================================================
   // Cleanup
   // ==========================================================================
@@ -551,6 +686,10 @@ export class EngineBridge {
 
     if (this.uiBridge) {
       this.uiBridge.dispose()
+    }
+
+    if (this.jsonAssetBridge) {
+      this.jsonAssetBridge.dispose()
     }
 
     // Remove input handlers (would need to track them to remove properly)

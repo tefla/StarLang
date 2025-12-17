@@ -1,0 +1,507 @@
+# Asset Viewer - Forge 2.0
+# View JSON voxel assets with orbital camera controls and asset catalog
+#
+# Usage: ?game=asset-viewer&asset=test-box
+# Controls: WASD to orbit, Shift+WASD to pan, G to toggle grid, C to toggle catalog
+
+# =============================================================================
+# Configuration
+# =============================================================================
+
+let camera_state = {
+  # Camera position (where the camera is)
+  x: 0.2,
+  y: 0.15,
+  z: 0.2,
+  # Look-at target (what the camera looks at)
+  targetX: 0,
+  targetY: 0,
+  targetZ: 0,
+  # Control speeds
+  orbitSpeed: 2,
+  panSpeed: 0.3
+}
+
+let viewer = {
+  assetPath: null,
+  assetName: null,
+  assetId: null,
+  loaded: false,
+  error: null,
+  showGrid: true,
+  gridId: null,
+  showCatalog: true
+}
+
+# Catalog state
+let catalog = {
+  assets: [],
+  selectedIndex: 0,
+  item0: null,
+  item1: null,
+  item2: null,
+  item3: null,
+  item4: null,
+  item5: null,
+  item6: null,
+  item7: null,
+  item8: null
+}
+
+# UI elements
+let ui_info = null
+let ui_controls = null
+let ui_catalog_title = null
+
+# =============================================================================
+# Initialization
+# =============================================================================
+
+on "init":
+  # Start with perspective camera
+  camera.perspective(60, 0, 0.5, 1)
+
+  # Get asset name from URL
+  let assetName = engine.getParam("asset")
+
+  if assetName:
+    loadAsset(assetName)
+  else:
+    set viewer.error: "No asset specified. Use ?game=asset-viewer&asset=name"
+
+  # Build reference grid
+  if viewer.showGrid:
+    buildGrid()
+
+  # Setup UI
+  setupUI()
+
+  # Load asset catalog
+  loadCatalog()
+
+# =============================================================================
+# Asset Loading
+# =============================================================================
+
+fn loadAsset(assetName):
+  # Clear existing asset
+  if viewer.assetId:
+    jsonAsset.destroy(viewer.assetId)
+    set viewer.assetId: null
+
+  set viewer.assetName: assetName
+  set viewer.assetPath: "/game/assets/" + assetName + ".asset.json"
+  set viewer.loaded: false
+  set viewer.error: null
+  engine.log("Loading asset: " + viewer.assetPath)
+
+  # Load the asset (async - ID comes via asset:loaded event)
+  jsonAsset.load(viewer.assetPath)
+
+  updateInfo()
+
+fn loadCatalog():
+  # Request asset list from API (results come via event)
+  assetApi.list()
+
+# =============================================================================
+# Asset Events
+# =============================================================================
+
+on "asset:loaded":
+  set viewer.assetId: event.id
+  set viewer.loaded: true
+  set viewer.error: null
+  engine.log("Asset loaded with ID: " + event.id)
+  updateInfo()
+
+on "asset:error":
+  set viewer.loaded: false
+  set viewer.error: event.message
+  updateInfo()
+
+# Handle asset list from API
+on "assetApi:list":
+  set catalog.assets: event.assets
+  engine.log("Loaded " + catalog.assets.length + " assets")
+  buildCatalogUI()
+
+on "assetApi:saved":
+  engine.log("Asset saved: " + event.name)
+  loadCatalog()
+
+# Handle catalog item clicks
+on "ui:click:asset_0":
+  selectAssetByIndex(0)
+
+on "ui:click:asset_1":
+  selectAssetByIndex(1)
+
+on "ui:click:asset_2":
+  selectAssetByIndex(2)
+
+on "ui:click:asset_3":
+  selectAssetByIndex(3)
+
+on "ui:click:asset_4":
+  selectAssetByIndex(4)
+
+on "ui:click:asset_5":
+  selectAssetByIndex(5)
+
+on "ui:click:asset_6":
+  selectAssetByIndex(6)
+
+on "ui:click:asset_7":
+  selectAssetByIndex(7)
+
+on "ui:click:asset_8":
+  selectAssetByIndex(8)
+
+# =============================================================================
+# Camera Controls
+# =============================================================================
+
+# Single tick handler for all camera controls to avoid multiple handlers firing
+on "tick":
+  let shift = input.isShift()
+  let dt = event.dt
+
+  # A key - orbit left or pan left
+  if input.isKeyDown("KeyA"):
+    if shift:
+      # Pan left
+      let dx = camera_state.targetX - camera_state.x
+      let dz = camera_state.targetZ - camera_state.z
+      let dist = math.sqrt(dx * dx + dz * dz)
+      if dist > 0.001:
+        let speed = camera_state.panSpeed * dt
+        let perpX = -dz / dist * speed
+        let perpZ = dx / dist * speed
+        set camera_state.x: camera_state.x + perpX
+        set camera_state.z: camera_state.z + perpZ
+        set camera_state.targetX: camera_state.targetX + perpX
+        set camera_state.targetZ: camera_state.targetZ + perpZ
+    else:
+      # Orbit left
+      let dx = camera_state.x - camera_state.targetX
+      let dz = camera_state.z - camera_state.targetZ
+      let angle = camera_state.orbitSpeed * dt
+      let cosA = math.cos(angle)
+      let sinA = math.sin(angle)
+      set camera_state.x: camera_state.targetX + dx * cosA + dz * sinA
+      set camera_state.z: camera_state.targetZ - dx * sinA + dz * cosA
+
+  # D key - orbit right or pan right
+  if input.isKeyDown("KeyD"):
+    if shift:
+      # Pan right
+      let dx = camera_state.targetX - camera_state.x
+      let dz = camera_state.targetZ - camera_state.z
+      let dist = math.sqrt(dx * dx + dz * dz)
+      if dist > 0.001:
+        let speed = camera_state.panSpeed * dt
+        let perpX = dz / dist * speed
+        let perpZ = -dx / dist * speed
+        set camera_state.x: camera_state.x + perpX
+        set camera_state.z: camera_state.z + perpZ
+        set camera_state.targetX: camera_state.targetX + perpX
+        set camera_state.targetZ: camera_state.targetZ + perpZ
+    else:
+      # Orbit right
+      let dx = camera_state.x - camera_state.targetX
+      let dz = camera_state.z - camera_state.targetZ
+      let angle = -camera_state.orbitSpeed * dt
+      let cosA = math.cos(angle)
+      let sinA = math.sin(angle)
+      set camera_state.x: camera_state.targetX + dx * cosA + dz * sinA
+      set camera_state.z: camera_state.targetZ - dx * sinA + dz * cosA
+
+  # W key - orbit up or move forward
+  if input.isKeyDown("KeyW"):
+    if shift:
+      # Move forward (toward target)
+      let dx = camera_state.targetX - camera_state.x
+      let dy = camera_state.targetY - camera_state.y
+      let dz = camera_state.targetZ - camera_state.z
+      let dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+      if dist > 0.01:
+        let speed = camera_state.panSpeed * dt
+        set camera_state.x: camera_state.x + dx / dist * speed
+        set camera_state.y: camera_state.y + dy / dist * speed
+        set camera_state.z: camera_state.z + dz / dist * speed
+        set camera_state.targetX: camera_state.targetX + dx / dist * speed
+        set camera_state.targetY: camera_state.targetY + dy / dist * speed
+        set camera_state.targetZ: camera_state.targetZ + dz / dist * speed
+    else:
+      # Orbit up
+      set camera_state.y: camera_state.y + camera_state.orbitSpeed * dt * 0.1
+
+  # S key - orbit down or move backward
+  if input.isKeyDown("KeyS"):
+    if shift:
+      # Move backward (away from target)
+      let dx = camera_state.targetX - camera_state.x
+      let dy = camera_state.targetY - camera_state.y
+      let dz = camera_state.targetZ - camera_state.z
+      let dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+      if dist > 0.01:
+        let speed = camera_state.panSpeed * dt
+        set camera_state.x: camera_state.x - dx / dist * speed
+        set camera_state.y: camera_state.y - dy / dist * speed
+        set camera_state.z: camera_state.z - dz / dist * speed
+        set camera_state.targetX: camera_state.targetX - dx / dist * speed
+        set camera_state.targetY: camera_state.targetY - dy / dist * speed
+        set camera_state.targetZ: camera_state.targetZ - dz / dist * speed
+    else:
+      # Orbit down
+      set camera_state.y: camera_state.y - camera_state.orbitSpeed * dt * 0.1
+
+  # Update camera position
+  camera.setPosition(camera_state.x, camera_state.y, camera_state.z)
+  camera.lookAt(camera_state.targetX, camera_state.targetY, camera_state.targetZ)
+
+# =============================================================================
+# Keyboard Shortcuts
+# =============================================================================
+
+on "keydown:KeyG":
+  set viewer.showGrid: not viewer.showGrid
+  if viewer.showGrid:
+    buildGrid()
+  else:
+    clearGrid()
+
+on "keydown:KeyC":
+  set viewer.showCatalog: not viewer.showCatalog
+  toggleCatalogVisibility()
+
+# Number keys to quick-select assets (1-9)
+on "keydown:Digit1":
+  selectAssetByIndex(0)
+
+on "keydown:Digit2":
+  selectAssetByIndex(1)
+
+on "keydown:Digit3":
+  selectAssetByIndex(2)
+
+on "keydown:Digit4":
+  selectAssetByIndex(3)
+
+on "keydown:Digit5":
+  selectAssetByIndex(4)
+
+on "keydown:Digit6":
+  selectAssetByIndex(5)
+
+on "keydown:Digit7":
+  selectAssetByIndex(6)
+
+on "keydown:Digit8":
+  selectAssetByIndex(7)
+
+on "keydown:Digit9":
+  selectAssetByIndex(8)
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+fn buildGrid():
+  # Create a transparent grid plane below the asset
+  let gridId = render.grid(0.5, 20, "#555577", "#444466")
+  render.spawn(gridId)
+  render.setPosition(gridId, 0, -0.05, 0)
+  set viewer.gridId: gridId
+
+fn clearGrid():
+  if viewer.gridId:
+    render.despawn(viewer.gridId)
+    set viewer.gridId: null
+
+fn setupUI():
+  # Info display at top-left
+  set ui_info: ui.text("Loading...", {
+    anchor: "top-left",
+    x: 20,
+    y: 20,
+    fontSize: 16,
+    color: "#ffffff"
+  })
+
+  # Controls hint at bottom
+  set ui_controls: ui.text("WASD: Orbit | Shift+WASD: Pan | G: Grid | C: Catalog | 1-9: Quick select", {
+    anchor: "bottom-center",
+    y: -20,
+    fontSize: 12,
+    color: "#888888"
+  })
+
+  updateInfo()
+
+fn clearCatalogItems():
+  # Clear existing catalog items explicitly
+  if catalog.item0:
+    ui.destroy(catalog.item0)
+    set catalog.item0: null
+  if catalog.item1:
+    ui.destroy(catalog.item1)
+    set catalog.item1: null
+  if catalog.item2:
+    ui.destroy(catalog.item2)
+    set catalog.item2: null
+  if catalog.item3:
+    ui.destroy(catalog.item3)
+    set catalog.item3: null
+  if catalog.item4:
+    ui.destroy(catalog.item4)
+    set catalog.item4: null
+  if catalog.item5:
+    ui.destroy(catalog.item5)
+    set catalog.item5: null
+  if catalog.item6:
+    ui.destroy(catalog.item6)
+    set catalog.item6: null
+  if catalog.item7:
+    ui.destroy(catalog.item7)
+    set catalog.item7: null
+  if catalog.item8:
+    ui.destroy(catalog.item8)
+    set catalog.item8: null
+
+fn buildCatalogUI():
+  clearCatalogItems()
+
+  if not viewer.showCatalog:
+    return
+
+  # Catalog title
+  if not ui_catalog_title:
+    set ui_catalog_title: ui.text("Assets", {
+      anchor: "top-left",
+      x: 20,
+      y: 60,
+      fontSize: 14,
+      color: "#aaaaaa"
+    })
+
+  # Create catalog items (limited to 9 for number key shortcuts)
+  let yOffset = 85
+  let index = 0
+  for asset in catalog.assets:
+    if index >= 9:
+      break
+
+    let isSelected = asset.filename == viewer.assetName
+    let color = "#666666"
+    if isSelected:
+      set color: "#00ff88"
+
+    let label = (index + 1) + ". " + asset.name
+    let clickHandler = "asset_" + index
+
+    let itemId = ui.text(label, {
+      anchor: "top-left",
+      x: 25,
+      y: yOffset,
+      fontSize: 13,
+      color: color,
+      onClick: clickHandler,
+      hoverColor: "#00ff88"
+    })
+
+    # Store item ID explicitly
+    if index == 0:
+      set catalog.item0: itemId
+    if index == 1:
+      set catalog.item1: itemId
+    if index == 2:
+      set catalog.item2: itemId
+    if index == 3:
+      set catalog.item3: itemId
+    if index == 4:
+      set catalog.item4: itemId
+    if index == 5:
+      set catalog.item5: itemId
+    if index == 6:
+      set catalog.item6: itemId
+    if index == 7:
+      set catalog.item7: itemId
+    if index == 8:
+      set catalog.item8: itemId
+
+    set yOffset: yOffset + 22
+    set index: index + 1
+
+fn hideCatalogItems():
+  if catalog.item0:
+    ui.hide(catalog.item0)
+  if catalog.item1:
+    ui.hide(catalog.item1)
+  if catalog.item2:
+    ui.hide(catalog.item2)
+  if catalog.item3:
+    ui.hide(catalog.item3)
+  if catalog.item4:
+    ui.hide(catalog.item4)
+  if catalog.item5:
+    ui.hide(catalog.item5)
+  if catalog.item6:
+    ui.hide(catalog.item6)
+  if catalog.item7:
+    ui.hide(catalog.item7)
+  if catalog.item8:
+    ui.hide(catalog.item8)
+
+fn showCatalogItems():
+  if catalog.item0:
+    ui.show(catalog.item0)
+  if catalog.item1:
+    ui.show(catalog.item1)
+  if catalog.item2:
+    ui.show(catalog.item2)
+  if catalog.item3:
+    ui.show(catalog.item3)
+  if catalog.item4:
+    ui.show(catalog.item4)
+  if catalog.item5:
+    ui.show(catalog.item5)
+  if catalog.item6:
+    ui.show(catalog.item6)
+  if catalog.item7:
+    ui.show(catalog.item7)
+  if catalog.item8:
+    ui.show(catalog.item8)
+
+fn toggleCatalogVisibility():
+  if viewer.showCatalog:
+    showCatalogItems()
+    if ui_catalog_title:
+      ui.show(ui_catalog_title)
+  else:
+    hideCatalogItems()
+    if ui_catalog_title:
+      ui.hide(ui_catalog_title)
+
+fn selectAssetByIndex(index):
+  if index < catalog.assets.length:
+    let asset = catalog.assets[index]
+    loadAsset(asset.filename)
+    buildCatalogUI()
+
+fn updateInfo():
+  if viewer.error:
+    ui.setText(ui_info, "Error: " + viewer.error)
+    ui.setStyle(ui_info, "color", "#ff4444")
+  else:
+    if viewer.loaded:
+      ui.setText(ui_info, "Asset: " + viewer.assetName)
+      ui.setStyle(ui_info, "color", "#00ff88")
+    else:
+      if viewer.assetPath:
+        ui.setText(ui_info, "Loading: " + viewer.assetPath)
+        ui.setStyle(ui_info, "color", "#ffcc00")
+      else:
+        ui.setText(ui_info, "No asset specified")
+        ui.setStyle(ui_info, "color", "#888888")

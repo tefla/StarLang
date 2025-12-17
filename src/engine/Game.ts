@@ -97,6 +97,18 @@ export class Game {
     return params.get('game')
   }
 
+  /**
+   * Get all URL parameters as a record (for passing to Forge2 games)
+   */
+  private getURLParams(): Record<string, string> {
+    const params = new URLSearchParams(window.location.search)
+    const result: Record<string, string> = {}
+    params.forEach((value, key) => {
+      result[key] = value
+    })
+    return result
+  }
+
   async init() {
     console.log('=== GAME INIT START ===')
 
@@ -105,7 +117,8 @@ export class Game {
     if (isForge2) {
       console.log(`[Game] Detected Forge 2.0 game: ${this.gameRoot}`)
       const aspect = this.container.clientWidth / this.container.clientHeight
-      await this.initForge2Mode(aspect)
+      const urlParams = this.getURLParams()
+      await this.initForge2Mode(aspect, urlParams)
 
       // Create UI overlays
       this.createWarningOverlay()
@@ -213,11 +226,11 @@ export class Game {
   /**
    * Initialize Forge 2.0 game mode
    */
-  private async initForge2Mode(aspect: number): Promise<void> {
+  private async initForge2Mode(aspect: number, initParams?: Record<string, string>): Promise<void> {
     console.log('[Game] Initializing Forge 2.0 mode')
 
-    // Create Forge 2.0 game mode with the scene and container (for UI)
-    this.forge2Mode = new Forge2GameMode(this.scene.scene, this.container)
+    // Create Forge 2.0 game mode with the scene, container (for UI), and URL params
+    this.forge2Mode = new Forge2GameMode(this.scene.scene, this.container, initParams)
 
     // Set up input listeners
     this.forge2Mode.setupInputListeners(this.container)
@@ -233,13 +246,23 @@ export class Game {
     // Set up camera event handlers (before loadGame so game's init can configure)
     this.forge2Mode.on('camera:config', (data: any) => {
       console.log('[Game] Camera config:', data)
-      if (data.type === 'orthographic' && data.viewSize && this.cameraSystem) {
+
+      // Recreate camera if type changes or for perspective with custom near/far
+      if (data.type === 'perspective') {
+        this.cameraSystem = new CameraSystem({
+          type: 'perspective',
+          position: data.position ?? { x: 0, y: 5, z: 10 },
+          lookAt: { x: 0, y: 0, z: 0 },
+          fov: data.fov ?? 60,
+          near: data.near ?? 0.001,  // Very small near plane for close-up viewing
+          far: data.far ?? 100,
+        }, this.container.clientWidth / this.container.clientHeight)
+      } else if (data.type === 'orthographic' && data.viewSize && this.cameraSystem) {
         this.cameraSystem.setViewSize(data.viewSize)
-      }
-      if (data.position && this.cameraSystem) {
-        this.cameraSystem.setPosition(data.position.x, data.position.y, data.position.z)
-        // Re-apply lookAt after position change
-        this.cameraSystem.setLookAt(0, 0, 0)
+        if (data.position) {
+          this.cameraSystem.setPosition(data.position.x, data.position.y, data.position.z)
+          this.cameraSystem.setLookAt(0, 0, 0)
+        }
       }
     })
 
@@ -255,15 +278,25 @@ export class Game {
       }
     })
 
-    // Add lighting optimized for top-down voxel games
-    // Brighter ambient for cleaner look, no shadows for simplicity
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
-    this.scene.scene.add(ambientLight)
+    // Add lighting optimized for 3D voxel viewing
+    // Hemisphere light for nice sky/ground gradient fill
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8)
+    hemiLight.position.set(0, 20, 0)
+    this.scene.scene.add(hemiLight)
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
-    directionalLight.position.set(0, 20, 0)  // Directly above for even lighting
-    directionalLight.castShadow = false  // Disable shadows for cleaner voxel look
+    // Main directional light from above-front for definition
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6)
+    directionalLight.position.set(5, 10, 5)
     this.scene.scene.add(directionalLight)
+
+    // Fill light from opposite side
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.3)
+    fillLight.position.set(-5, 5, -5)
+    this.scene.scene.add(fillLight)
+
+    // Ambient for base illumination
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3)
+    this.scene.scene.add(ambientLight)
 
     // Load the game
     const gamePath = `/game/${this.gameRoot}/${this.gameRoot}.f2`

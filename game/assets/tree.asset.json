@@ -1,0 +1,26 @@
+{
+  "name": "Tree",
+  "description": "A simple voxel tree with trunk and foliage",
+  "anchor": { "x": 2, "y": 0, "z": 2 },
+  "shapes": [
+    {
+      "type": "box",
+      "from": { "x": 1, "y": 0, "z": 1 },
+      "to": { "x": 3, "y": 6, "z": 3 },
+      "voxelType": 2,
+      "color": "#8B4513"
+    },
+    {
+      "type": "sphere",
+      "center": { "x": 2, "y": 8, "z": 2 },
+      "radius": 4,
+      "voxelType": 3,
+      "color": "#228B22"
+    }
+  ],
+  "metadata": {
+    "author": "Claude",
+    "created": "2025-12-17",
+    "tags": ["nature", "vegetation"]
+  }
+}

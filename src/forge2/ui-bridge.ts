@@ -90,6 +90,7 @@ export class UIBridge {
       // Hierarchy
       add: this.addToParent.bind(this),
       remove: this.removeElement.bind(this),
+      destroy: this.removeElement.bind(this),  // Alias for remove
 
       // Visibility
       show: this.showElement.bind(this),
@@ -121,15 +122,42 @@ export class UIBridge {
     const el = document.createElement('div')
     el.id = id
     el.textContent = content
+
+    // Check if this text should be clickable
+    const onClick = options.onClick as string | undefined
+    const isClickable = !!onClick
+
     el.style.cssText = `
       position: absolute;
-      pointer-events: none;
+      pointer-events: ${isClickable ? 'auto' : 'none'};
+      cursor: ${isClickable ? 'pointer' : 'default'};
       font-family: ${options.fontFamily || "'JetBrains Mono', monospace"};
       font-size: ${options.fontSize || 16}px;
       color: ${options.color || '#ffffff'};
       white-space: nowrap;
       text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      ${isClickable ? 'transition: color 0.15s ease;' : ''}
     `
+
+    // Add hover effect for clickable text
+    if (isClickable) {
+      const originalColor = options.color as string || '#ffffff'
+      const hoverColor = options.hoverColor as string || '#00ff88'
+      el.addEventListener('mouseenter', () => {
+        el.style.color = hoverColor
+      })
+      el.addEventListener('mouseleave', () => {
+        el.style.color = originalColor
+      })
+
+      // Click handling - emit event to Forge runtime
+      el.addEventListener('click', () => {
+        if (this.runtime) {
+          this.runtime.emit(`ui:click:${onClick}`, { id, text: content })
+          this.runtime.emit('ui:click', { id, text: content, handler: onClick })
+        }
+      })
+    }
 
     this.applyAnchor(el, (options.anchor as AnchorPosition) || 'top-left')
     this.applyOffset(el, options.x as number || 0, options.y as number || 0)

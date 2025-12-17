@@ -20,6 +20,8 @@ export { VoxelBridge, createVoxelBindings } from './voxel-bridge'
 export { AssetBridge, createAssetBindings } from './asset-bridge'
 export { UIBridge, createUIBindings } from './ui-bridge'
 export { EngineBridge, createEngineBridge } from './engine-bridge'
+export { JsonAssetBridge } from './json-asset-bridge'
+export type { JsonAssetDef, ShapeDef, VoxelDef } from './json-asset-bridge'
 export type {
   VoxelWorldLike,
   VoxelRendererLike,

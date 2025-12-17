@@ -1,0 +1,67 @@
+{
+  "name": "House",
+  "description": "A cozy voxel house with a roof",
+  "anchor": { "x": 5, "y": 0, "z": 5 },
+  "shapes": [
+    {
+      "type": "box",
+      "from": { "x": 0, "y": 0, "z": 0 },
+      "to": { "x": 10, "y": 6, "z": 10 },
+      "voxelType": 2,
+      "color": "#D2B48C"
+    },
+    {
+      "type": "box",
+      "from": { "x": 1, "y": 6, "z": 1 },
+      "to": { "x": 9, "y": 7, "z": 9 },
+      "voxelType": 3,
+      "color": "#8B0000"
+    },
+    {
+      "type": "box",
+      "from": { "x": 2, "y": 7, "z": 2 },
+      "to": { "x": 8, "y": 8, "z": 8 },
+      "voxelType": 3,
+      "color": "#8B0000"
+    },
+    {
+      "type": "box",
+      "from": { "x": 3, "y": 8, "z": 3 },
+      "to": { "x": 7, "y": 9, "z": 7 },
+      "voxelType": 3,
+      "color": "#8B0000"
+    },
+    {
+      "type": "box",
+      "from": { "x": 4, "y": 9, "z": 4 },
+      "to": { "x": 6, "y": 10, "z": 6 },
+      "voxelType": 3,
+      "color": "#8B0000"
+    }
+  ],
+  "voxels": [
+    { "x": 4, "y": 0, "z": 0, "type": 0 },
+    { "x": 5, "y": 0, "z": 0, "type": 0 },
+    { "x": 6, "y": 0, "z": 0, "type": 0 },
+    { "x": 4, "y": 1, "z": 0, "type": 0 },
+    { "x": 5, "y": 1, "z": 0, "type": 0 },
+    { "x": 6, "y": 1, "z": 0, "type": 0 },
+    { "x": 4, "y": 2, "z": 0, "type": 0 },
+    { "x": 5, "y": 2, "z": 0, "type": 0 },
+    { "x": 6, "y": 2, "z": 0, "type": 0 },
+    { "x": 4, "y": 3, "z": 0, "type": 0 },
+    { "x": 5, "y": 3, "z": 0, "type": 0 },
+    { "x": 6, "y": 3, "z": 0, "type": 0 },
+    { "x": 2, "y": 2, "z": 0, "type": 4, "color": "#87CEEB" },
+    { "x": 2, "y": 3, "z": 0, "type": 4, "color": "#87CEEB" },
+    { "x": 2, "y": 4, "z": 0, "type": 4, "color": "#87CEEB" },
+    { "x": 8, "y": 2, "z": 0, "type": 4, "color": "#87CEEB" },
+    { "x": 8, "y": 3, "z": 0, "type": 4, "color": "#87CEEB" },
+    { "x": 8, "y": 4, "z": 0, "type": 4, "color": "#87CEEB" }
+  ],
+  "metadata": {
+    "author": "Claude",
+    "created": "2025-12-17",
+    "tags": ["building", "architecture"]
+  }
+}
