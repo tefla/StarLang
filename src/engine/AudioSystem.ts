@@ -401,6 +401,135 @@ export class AudioSystem {
     }
   }
 
+  // ==========================================================================
+  // Pong / Arcade Game Sounds
+  // ==========================================================================
+
+  // Ball bounce off wall - short blip
+  playBounce() {
+    const ctx = this.ensureContext()
+    console.log('[Audio] playBounce called, context state:', ctx.state, 'masterGain:', !!this.masterGain)
+    if (!this.masterGain) return
+
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(220, now)
+    osc.frequency.exponentialRampToValueAtTime(110, now + 0.1)
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(this.sfxVolume * 0.3, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
+
+    osc.connect(gain)
+    gain.connect(this.masterGain)
+    osc.start(now)
+    osc.stop(now + 0.1)
+  }
+
+  // Paddle hit - higher pitched blip
+  playHit() {
+    const ctx = this.ensureContext()
+    if (!this.masterGain) return
+
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(440, now)
+    osc.frequency.exponentialRampToValueAtTime(330, now + 0.08)
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(this.sfxVolume * 0.4, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08)
+
+    osc.connect(gain)
+    gain.connect(this.masterGain)
+    osc.start(now)
+    osc.stop(now + 0.1)
+  }
+
+  // Score - descending tone
+  playScore() {
+    const ctx = this.ensureContext()
+    if (!this.masterGain) return
+
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(523, now) // C5
+    osc.frequency.setValueAtTime(392, now + 0.1) // G4
+    osc.frequency.setValueAtTime(262, now + 0.2) // C4
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(this.sfxVolume * 0.3, now)
+    gain.gain.setValueAtTime(this.sfxVolume * 0.25, now + 0.1)
+    gain.gain.setValueAtTime(this.sfxVolume * 0.2, now + 0.2)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4)
+
+    osc.connect(gain)
+    gain.connect(this.masterGain)
+    osc.start(now)
+    osc.stop(now + 0.4)
+  }
+
+  // Victory fanfare - ascending major arpeggio
+  playVictory() {
+    const ctx = this.ensureContext()
+    if (!this.masterGain) return
+
+    const now = ctx.currentTime
+    const notes = [523, 659, 784, 1047] // C5, E5, G5, C6
+
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      osc.type = 'square'
+      osc.frequency.value = freq
+
+      const gain = ctx.createGain()
+      const start = now + i * 0.12
+      gain.gain.setValueAtTime(0, start)
+      gain.gain.linearRampToValueAtTime(this.sfxVolume * 0.3, start + 0.02)
+      gain.gain.setValueAtTime(this.sfxVolume * 0.3, start + 0.1)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3)
+
+      osc.connect(gain)
+      gain.connect(this.masterGain!)
+      osc.start(start)
+      osc.stop(start + 0.35)
+    })
+  }
+
+  // Defeat sound - descending minor
+  playDefeat() {
+    const ctx = this.ensureContext()
+    if (!this.masterGain) return
+
+    const now = ctx.currentTime
+    const notes = [392, 349, 311, 262] // G4, F4, Eb4, C4
+
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      osc.type = 'sawtooth'
+      osc.frequency.value = freq
+
+      const gain = ctx.createGain()
+      const start = now + i * 0.15
+      gain.gain.setValueAtTime(0, start)
+      gain.gain.linearRampToValueAtTime(this.sfxVolume * 0.25, start + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25)
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'lowpass'
+      filter.frequency.value = 800
+
+      osc.connect(filter)
+      filter.connect(gain)
+      gain.connect(this.masterGain!)
+      osc.start(start)
+      osc.stop(start + 0.3)
+    })
+  }
+
   dispose() {
     this.stopAmbient()
     if (this.audioContext) {

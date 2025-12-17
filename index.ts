@@ -48,6 +48,20 @@ Bun.serve({
       return new Response('WebSocket upgrade failed', { status: 400 })
     }
 
+    // Manual reload trigger - sends reload signal to all connected clients
+    if (url.pathname === '/__reload') {
+      const reloadMessage = JSON.stringify({ type: 'reload' })
+      for (const client of hotReloadClients) {
+        try {
+          client.send(reloadMessage)
+        } catch {
+          hotReloadClients.delete(client)
+        }
+      }
+      console.log('[HMR] Triggered browser reload')
+      return new Response('Reload triggered', { status: 200 })
+    }
+
     // Serve .forge, .f2 and manifest.json files from game directory (any subdirectory)
     if (url.pathname.startsWith('/game/') && (url.pathname.endsWith('.forge') || url.pathname.endsWith('.f2') || url.pathname.endsWith('.json'))) {
       const filePath = `.${url.pathname}`

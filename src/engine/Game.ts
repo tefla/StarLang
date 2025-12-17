@@ -216,8 +216,8 @@ export class Game {
   private async initForge2Mode(aspect: number): Promise<void> {
     console.log('[Game] Initializing Forge 2.0 mode')
 
-    // Create Forge 2.0 game mode with the scene
-    this.forge2Mode = new Forge2GameMode(this.scene.scene)
+    // Create Forge 2.0 game mode with the scene and container (for UI)
+    this.forge2Mode = new Forge2GameMode(this.scene.scene, this.container)
 
     // Set up input listeners
     this.forge2Mode.setupInputListeners(this.container)
@@ -243,15 +243,44 @@ export class Game {
     const gamePath = `/game/${this.gameRoot}/${this.gameRoot}.f2`
     await this.forge2Mode.loadGame(gamePath)
 
-    // Set up event handlers for game lifecycle
+    // Set up event handlers for game lifecycle (logging only - UI handled by game script)
     this.forge2Mode.on('game:victory', (data) => {
       console.log('[Game] Victory!', data)
-      this.showVictory()
     })
 
     this.forge2Mode.on('game:defeat', (data) => {
       console.log('[Game] Defeat!', data)
-      this.showGameOver()
+    })
+
+    // Set up sound event handlers
+    console.log('[Game] About to register sound handlers...')
+    this.forge2Mode.on('sound:bounce', () => {
+      console.log('[Game] Sound: bounce')
+      audioSystem.playBounce()
+    })
+    this.forge2Mode.on('sound:hit', () => {
+      console.log('[Game] Sound: hit')
+      audioSystem.playHit()
+    })
+    this.forge2Mode.on('sound:score', () => {
+      console.log('[Game] Sound: score')
+      audioSystem.playScore()
+    })
+    this.forge2Mode.on('sound:victory', () => {
+      console.log('[Game] Sound: victory')
+      audioSystem.playVictory()
+    })
+    this.forge2Mode.on('sound:defeat', () => {
+      console.log('[Game] Sound: defeat')
+      audioSystem.playDefeat()
+    })
+
+    // Debug: log all events
+    this.forge2Mode.on('*', (data) => {
+      const event = (data as any).__event
+      if (event?.startsWith('sound:')) {
+        console.log('[Game] Received event:', event, data)
+      }
     })
   }
 

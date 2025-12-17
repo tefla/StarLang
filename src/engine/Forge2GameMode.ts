@@ -37,20 +37,23 @@ export class Forge2GameMode {
   private vm: ForgeVM
   private engineBridge: EngineBridge
   private scene: THREE.Scene
+  private container: HTMLElement | null = null
   private eventListeners: Array<{ type: string; listener: EventListener }> = []
   private isInitialized: boolean = false
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, container?: HTMLElement) {
     this.scene = scene
+    this.container = container ?? null
     this.vm = new ForgeVM()
 
     // Create render bridge with the scene
     const renderBridge = new RenderBridge({ scene })
 
-    // Create engine bridge with input enabled
+    // Create engine bridge with input and UI enabled
     this.engineBridge = new EngineBridge({
       scene,
       inputEnabled: true,
+      uiContainer: container,
     })
 
     // Attach engine bindings to VM
@@ -201,6 +204,6 @@ export class Forge2GameMode {
 /**
  * Create a Forge 2.0 game mode instance.
  */
-export function createForge2GameMode(scene: THREE.Scene): Forge2GameMode {
-  return new Forge2GameMode(scene)
+export function createForge2GameMode(scene: THREE.Scene, container?: HTMLElement): Forge2GameMode {
+  return new Forge2GameMode(scene, container)
 }

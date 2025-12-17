@@ -184,6 +184,10 @@ export class Runtime {
    * Emit an event (can be called from external code).
    */
   emit(event: string, data: ForgeMap = {}): void {
+    // Debug: log sound and game events
+    if (event.startsWith('sound:') || event.startsWith('game:')) {
+      console.log('[Runtime] Emitting:', event)
+    }
     this.eventQueue.push({ event, data })
 
     if (!this.processing) {
@@ -195,6 +199,7 @@ export class Runtime {
    * Register an external listener for events.
    */
   onEvent(event: string, listener: (data: ForgeMap) => void): () => void {
+    console.log('[Runtime] Registering listener for:', event)
     if (!this.externalListeners.has(event)) {
       this.externalListeners.set(event, [])
     }
@@ -257,6 +262,9 @@ export class Runtime {
 
       // Notify external listeners first
       const externalListeners = this.externalListeners.get(event)
+      if (event.startsWith('sound:')) {
+        console.log('[Runtime] Processing sound event:', event, 'listeners:', externalListeners?.length ?? 0)
+      }
       if (externalListeners) {
         for (const listener of externalListeners) {
           listener(data)

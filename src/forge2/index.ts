@@ -18,6 +18,7 @@ export { Runtime } from './runtime'
 export { RenderBridge, createRenderBindings } from './render-bridge'
 export { VoxelBridge, createVoxelBindings } from './voxel-bridge'
 export { AssetBridge, createAssetBindings } from './asset-bridge'
+export { UIBridge, createUIBindings } from './ui-bridge'
 export { EngineBridge, createEngineBridge } from './engine-bridge'
 export type {
   VoxelWorldLike,

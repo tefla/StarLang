@@ -32,6 +32,7 @@ import { Runtime } from './runtime'
 import { RenderBridge, type RenderBridgeConfig } from './render-bridge'
 import { VoxelBridge, type VoxelBridgeConfig, type VoxelWorldLike, type VoxelRendererLike, type VoxelTypeRegistryLike } from './voxel-bridge'
 import { AssetBridge, type AssetBridgeConfig, type AnimatedAssetLoaderLike } from './asset-bridge'
+import { UIBridge, type UIBridgeConfig } from './ui-bridge'
 
 // Re-export for convenience
 export type {
@@ -65,6 +66,9 @@ export interface EngineBridgeConfig {
 
   // Optional input system (for keyboard/mouse events)
   inputEnabled?: boolean
+
+  // Optional UI system
+  uiContainer?: HTMLElement
 }
 
 export interface InputState {
@@ -89,6 +93,7 @@ export class EngineBridge {
   private renderBridge: RenderBridge
   private voxelBridge: VoxelBridge | null = null
   private assetBridge: AssetBridge | null = null
+  private uiBridge: UIBridge | null = null
 
   // Input state
   private inputEnabled: boolean
@@ -124,6 +129,13 @@ export class EngineBridge {
       this.assetBridge = new AssetBridge({
         scene: this.scene,
         loader: config.assetLoader,
+      })
+    }
+
+    // Create UI bridge if container is provided
+    if (config.uiContainer) {
+      this.uiBridge = new UIBridge({
+        container: config.uiContainer,
       })
     }
 
@@ -166,6 +178,12 @@ export class EngineBridge {
       vm.set('asset', this.assetBridge.createNamespace())
     }
 
+    // Add UI namespace if available
+    if (this.uiBridge) {
+      vm.set('ui', this.uiBridge.createNamespace())
+      this.uiBridge.attachRuntime(this.runtime)
+    }
+
     // Add input namespace
     vm.set('input', this.createInputNamespace())
 
@@ -190,6 +208,10 @@ export class EngineBridge {
 
     if (this.assetBridge) {
       bindings.set('asset', this.assetBridge.createNamespace())
+    }
+
+    if (this.uiBridge) {
+      bindings.set('ui', this.uiBridge.createNamespace())
     }
 
     bindings.set('input', this.createInputNamespace())
@@ -456,6 +478,13 @@ export class EngineBridge {
     return this.assetBridge
   }
 
+  /**
+   * Get the UI bridge for direct manipulation.
+   */
+  getUIBridge(): UIBridge | null {
+    return this.uiBridge
+  }
+
   // ==========================================================================
   // Cleanup
   // ==========================================================================
@@ -468,6 +497,10 @@ export class EngineBridge {
 
     if (this.assetBridge) {
       this.assetBridge.dispose()
+    }
+
+    if (this.uiBridge) {
+      this.uiBridge.dispose()
     }
 
     // Remove input handlers (would need to track them to remove properly)

@@ -31,8 +31,15 @@ export class ForgeHotReloadClient {
 
       this.ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data) as ForgeHotReloadEvent
-          this.emit(data)
+          const data = JSON.parse(event.data)
+          // Handle reload signal (for TypeScript changes)
+          if (data.type === 'reload') {
+            console.log('[Forge HMR] Reload signal received, refreshing page...')
+            window.location.reload()
+            return
+          }
+          // Handle Forge hot reload events
+          this.emit(data as ForgeHotReloadEvent)
         } catch (e) {
           console.error('[Forge HMR] Failed to parse message:', e)
         }
